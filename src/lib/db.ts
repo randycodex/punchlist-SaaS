@@ -1,0 +1,134 @@
+import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { Project, Area, Location, Item, Checkpoint, PhotoAttachment } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
+
+interface PunchListDB extends DBSchema {
+  projects: {
+    key: string;
+    value: Project;
+    indexes: { 'by-name': string; 'by-date': Date };
+  };
+}
+
+let dbPromise: Promise<IDBPDatabase<PunchListDB>> | null = null;
+
+function getDB() {
+  if (!dbPromise) {
+    dbPromise = openDB<PunchListDB>('punchlist-db', 1, {
+      upgrade(db) {
+        const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
+        projectStore.createIndex('by-name', 'projectName');
+        projectStore.createIndex('by-date', 'updatedAt');
+      },
+    });
+  }
+  return dbPromise;
+}
+
+// Project operations
+export async function getAllProjects(): Promise<Project[]> {
+  const db = await getDB();
+  const projects = await db.getAll('projects');
+  return projects.sort((a, b) =>
+    a.projectName.localeCompare(b.projectName)
+  );
+}
+
+export async function getProject(id: string): Promise<Project | undefined> {
+  const db = await getDB();
+  return db.get('projects', id);
+}
+
+export async function saveProject(project: Project): Promise<void> {
+  const db = await getDB();
+  project.updatedAt = new Date();
+  await db.put('projects', project);
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('projects', id);
+}
+
+export function createProject(name: string, address: string = '', inspector: string = ''): Project {
+  const now = new Date();
+  return {
+    id: uuidv4(),
+    projectName: name,
+    address,
+    date: now,
+    inspector,
+    gcName: '',
+    gcSignoff: '',
+    areas: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createArea(projectId: string, name: string, sortOrder: number): Area {
+  const now = new Date();
+  return {
+    id: uuidv4(),
+    projectId,
+    name,
+    sortOrder,
+    isComplete: false,
+    notes: '',
+    locations: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createLocation(areaId: string, name: string, sortOrder: number): Location {
+  const now = new Date();
+  return {
+    id: uuidv4(),
+    areaId,
+    name,
+    sortOrder,
+    items: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createItem(locationId: string, name: string, sortOrder: number): Item {
+  const now = new Date();
+  return {
+    id: uuidv4(),
+    locationId,
+    name,
+    sortOrder,
+    checkpoints: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createCheckpoint(itemId: string, name: string, sortOrder: number): Checkpoint {
+  const now = new Date();
+  return {
+    id: uuidv4(),
+    itemId,
+    name,
+    status: 'pending',
+    fixStatus: 'pending',
+    comments: '',
+    sortOrder,
+    photos: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createPhotoAttachment(checkpointId: string, imageData: string, thumbnail: string): PhotoAttachment {
+  return {
+    id: uuidv4(),
+    checkpointId,
+    imageData,
+    thumbnail,
+    createdAt: new Date(),
+  };
+}
