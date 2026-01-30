@@ -265,6 +265,12 @@ export default function AreaDetailPage({
                       {locationStats.issues}
                     </span>
                   )}
+                  {(locationStats.total - locationStats.ok - locationStats.issues) > 0 && (
+                    <span className="text-gray-400 flex items-center gap-1 text-sm">
+                      <Circle className="w-3 h-3" />
+                      {locationStats.total - locationStats.ok - locationStats.issues}
+                    </span>
+                  )}
                   {isExpanded ? (
                     <ChevronDown className="w-5 h-5 text-gray-400" />
                   ) : (
@@ -302,6 +308,12 @@ export default function AreaDetailPage({
                               <span className="text-orange-500 flex items-center gap-1 text-xs">
                                 <AlertTriangle className="w-3 h-3" />
                                 {itemStats.issues}
+                              </span>
+                            )}
+                            {(itemStats.total - itemStats.ok - itemStats.issues) > 0 && (
+                              <span className="text-gray-400 flex items-center gap-1 text-xs">
+                                <Circle className="w-3 h-3" />
+                                {itemStats.total - itemStats.ok - itemStats.issues}
                               </span>
                             )}
                             {isItemExpanded ? (

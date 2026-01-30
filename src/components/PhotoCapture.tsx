@@ -16,6 +16,7 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   async function startCamera() {
@@ -102,9 +103,12 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
     };
     reader.readAsDataURL(file);
 
-    // Reset input
+    // Reset inputs
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
     }
   }
 
@@ -141,7 +145,7 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
       {/* Add photo buttons */}
       <div className="flex gap-2">
         <button
-          onClick={startCamera}
+          onClick={() => cameraInputRef.current?.click()}
           className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
         >
           <Camera className="w-3 h-3" />
@@ -154,6 +158,16 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
           <ImageIcon className="w-3 h-3" />
           Gallery
         </button>
+        {/* Camera input - directly opens camera on mobile */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        {/* Gallery input - opens photo picker */}
         <input
           ref={fileInputRef}
           type="file"

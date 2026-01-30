@@ -4,18 +4,20 @@ import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Plus,
   Building2,
   MapPin,
   ChevronRight,
   Trash2,
-  ArrowUpDown,
   CheckCircle,
   AlertTriangle,
+  Circle,
+  ChevronDown,
 } from 'lucide-react';
 
-type SortOption = 'name' | 'date';
+type SortOption = 'name' | 'recent' | 'progress';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -23,7 +25,9 @@ export default function ProjectsPage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectAddress, setNewProjectAddress] = useState('');
+  const [newProjectInspector, setNewProjectInspector] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -43,18 +47,26 @@ export default function ProjectsPage() {
   const sortedProjects = [...projects].sort((a, b) => {
     if (sortOption === 'name') {
       return a.projectName.localeCompare(b.projectName);
-    } else {
+    } else if (sortOption === 'recent') {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    } else {
+      // progress - sort by completion percentage
+      const statsA = getProjectStats(a);
+      const statsB = getProjectStats(b);
+      const progressA = statsA.total > 0 ? statsA.ok / statsA.total : 0;
+      const progressB = statsB.total > 0 ? statsB.ok / statsB.total : 0;
+      return progressB - progressA;
     }
   });
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
 
-    const project = createProject(newProjectName.trim(), newProjectAddress.trim());
+    const project = createProject(newProjectName.trim(), newProjectAddress.trim(), newProjectInspector.trim());
     await saveProject(project);
     setNewProjectName('');
     setNewProjectAddress('');
+    setNewProjectInspector('');
     setShowNewProject(false);
     loadProjects();
   }
@@ -65,6 +77,12 @@ export default function ProjectsPage() {
       loadProjects();
     }
   }
+
+  const sortLabels: Record<SortOption, string> = {
+    name: 'Name',
+    recent: 'Recent',
+    progress: 'Progress',
+  };
 
   if (loading) {
     return (
@@ -79,15 +97,51 @@ export default function ProjectsPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">PunchList</h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/uai-logo.png"
+              alt="UAI Logo"
+              width={40}
+              height={40}
+              className="object-contain"
+            />
+            <h1 className="text-xl font-semibold text-gray-900">PunchList</h1>
+          </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSortOption(sortOption === 'name' ? 'date' : 'name')}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              title={`Sort by ${sortOption === 'name' ? 'date' : 'name'}`}
-            >
-              <ArrowUpDown className="w-5 h-5" />
-            </button>
+            {/* Sort dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                {sortLabels[sortOption]}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showSortMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setSortOption(option);
+                          setShowSortMenu(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
+                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        {sortLabels[option]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             <button
               onClick={() => setShowNewProject(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"
@@ -116,6 +170,7 @@ export default function ProjectsPage() {
           <div className="space-y-2">
             {sortedProjects.map((project) => {
               const stats = getProjectStats(project);
+              const pending = stats.total - stats.ok - stats.issues;
               return (
                 <Link
                   key={project.id}
@@ -143,6 +198,12 @@ export default function ProjectsPage() {
                           <span className="text-orange-500 flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3" />
                             {stats.issues}
+                          </span>
+                        )}
+                        {pending > 0 && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <Circle className="w-3 h-3" />
+                            {pending}
                           </span>
                         )}
                       </div>
@@ -198,6 +259,18 @@ export default function ProjectsPage() {
                   placeholder="Enter address"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Inspected By
+                </label>
+                <input
+                  type="text"
+                  value={newProjectInspector}
+                  onChange={(e) => setNewProjectInspector(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter inspector name"
+                />
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -205,6 +278,7 @@ export default function ProjectsPage() {
                   setShowNewProject(false);
                   setNewProjectName('');
                   setNewProjectAddress('');
+                  setNewProjectInspector('');
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
               >

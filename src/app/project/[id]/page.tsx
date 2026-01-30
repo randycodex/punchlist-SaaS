@@ -14,7 +14,7 @@ import {
   Building2,
   ChevronRight,
   Trash2,
-  ArrowUpDown,
+  ChevronDown,
   CheckCircle,
   AlertTriangle,
   FileDown,
@@ -25,7 +25,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-type SortOption = 'name' | 'progress';
+type SortOption = 'name' | 'recent' | 'progress';
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -36,8 +36,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [showEditProject, setShowEditProject] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  const sortLabels: Record<SortOption, string> = {
+    name: 'Name',
+    recent: 'Recent',
+    progress: 'Progress',
+  };
 
   useEffect(() => {
     loadProject();
@@ -63,6 +70,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     ? [...project.areas].sort((a, b) => {
         if (sortOption === 'name') {
           return a.name.localeCompare(b.name);
+        } else if (sortOption === 'recent') {
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         } else {
           const statsA = getAreaStats(a);
           const statsB = getAreaStats(b);
@@ -146,12 +155,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </h1>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setSortOption(sortOption === 'name' ? 'progress' : 'name')}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowUpDown className="w-5 h-5" />
-            </button>
+            {/* Sort dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                {sortLabels[sortOption]}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showSortMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setSortOption(option);
+                          setShowSortMenu(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
+                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        {sortLabels[option]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             <button
               onClick={() => setShowAddArea(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"
