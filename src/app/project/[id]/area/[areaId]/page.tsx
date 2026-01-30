@@ -2,8 +2,9 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Project, Area, Location, Item, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
-import { getProject, saveProject } from '@/lib/db';
+import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
+import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
+import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
   MessageSquare,
   Camera,
   X,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export default function AreaDetailPage({
@@ -31,7 +33,11 @@ export default function AreaDetailPage({
   const [loading, setLoading] = useState(true);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editingCheckpoint, setEditingCheckpoint] = useState<{
+    locationId: string;
+    itemId: string;
+    checkpointId: string;
+  } | null>(null);
   const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
@@ -60,6 +66,15 @@ export default function AreaDetailPage({
     }
   }
 
+  function findCheckpoint(locationId: string, itemId: string, checkpointId: string): Checkpoint | null {
+    if (!area) return null;
+    const location = area.locations.find((l) => l.id === locationId);
+    if (!location) return null;
+    const item = location.items.find((i) => i.id === itemId);
+    if (!item) return null;
+    return item.checkpoints.find((c) => c.id === checkpointId) || null;
+  }
+
   async function updateCheckpointStatus(
     locationId: string,
     itemId: string,
@@ -68,13 +83,7 @@ export default function AreaDetailPage({
   ) {
     if (!project || !area) return;
 
-    const location = area.locations.find((l) => l.id === locationId);
-    if (!location) return;
-
-    const item = location.items.find((i) => i.id === itemId);
-    if (!item) return;
-
-    const checkpoint = item.checkpoints.find((c) => c.id === checkpointId);
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
     if (!checkpoint) return;
 
     checkpoint.status = newStatus;
@@ -83,23 +92,57 @@ export default function AreaDetailPage({
     setArea({ ...area });
   }
 
-  async function saveComment(checkpointId: string) {
+  async function saveCheckpointChanges() {
+    if (!project || !area || !editingCheckpoint) return;
+
+    const checkpoint = findCheckpoint(
+      editingCheckpoint.locationId,
+      editingCheckpoint.itemId,
+      editingCheckpoint.checkpointId
+    );
+    if (!checkpoint) return;
+
+    checkpoint.comments = commentText;
+    checkpoint.updatedAt = new Date();
+    await saveProject(project);
+    setEditingCheckpoint(null);
+    setCommentText('');
+    setArea({ ...area });
+  }
+
+  async function handleAddPhoto(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    imageData: string,
+    thumbnail: string
+  ) {
     if (!project || !area) return;
 
-    for (const location of area.locations) {
-      for (const item of location.items) {
-        const checkpoint = item.checkpoints.find((c) => c.id === checkpointId);
-        if (checkpoint) {
-          checkpoint.comments = commentText;
-          checkpoint.updatedAt = new Date();
-          break;
-        }
-      }
-    }
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
 
+    const photo = createPhotoAttachment(checkpointId, imageData, thumbnail);
+    checkpoint.photos.push(photo);
+    checkpoint.updatedAt = new Date();
     await saveProject(project);
-    setEditingComment(null);
-    setCommentText('');
+    setArea({ ...area });
+  }
+
+  async function handleDeletePhoto(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    photoId: string
+  ) {
+    if (!project || !area) return;
+
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
+
+    checkpoint.photos = checkpoint.photos.filter((p) => p.id !== photoId);
+    checkpoint.updatedAt = new Date();
+    await saveProject(project);
     setArea({ ...area });
   }
 
@@ -137,6 +180,9 @@ export default function AreaDetailPage({
 
   const stats = getAreaStats(area);
   const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+  const editingCheckpointData = editingCheckpoint
+    ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -268,24 +314,98 @@ export default function AreaDetailPage({
 
                         {/* Checkpoints */}
                         {isItemExpanded && (
-                          <div className="bg-gray-50 px-4 py-2 pl-12 space-y-2">
+                          <div className="bg-gray-50 px-4 py-2 pl-12 space-y-3">
                             {item.checkpoints.map((checkpoint) => (
-                              <CheckpointRow
-                                key={checkpoint.id}
-                                checkpoint={checkpoint}
-                                onStatusChange={(status) =>
-                                  updateCheckpointStatus(
-                                    location.id,
-                                    item.id,
-                                    checkpoint.id,
-                                    status
-                                  )
-                                }
-                                onEditComment={() => {
-                                  setEditingComment(checkpoint.id);
-                                  setCommentText(checkpoint.comments);
-                                }}
-                              />
+                              <div key={checkpoint.id} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <span className="text-sm text-gray-700">{checkpoint.name}</span>
+                                    {checkpoint.comments && (
+                                      <p className="text-xs text-gray-500 mt-0.5">{checkpoint.comments}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => {
+                                        setEditingCheckpoint({
+                                          locationId: location.id,
+                                          itemId: item.id,
+                                          checkpointId: checkpoint.id,
+                                        });
+                                        setCommentText(checkpoint.comments);
+                                      }}
+                                      className={`p-1.5 rounded ${
+                                        checkpoint.comments || checkpoint.photos.length > 0
+                                          ? 'text-blue-500'
+                                          : 'text-gray-300'
+                                      }`}
+                                    >
+                                      {checkpoint.photos.length > 0 ? (
+                                        <ImageIcon className="w-4 h-4" />
+                                      ) : (
+                                        <MessageSquare className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'ok')
+                                      }
+                                      className={`p-1.5 rounded ${
+                                        checkpoint.status === 'ok'
+                                          ? 'bg-green-100 text-green-600'
+                                          : 'text-gray-300 hover:text-green-500'
+                                      }`}
+                                    >
+                                      <CheckCircle className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'needsReview')
+                                      }
+                                      className={`p-1.5 rounded ${
+                                        checkpoint.status === 'needsReview'
+                                          ? 'bg-orange-100 text-orange-600'
+                                          : 'text-gray-300 hover:text-orange-500'
+                                      }`}
+                                    >
+                                      <AlertTriangle className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'pending')
+                                      }
+                                      className={`p-1.5 rounded ${
+                                        checkpoint.status === 'pending'
+                                          ? 'bg-gray-200 text-gray-600'
+                                          : 'text-gray-300 hover:text-gray-500'
+                                      }`}
+                                    >
+                                      <Circle className="w-5 h-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {/* Inline photo thumbnails */}
+                                {checkpoint.photos.length > 0 && (
+                                  <div className="flex gap-1 overflow-x-auto">
+                                    {checkpoint.photos.map((photo) => (
+                                      <img
+                                        key={photo.id}
+                                        src={photo.thumbnail}
+                                        alt=""
+                                        className="w-10 h-10 rounded object-cover flex-shrink-0"
+                                        onClick={() => {
+                                          setEditingCheckpoint({
+                                            locationId: location.id,
+                                            itemId: item.id,
+                                            checkpointId: checkpoint.id,
+                                          });
+                                          setCommentText(checkpoint.comments);
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             ))}
                           </div>
                         )}
@@ -299,15 +419,15 @@ export default function AreaDetailPage({
         })}
       </main>
 
-      {/* Comment Modal */}
-      {editingComment && (
+      {/* Edit Checkpoint Modal */}
+      {editingCheckpoint && editingCheckpointData && (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-xl w-full max-w-lg p-4 pb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Add Comment</h3>
+          <div className="bg-white rounded-t-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-semibold">{editingCheckpointData.name}</h3>
               <button
                 onClick={() => {
-                  setEditingComment(null);
+                  setEditingCheckpoint(null);
                   setCommentText('');
                 }}
                 className="p-1 text-gray-500"
@@ -315,83 +435,60 @@ export default function AreaDetailPage({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-              placeholder="Enter your comment..."
-              autoFocus
-            />
-            <button
-              onClick={() => saveComment(editingComment)}
-              className="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
-            >
-              Save Comment
-            </button>
+
+            <div className="p-4 space-y-4">
+              {/* Photos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Photos
+                </label>
+                <PhotoCapture
+                  photos={editingCheckpointData.photos}
+                  onAddPhoto={(imageData, thumbnail) =>
+                    handleAddPhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      imageData,
+                      thumbnail
+                    )
+                  }
+                  onDeletePhoto={(photoId) =>
+                    handleDeletePhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photoId
+                    )
+                  }
+                />
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment
+                </label>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                  placeholder="Enter your comment..."
+                />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+              <button
+                onClick={saveCheckpointChanges}
+                className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function CheckpointRow({
-  checkpoint,
-  onStatusChange,
-  onEditComment,
-}: {
-  checkpoint: Checkpoint;
-  onStatusChange: (status: 'pending' | 'ok' | 'needsReview') => void;
-  onEditComment: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between py-1">
-      <div className="flex-1">
-        <span className="text-sm text-gray-700">{checkpoint.name}</span>
-        {checkpoint.comments && (
-          <p className="text-xs text-gray-500 mt-0.5">{checkpoint.comments}</p>
-        )}
-      </div>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onEditComment}
-          className={`p-1.5 rounded ${
-            checkpoint.comments ? 'text-blue-500' : 'text-gray-300'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onStatusChange('ok')}
-          className={`p-1.5 rounded ${
-            checkpoint.status === 'ok'
-              ? 'bg-green-100 text-green-600'
-              : 'text-gray-300 hover:text-green-500'
-          }`}
-        >
-          <CheckCircle className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => onStatusChange('needsReview')}
-          className={`p-1.5 rounded ${
-            checkpoint.status === 'needsReview'
-              ? 'bg-orange-100 text-orange-600'
-              : 'text-gray-300 hover:text-orange-500'
-          }`}
-        >
-          <AlertTriangle className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => onStatusChange('pending')}
-          className={`p-1.5 rounded ${
-            checkpoint.status === 'pending'
-              ? 'bg-gray-200 text-gray-600'
-              : 'text-gray-300 hover:text-gray-500'
-          }`}
-        >
-          <Circle className="w-5 h-5" />
-        </button>
-      </div>
     </div>
   );
 }

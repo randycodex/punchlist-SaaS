@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Project, Area, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
+import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
+import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -19,6 +21,8 @@ import {
   MoreVertical,
   MapPin,
   User,
+  Pencil,
+  Loader2,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'progress';
@@ -29,9 +33,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddArea, setShowAddArea] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showMenu, setShowMenu] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadProject();
@@ -85,6 +91,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       project.areas = project.areas.filter((a) => a.id !== areaId);
       await saveProject(project);
       loadProject();
+    }
+  }
+
+  async function handleEditProject(updates: Partial<Project>) {
+    if (!project) return;
+    Object.assign(project, updates);
+    await saveProject(project);
+    setShowEditProject(false);
+    loadProject();
+  }
+
+  async function handleExportPDF() {
+    if (!project) return;
+    setShowMenu(false);
+    setExporting(true);
+    try {
+      const blob = await generateProjectPDF(project);
+      const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
+      downloadPDF(blob, filename);
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -143,15 +173,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   />
                   <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
                     <button
+                      onClick={handleExportPDF}
+                      disabled={exporting}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {exporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileDown className="w-4 h-4" />
+                      )}
+                      Export PDF
+                    </button>
+                    <button
                       onClick={() => {
                         setShowMenu(false);
-                        // TODO: Export PDF
-                        alert('PDF export coming soon!');
+                        setShowEditProject(true);
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                      <FileDown className="w-4 h-4" />
-                      Export PDF
+                      <Pencil className="w-4 h-4" />
+                      Edit Project
                     </button>
                   </div>
                 </>
@@ -309,6 +350,25 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 Add
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditProject && (
+        <ProjectEditModal
+          project={project}
+          onSave={handleEditProject}
+          onClose={() => setShowEditProject(false)}
+        />
+      )}
+
+      {/* Export loading overlay */}
+      {exporting && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            <span>Generating PDF...</span>
           </div>
         </div>
       )}
