@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
-import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -16,8 +15,6 @@ import {
   AlertTriangle,
   Circle,
   ChevronDown,
-  Moon,
-  Sun,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -25,7 +22,6 @@ type SortOption = 'name' | 'recent' | 'progress';
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
 
 export default function ProjectsPage() {
-  const { theme, toggleTheme } = useTheme();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -124,13 +120,6 @@ export default function ProjectsPage() {
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
           </div>
           <div className="flex items-center gap-2">
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
             {/* Sort dropdown */}
             <div className="relative">
               <button

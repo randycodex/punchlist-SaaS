@@ -8,6 +8,7 @@ import { applyTemplateToArea } from '@/lib/template';
 import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Plus,
@@ -164,6 +165,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
+            <Image
+              src="/uai-logo.png"
+              alt="UAI Logo"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
               {project.projectName}
             </h1>

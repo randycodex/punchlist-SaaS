@@ -74,7 +74,7 @@ const defaultTemplate: TemplateLocation[] = [
     ],
   },
   {
-    name: "Living Room / Bedroom(s)",
+    name: "Living/Bedroom",
     items: [
       { name: "Paint", checkpoints: ["Walls", "Ceiling"] },
       { name: "Wood Flooring", checkpoints: ["Adhesion", "Edges", "Joints", "Finish"] },

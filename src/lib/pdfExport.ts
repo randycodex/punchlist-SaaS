@@ -17,26 +17,55 @@ async function loadLogoBase64(): Promise<string | null> {
   }
 }
 
+// Get image dimensions to maintain aspect ratio
+function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.onerror = () => resolve({ width: 1, height: 1 });
+    img.src = base64;
+  });
+}
+
 export async function generateProjectPDF(project: Project): Promise<Blob> {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
-  const columnWidth = (contentWidth - 8) / 2; // Two columns with 8mm gap
+  const columnWidth = (contentWidth - 8) / 2;
   const columnGap = 8;
+
+  // Collect all photos with references
+  const allPhotos: { ref: number; area: string; location: string; item: string; checkpoint: string; thumbnail: string; imageData: string }[] = [];
+  let photoRefCounter = 1;
 
   // Load logo
   const logoBase64 = await loadLogoBase64();
+  let logoWidth = 30;
+  let logoHeight = 30;
+
+  // Calculate logo dimensions maintaining aspect ratio
+  if (logoBase64) {
+    try {
+      const dims = await getImageDimensions(logoBase64);
+      const maxLogoHeight = 25;
+      const aspectRatio = dims.width / dims.height;
+      logoHeight = maxLogoHeight;
+      logoWidth = maxLogoHeight * aspectRatio;
+    } catch {
+      // Use defaults
+    }
+  }
 
   // Cover page
   let coverY = 25;
 
-  // Add logo at top
+  // Add logo at top (maintaining proportions)
   if (logoBase64) {
     try {
-      pdf.addImage(logoBase64, 'PNG', pageWidth / 2 - 15, coverY, 30, 30);
-      coverY += 40;
+      pdf.addImage(logoBase64, 'PNG', pageWidth / 2 - logoWidth / 2, coverY, logoWidth, logoHeight);
+      coverY += logoHeight + 15;
     } catch (e) {
       coverY += 10;
     }
@@ -81,96 +110,82 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   pdf.setFont('helvetica', 'normal');
   pdf.text(`Areas: ${stats.areas}  |  Total: ${stats.total}  |  OK: ${stats.ok}  |  Issues: ${stats.issues}`, pageWidth / 2, coverY, { align: 'center' });
 
-  // Content pages - Two column layout, continuous flow (no separate page per area)
-  pdf.addPage();
-  let leftColumnY = margin;
-  let rightColumnY = margin;
-  let currentColumn = 0; // 0 = left, 1 = right
-
-  function getColumnX(col: number): number {
-    return col === 0 ? margin : margin + columnWidth + columnGap;
-  }
-
-  function getCurrentY(): number {
-    return currentColumn === 0 ? leftColumnY : rightColumnY;
-  }
-
-  function setCurrentY(y: number) {
-    if (currentColumn === 0) {
-      leftColumnY = y;
-    } else {
-      rightColumnY = y;
-    }
-  }
-
-  function switchColumn() {
-    if (currentColumn === 0) {
-      currentColumn = 1;
-    } else {
-      currentColumn = 0;
-    }
-  }
-
-  function needsNewPage(neededHeight: number): boolean {
-    const currentY = getCurrentY();
-    if (currentY + neededHeight > pageHeight - margin) {
-      // Try the other column first
-      const otherY = currentColumn === 0 ? rightColumnY : leftColumnY;
-      if (otherY + neededHeight <= pageHeight - margin) {
-        switchColumn();
-        return false;
-      }
-      // Both columns full, need new page
-      pdf.addPage();
-      leftColumnY = margin;
-      rightColumnY = margin;
-      currentColumn = 0;
-      return true;
-    }
-    return false;
-  }
-
-  // Process all areas continuously
+  // Each area starts on a new page
   for (const area of project.areas) {
-    // Estimate height for area header
-    needsNewPage(20);
+    pdf.addPage();
+    let leftColumnY = margin;
+    let rightColumnY = margin;
+    let currentColumn = 0;
 
+    function getColumnX(col: number): number {
+      return col === 0 ? margin : margin + columnWidth + columnGap;
+    }
+
+    function getCurrentY(): number {
+      return currentColumn === 0 ? leftColumnY : rightColumnY;
+    }
+
+    function setCurrentY(y: number) {
+      if (currentColumn === 0) {
+        leftColumnY = y;
+      } else {
+        rightColumnY = y;
+      }
+    }
+
+    function switchColumn() {
+      currentColumn = currentColumn === 0 ? 1 : 0;
+    }
+
+    function needsNewPage(neededHeight: number): boolean {
+      const currentY = getCurrentY();
+      if (currentY + neededHeight > pageHeight - margin) {
+        const otherY = currentColumn === 0 ? rightColumnY : leftColumnY;
+        if (otherY + neededHeight <= pageHeight - margin) {
+          switchColumn();
+          return false;
+        }
+        pdf.addPage();
+        leftColumnY = margin;
+        rightColumnY = margin;
+        currentColumn = 0;
+        return true;
+      }
+      return false;
+    }
+
+    // Area header with background
     const columnX = getColumnX(currentColumn);
     let y = getCurrentY();
 
-    // Area header with background
-    pdf.setFillColor(59, 130, 246); // Blue background
-    pdf.rect(columnX, y - 4, columnWidth, 8, 'F');
-    pdf.setFontSize(11);
+    pdf.setFillColor(59, 130, 246);
+    pdf.rect(margin, y - 4, contentWidth, 10, 'F');
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(255, 255, 255);
-    pdf.text(area.name, columnX + 2, y);
-    pdf.setTextColor(0, 0, 0);
+    pdf.text(area.name, margin + 3, y + 2);
 
     const areaStats = getAreaStats(area);
-    pdf.setFontSize(7);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(255, 255, 255);
-    const areaStatsText = `${areaStats.ok}/${areaStats.total}`;
-    pdf.text(areaStatsText, columnX + columnWidth - pdf.getTextWidth(areaStatsText) - 2, y);
+    pdf.setFontSize(10);
+    const areaStatsText = `OK: ${areaStats.ok}  |  Issues: ${areaStats.issues}  |  Total: ${areaStats.total}`;
+    pdf.text(areaStatsText, pageWidth - margin - pdf.getTextWidth(areaStatsText) - 3, y + 2);
     pdf.setTextColor(0, 0, 0);
-    y += 8;
-    setCurrentY(y);
+
+    leftColumnY = y + 12;
+    rightColumnY = y + 12;
 
     // Process locations within this area
     for (const location of area.locations) {
-      // Estimate height for this location
       let estimatedHeight = 10;
       for (const item of location.items) {
         estimatedHeight += 6;
         for (const checkpoint of item.checkpoints) {
           estimatedHeight += 5;
           if (checkpoint.comments) estimatedHeight += 4;
-          if (checkpoint.photos.length > 0) estimatedHeight += 18;
         }
       }
 
-      needsNewPage(Math.min(estimatedHeight, 50)); // At least fit header + some items
+      needsNewPage(Math.min(estimatedHeight, 50));
 
       const locColumnX = getColumnX(currentColumn);
       let locY = getCurrentY();
@@ -223,8 +238,32 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
           pdf.text(statusSymbol, cpColumnX + 6, locY);
           pdf.setTextColor(0, 0, 0);
 
-          const cpText = checkpoint.name.length > 25 ? checkpoint.name.substring(0, 22) + '...' : checkpoint.name;
+          const cpText = checkpoint.name.length > 22 ? checkpoint.name.substring(0, 19) + '...' : checkpoint.name;
           pdf.text(cpText, cpColumnX + 12, locY);
+
+          // Add photo references if photos exist
+          if (checkpoint.photos.length > 0) {
+            const photoRefs: number[] = [];
+            for (const photo of checkpoint.photos) {
+              allPhotos.push({
+                ref: photoRefCounter,
+                area: area.name,
+                location: location.name,
+                item: item.name,
+                checkpoint: checkpoint.name,
+                thumbnail: photo.thumbnail,
+                imageData: photo.imageData,
+              });
+              photoRefs.push(photoRefCounter);
+              photoRefCounter++;
+            }
+            pdf.setFontSize(6);
+            pdf.setTextColor(59, 130, 246);
+            const refText = `[Photo ${photoRefs.join(', ')}]`;
+            pdf.text(refText, cpColumnX + columnWidth - pdf.getTextWidth(refText) - 2, locY);
+            pdf.setTextColor(0, 0, 0);
+          }
+
           locY += 3.5;
 
           if (checkpoint.comments) {
@@ -235,49 +274,33 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
             locY += 3;
             pdf.setTextColor(0, 0, 0);
           }
-
-          // Photos inline (smaller)
-          if (checkpoint.photos.length > 0) {
-            const photoSize = 12;
-            const maxPhotos = Math.min(checkpoint.photos.length, 4);
-            for (let i = 0; i < maxPhotos; i++) {
-              const photo = checkpoint.photos[i];
-              const photoX = cpColumnX + 12 + i * (photoSize + 2);
-              try {
-                pdf.addImage(photo.thumbnail, 'JPEG', photoX, locY, photoSize, photoSize);
-              } catch (e) {
-                pdf.setFillColor(200, 200, 200);
-                pdf.rect(photoX, locY, photoSize, photoSize, 'F');
-              }
-            }
-            locY += photoSize + 2;
-          }
         }
         locY += 2;
       }
       locY += 3;
       setCurrentY(locY);
+      switchColumn();
     }
-
-    // Add spacing after area, then switch column for next area
-    setCurrentY(getCurrentY() + 5);
-    switchColumn();
   }
 
   // Issues summary page with photos
-  const allIssues: { area: string; location: string; item: string; checkpoint: string; comment: string; photos: { thumbnail: string; imageData: string }[] }[] = [];
+  const allIssues: { area: string; location: string; item: string; checkpoint: string; comment: string; photoRefs: number[] }[] = [];
+
   for (const area of project.areas) {
     for (const location of area.locations) {
       for (const item of location.items) {
         for (const checkpoint of item.checkpoints) {
           if (checkpoint.status === 'needsReview') {
+            const photoRefs = allPhotos
+              .filter(p => p.area === area.name && p.location === location.name && p.item === item.name && p.checkpoint === checkpoint.name)
+              .map(p => p.ref);
             allIssues.push({
               area: area.name,
               location: location.name,
               item: item.name,
               checkpoint: checkpoint.name,
               comment: checkpoint.comments,
-              photos: checkpoint.photos.map(p => ({ thumbnail: p.thumbnail, imageData: p.imageData })),
+              photoRefs,
             });
           }
         }
@@ -285,7 +308,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     }
   }
 
-  if (allIssues.length > 0) {
+  if (allIssues.length > 0 || allPhotos.length > 0) {
     pdf.addPage();
     let yPos = margin;
 
@@ -298,7 +321,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     pdf.setFont('helvetica', 'normal');
 
     for (let i = 0; i < allIssues.length; i++) {
-      if (yPos > pageHeight - margin - 30) {
+      if (yPos > pageHeight - margin - 25) {
         pdf.addPage();
         yPos = margin;
       }
@@ -311,7 +334,11 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
       yPos += 5;
 
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`   ${issue.checkpoint}`, margin, yPos);
+      let checkpointLine = `   ${issue.checkpoint}`;
+      if (issue.photoRefs.length > 0) {
+        checkpointLine += ` [Photo ${issue.photoRefs.join(', ')}]`;
+      }
+      pdf.text(checkpointLine, margin, yPos);
       yPos += 4;
 
       if (issue.comment) {
@@ -325,33 +352,60 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
         pdf.setFontSize(10);
       }
 
-      // Add photos for issues
-      if (issue.photos.length > 0) {
-        const photoSize = 20;
-        const photosPerRow = Math.floor(contentWidth / (photoSize + 5));
-
-        for (let j = 0; j < issue.photos.length; j++) {
-          if (j % photosPerRow === 0 && j > 0) {
-            yPos += photoSize + 3;
-            if (yPos > pageHeight - margin - photoSize) {
-              pdf.addPage();
-              yPos = margin;
-            }
-          }
-
-          const photoX = margin + (j % photosPerRow) * (photoSize + 5);
-
-          try {
-            pdf.addImage(issue.photos[j].thumbnail, 'JPEG', photoX, yPos, photoSize, photoSize);
-          } catch (e) {
-            pdf.setFillColor(200, 200, 200);
-            pdf.rect(photoX, yPos, photoSize, photoSize, 'F');
-          }
-        }
-        yPos += photoSize + 5;
-      }
-
       yPos += 5;
+    }
+
+    // Photo appendix - larger photos at end
+    if (allPhotos.length > 0) {
+      pdf.addPage();
+      yPos = margin;
+
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Photo Appendix', margin, yPos);
+      yPos += 12;
+
+      const photoSize = 60; // Larger photos
+      const photosPerRow = 2;
+      const photoSpacing = (contentWidth - (photosPerRow * photoSize)) / (photosPerRow + 1);
+
+      for (let i = 0; i < allPhotos.length; i++) {
+        const photo = allPhotos[i];
+        const col = i % photosPerRow;
+
+        if (col === 0 && i > 0) {
+          yPos += photoSize + 20;
+        }
+
+        if (yPos + photoSize + 15 > pageHeight - margin) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        const photoX = margin + photoSpacing + col * (photoSize + photoSpacing);
+
+        // Photo reference number
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`Photo ${photo.ref}`, photoX, yPos);
+
+        // Photo caption
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        const caption = `${photo.location} > ${photo.item} > ${photo.checkpoint}`;
+        const truncatedCaption = caption.length > 40 ? caption.substring(0, 37) + '...' : caption;
+        pdf.text(truncatedCaption, photoX, yPos + 4);
+
+        // Add photo
+        try {
+          pdf.addImage(photo.imageData || photo.thumbnail, 'JPEG', photoX, yPos + 7, photoSize, photoSize);
+        } catch (e) {
+          pdf.setFillColor(200, 200, 200);
+          pdf.rect(photoX, yPos + 7, photoSize, photoSize, 'F');
+          pdf.setFontSize(10);
+          pdf.text('Image Error', photoX + 15, yPos + 37);
+        }
+      }
     }
   }
 

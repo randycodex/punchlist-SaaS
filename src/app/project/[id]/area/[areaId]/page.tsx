@@ -6,6 +6,7 @@ import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
 import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   ChevronDown,
@@ -146,23 +147,25 @@ export default function AreaDetailPage({
   }
 
   function toggleLocation(locationId: string) {
-    const newExpanded = new Set(expandedLocations);
-    if (newExpanded.has(locationId)) {
-      newExpanded.delete(locationId);
+    if (expandedLocations.has(locationId)) {
+      // Collapse this location
+      setExpandedLocations(new Set());
+      setExpandedItems(new Set());
     } else {
-      newExpanded.add(locationId);
+      // Expand only this location, collapse others
+      setExpandedLocations(new Set([locationId]));
+      setExpandedItems(new Set());
     }
-    setExpandedLocations(newExpanded);
   }
 
   function toggleItem(itemId: string) {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(itemId)) {
-      newExpanded.delete(itemId);
+    if (expandedItems.has(itemId)) {
+      // Collapse this item
+      setExpandedItems(new Set());
     } else {
-      newExpanded.add(itemId);
+      // Expand only this item, collapse others
+      setExpandedItems(new Set([itemId]));
     }
-    setExpandedItems(newExpanded);
   }
 
   if (loading) {
@@ -195,6 +198,13 @@ export default function AreaDetailPage({
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
+            <Image
+              src="/uai-logo.png"
+              alt="UAI Logo"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
               {area.name}
             </h1>
