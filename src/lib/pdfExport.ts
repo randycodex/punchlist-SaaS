@@ -1,5 +1,21 @@
 import { jsPDF } from 'jspdf';
-import { Project, Area, getProjectStats, getAreaStats, getLocationStats } from '@/types';
+import { Project, getProjectStats, getAreaStats, getLocationStats } from '@/types';
+
+// Load logo as base64 for PDF
+async function loadLogoBase64(): Promise<string | null> {
+  try {
+    const response = await fetch('/uai-logo.png');
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 export async function generateProjectPDF(project: Project): Promise<Blob> {
   const pdf = new jsPDF('p', 'mm', 'a4');
@@ -7,212 +23,245 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
-  const columnWidth = (contentWidth - 10) / 2; // Two columns with 10mm gap
-  let yPos = margin;
+  const columnWidth = (contentWidth - 8) / 2; // Two columns with 8mm gap
+  const columnGap = 8;
 
-  // Helper to add new page if needed
-  function checkNewPage(neededHeight: number) {
-    if (yPos + neededHeight > pageHeight - margin) {
+  // Load logo
+  const logoBase64 = await loadLogoBase64();
+
+  // Cover page
+  let coverY = 25;
+
+  // Add logo at top
+  if (logoBase64) {
+    try {
+      pdf.addImage(logoBase64, 'PNG', pageWidth / 2 - 15, coverY, 30, 30);
+      coverY += 40;
+    } catch (e) {
+      coverY += 10;
+    }
+  }
+
+  pdf.setFontSize(24);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('PunchList Report', pageWidth / 2, coverY, { align: 'center' });
+  coverY += 20;
+
+  pdf.setFontSize(18);
+  pdf.text(project.projectName, pageWidth / 2, coverY, { align: 'center' });
+  coverY += 15;
+
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'normal');
+
+  if (project.address) {
+    pdf.text(`Address: ${project.address}`, pageWidth / 2, coverY, { align: 'center' });
+    coverY += 8;
+  }
+
+  if (project.inspector) {
+    pdf.text(`Inspector: ${project.inspector}`, pageWidth / 2, coverY, { align: 'center' });
+    coverY += 8;
+  }
+
+  pdf.text(`Date: ${new Date(project.date).toLocaleDateString()}`, pageWidth / 2, coverY, { align: 'center' });
+  coverY += 8;
+
+  if (project.gcName) {
+    pdf.text(`GC: ${project.gcName}`, pageWidth / 2, coverY, { align: 'center' });
+    coverY += 8;
+  }
+
+  // Stats
+  const stats = getProjectStats(project);
+  coverY += 15;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Summary', pageWidth / 2, coverY, { align: 'center' });
+  coverY += 8;
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`Areas: ${stats.areas}  |  Total: ${stats.total}  |  OK: ${stats.ok}  |  Issues: ${stats.issues}`, pageWidth / 2, coverY, { align: 'center' });
+
+  // Content pages - Two column layout, continuous flow (no separate page per area)
+  pdf.addPage();
+  let leftColumnY = margin;
+  let rightColumnY = margin;
+  let currentColumn = 0; // 0 = left, 1 = right
+
+  function getColumnX(col: number): number {
+    return col === 0 ? margin : margin + columnWidth + columnGap;
+  }
+
+  function getCurrentY(): number {
+    return currentColumn === 0 ? leftColumnY : rightColumnY;
+  }
+
+  function setCurrentY(y: number) {
+    if (currentColumn === 0) {
+      leftColumnY = y;
+    } else {
+      rightColumnY = y;
+    }
+  }
+
+  function switchColumn() {
+    if (currentColumn === 0) {
+      currentColumn = 1;
+    } else {
+      currentColumn = 0;
+    }
+  }
+
+  function needsNewPage(neededHeight: number): boolean {
+    const currentY = getCurrentY();
+    if (currentY + neededHeight > pageHeight - margin) {
+      // Try the other column first
+      const otherY = currentColumn === 0 ? rightColumnY : leftColumnY;
+      if (otherY + neededHeight <= pageHeight - margin) {
+        switchColumn();
+        return false;
+      }
+      // Both columns full, need new page
       pdf.addPage();
-      yPos = margin;
+      leftColumnY = margin;
+      rightColumnY = margin;
+      currentColumn = 0;
       return true;
     }
     return false;
   }
 
-  // Cover page
-  pdf.setFontSize(24);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('PunchList Report', pageWidth / 2, 40, { align: 'center' });
-
-  pdf.setFontSize(18);
-  pdf.text(project.projectName, pageWidth / 2, 60, { align: 'center' });
-
-  pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'normal');
-  let infoY = 80;
-
-  if (project.address) {
-    pdf.text(`Address: ${project.address}`, pageWidth / 2, infoY, { align: 'center' });
-    infoY += 8;
-  }
-
-  if (project.inspector) {
-    pdf.text(`Inspector: ${project.inspector}`, pageWidth / 2, infoY, { align: 'center' });
-    infoY += 8;
-  }
-
-  pdf.text(`Date: ${new Date(project.date).toLocaleDateString()}`, pageWidth / 2, infoY, { align: 'center' });
-  infoY += 8;
-
-  if (project.gcName) {
-    pdf.text(`GC: ${project.gcName}`, pageWidth / 2, infoY, { align: 'center' });
-    infoY += 8;
-  }
-
-  // Stats
-  const stats = getProjectStats(project);
-  infoY += 10;
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('Summary', pageWidth / 2, infoY, { align: 'center' });
-  infoY += 8;
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(`Areas: ${stats.areas}  |  Total: ${stats.total}  |  OK: ${stats.ok}  |  Issues: ${stats.issues}`, pageWidth / 2, infoY, { align: 'center' });
-
-  // Areas - Two column layout
+  // Process all areas continuously
   for (const area of project.areas) {
-    pdf.addPage();
-    yPos = margin;
+    // Estimate height for area header
+    needsNewPage(20);
 
-    // Area header
-    pdf.setFontSize(16);
+    const columnX = getColumnX(currentColumn);
+    let y = getCurrentY();
+
+    // Area header with background
+    pdf.setFillColor(59, 130, 246); // Blue background
+    pdf.rect(columnX, y - 4, columnWidth, 8, 'F');
+    pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(area.name, margin, yPos);
-    yPos += 8;
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(area.name, columnX + 2, y);
+    pdf.setTextColor(0, 0, 0);
 
     const areaStats = getAreaStats(area);
-    pdf.setFontSize(10);
+    pdf.setFontSize(7);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Total: ${areaStats.total}  |  OK: ${areaStats.ok}  |  Issues: ${areaStats.issues}`, margin, yPos);
-    yPos += 10;
+    pdf.setTextColor(255, 255, 255);
+    const areaStatsText = `${areaStats.ok}/${areaStats.total}`;
+    pdf.text(areaStatsText, columnX + columnWidth - pdf.getTextWidth(areaStatsText) - 2, y);
+    pdf.setTextColor(0, 0, 0);
+    y += 8;
+    setCurrentY(y);
 
-    // Two-column layout for locations
-    let currentColumn = 0; // 0 = left, 1 = right
-    let leftColumnY = yPos;
-    let rightColumnY = yPos;
-
+    // Process locations within this area
     for (const location of area.locations) {
-      // Calculate which column to use and position
-      const xPos = currentColumn === 0 ? margin : margin + columnWidth + 10;
-      const startY = currentColumn === 0 ? leftColumnY : rightColumnY;
-
-      // Estimate height needed for this location
-      let estimatedHeight = 15; // header + stats
+      // Estimate height for this location
+      let estimatedHeight = 10;
       for (const item of location.items) {
-        estimatedHeight += 8; // item header
+        estimatedHeight += 6;
         for (const checkpoint of item.checkpoints) {
-          estimatedHeight += 6;
+          estimatedHeight += 5;
           if (checkpoint.comments) estimatedHeight += 4;
-          if (checkpoint.photos.length > 0) estimatedHeight += 25; // photo row
+          if (checkpoint.photos.length > 0) estimatedHeight += 18;
         }
       }
 
-      // Check if we need a new page
-      if (startY + estimatedHeight > pageHeight - margin && currentColumn === 1) {
-        pdf.addPage();
-        leftColumnY = margin;
-        rightColumnY = margin;
-        currentColumn = 0;
-      } else if (startY + estimatedHeight > pageHeight - margin && currentColumn === 0) {
-        // Try right column first
-        if (rightColumnY + estimatedHeight <= pageHeight - margin) {
-          currentColumn = 1;
-        } else {
-          pdf.addPage();
-          leftColumnY = margin;
-          rightColumnY = margin;
-          currentColumn = 0;
-        }
-      }
+      needsNewPage(Math.min(estimatedHeight, 50)); // At least fit header + some items
 
-      const columnX = currentColumn === 0 ? margin : margin + columnWidth + 10;
-      let columnY = currentColumn === 0 ? leftColumnY : rightColumnY;
+      const locColumnX = getColumnX(currentColumn);
+      let locY = getCurrentY();
 
       // Location header
-      pdf.setFontSize(11);
+      pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
       pdf.setFillColor(240, 240, 240);
-      pdf.rect(columnX, columnY - 4, columnWidth, 7, 'F');
-      pdf.text(location.name, columnX + 2, columnY);
+      pdf.rect(locColumnX, locY - 3, columnWidth, 6, 'F');
+      pdf.text(location.name, locColumnX + 2, locY);
 
       const locStats = getLocationStats(location);
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setFont('helvetica', 'normal');
-      const statsText = `OK: ${locStats.ok}  Issues: ${locStats.issues}`;
-      pdf.text(statsText, columnX + columnWidth - pdf.getTextWidth(statsText) - 2, columnY);
-      columnY += 8;
+      const locStatsText = `OK:${locStats.ok} X:${locStats.issues}`;
+      pdf.text(locStatsText, locColumnX + columnWidth - pdf.getTextWidth(locStatsText) - 2, locY);
+      locY += 6;
 
       // Items
       for (const item of location.items) {
-        pdf.setFontSize(9);
+        if (locY > pageHeight - margin - 20) {
+          setCurrentY(locY);
+          needsNewPage(20);
+          locY = getCurrentY();
+        }
+
+        const itemColumnX = getColumnX(currentColumn);
+        pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
-        const itemText = `• ${item.name}`;
-        const truncatedItem = itemText.length > 35 ? itemText.substring(0, 32) + '...' : itemText;
-        pdf.text(truncatedItem, columnX + 2, columnY);
-        columnY += 5;
+        const itemText = item.name.length > 30 ? item.name.substring(0, 27) + '...' : item.name;
+        pdf.text(`• ${itemText}`, itemColumnX + 2, locY);
+        locY += 4;
 
         // Checkpoints
         for (const checkpoint of item.checkpoints) {
-          pdf.setFontSize(8);
+          if (locY > pageHeight - margin - 15) {
+            setCurrentY(locY);
+            needsNewPage(15);
+            locY = getCurrentY();
+          }
+
+          const cpColumnX = getColumnX(currentColumn);
+          pdf.setFontSize(7);
           pdf.setFont('helvetica', 'normal');
 
           const statusSymbol = checkpoint.status === 'ok' ? '✓' : checkpoint.status === 'needsReview' ? '✗' : '○';
-          const statusColor = checkpoint.status === 'ok' ? [34, 197, 94] : checkpoint.status === 'needsReview' ? [249, 115, 22] : [156, 163, 175];
+          const statusColor: [number, number, number] = checkpoint.status === 'ok' ? [34, 197, 94] : checkpoint.status === 'needsReview' ? [249, 115, 22] : [156, 163, 175];
 
           pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-          pdf.text(statusSymbol, columnX + 4, columnY);
+          pdf.text(statusSymbol, cpColumnX + 6, locY);
           pdf.setTextColor(0, 0, 0);
 
-          const checkpointText = checkpoint.name.length > 30 ? checkpoint.name.substring(0, 27) + '...' : checkpoint.name;
-          pdf.text(checkpointText, columnX + 10, columnY);
-          columnY += 4;
+          const cpText = checkpoint.name.length > 25 ? checkpoint.name.substring(0, 22) + '...' : checkpoint.name;
+          pdf.text(cpText, cpColumnX + 12, locY);
+          locY += 3.5;
 
           if (checkpoint.comments) {
-            pdf.setFontSize(7);
+            pdf.setFontSize(6);
             pdf.setTextColor(100, 100, 100);
-            const commentLines = pdf.splitTextToSize(`"${checkpoint.comments}"`, columnWidth - 15);
-            const truncatedComments = commentLines.slice(0, 2);
-            pdf.text(truncatedComments, columnX + 10, columnY);
-            columnY += truncatedComments.length * 3;
+            const comment = checkpoint.comments.length > 40 ? checkpoint.comments.substring(0, 37) + '...' : checkpoint.comments;
+            pdf.text(`"${comment}"`, cpColumnX + 12, locY);
+            locY += 3;
             pdf.setTextColor(0, 0, 0);
           }
 
-          // Photos inline
+          // Photos inline (smaller)
           if (checkpoint.photos.length > 0) {
-            const photoSize = 15;
-            const photosPerRow = Math.floor((columnWidth - 12) / (photoSize + 2));
-            const photoRows = Math.ceil(checkpoint.photos.length / photosPerRow);
-
-            for (let row = 0; row < photoRows; row++) {
-              const startIdx = row * photosPerRow;
-              const endIdx = Math.min(startIdx + photosPerRow, checkpoint.photos.length);
-
-              for (let i = startIdx; i < endIdx; i++) {
-                const photo = checkpoint.photos[i];
-                const photoX = columnX + 10 + (i - startIdx) * (photoSize + 2);
-
-                try {
-                  // Use thumbnail for PDF (smaller file size)
-                  pdf.addImage(photo.thumbnail, 'JPEG', photoX, columnY, photoSize, photoSize);
-                } catch (e) {
-                  // If image fails, draw placeholder
-                  pdf.setFillColor(200, 200, 200);
-                  pdf.rect(photoX, columnY, photoSize, photoSize, 'F');
-                  pdf.setFontSize(6);
-                  pdf.text('IMG', photoX + 3, columnY + 8);
-                }
+            const photoSize = 12;
+            const maxPhotos = Math.min(checkpoint.photos.length, 4);
+            for (let i = 0; i < maxPhotos; i++) {
+              const photo = checkpoint.photos[i];
+              const photoX = cpColumnX + 12 + i * (photoSize + 2);
+              try {
+                pdf.addImage(photo.thumbnail, 'JPEG', photoX, locY, photoSize, photoSize);
+              } catch (e) {
+                pdf.setFillColor(200, 200, 200);
+                pdf.rect(photoX, locY, photoSize, photoSize, 'F');
               }
-              columnY += photoSize + 2;
             }
+            locY += photoSize + 2;
           }
-
-          columnY += 1;
         }
-
-        columnY += 2;
+        locY += 2;
       }
-
-      columnY += 5;
-
-      // Update column position
-      if (currentColumn === 0) {
-        leftColumnY = columnY;
-        currentColumn = 1;
-      } else {
-        rightColumnY = columnY;
-        currentColumn = 0;
-      }
+      locY += 3;
+      setCurrentY(locY);
     }
+
+    // Add spacing after area, then switch column for next area
+    setCurrentY(getCurrentY() + 5);
+    switchColumn();
   }
 
   // Issues summary page with photos
@@ -238,7 +287,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
 
   if (allIssues.length > 0) {
     pdf.addPage();
-    yPos = margin;
+    let yPos = margin;
 
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
@@ -249,11 +298,16 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     pdf.setFont('helvetica', 'normal');
 
     for (let i = 0; i < allIssues.length; i++) {
-      checkNewPage(30);
+      if (yPos > pageHeight - margin - 30) {
+        pdf.addPage();
+        yPos = margin;
+      }
 
       const issue = allIssues[i];
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`${i + 1}. ${issue.area} > ${issue.location} > ${issue.item}`, margin, yPos);
+      const issueHeader = `${i + 1}. ${issue.area} > ${issue.location} > ${issue.item}`;
+      const truncatedHeader = issueHeader.length > 70 ? issueHeader.substring(0, 67) + '...' : issueHeader;
+      pdf.text(truncatedHeader, margin, yPos);
       yPos += 5;
 
       pdf.setFont('helvetica', 'normal');
@@ -264,21 +318,25 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
         pdf.setFontSize(9);
         pdf.setTextColor(100, 100, 100);
         const commentLines = pdf.splitTextToSize(`   "${issue.comment}"`, contentWidth - 10);
-        pdf.text(commentLines, margin, yPos);
-        yPos += commentLines.length * 3.5;
+        const limitedLines = commentLines.slice(0, 2);
+        pdf.text(limitedLines, margin, yPos);
+        yPos += limitedLines.length * 3.5;
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(10);
       }
 
       // Add photos for issues
       if (issue.photos.length > 0) {
-        const photoSize = 25;
+        const photoSize = 20;
         const photosPerRow = Math.floor(contentWidth / (photoSize + 5));
 
         for (let j = 0; j < issue.photos.length; j++) {
           if (j % photosPerRow === 0 && j > 0) {
             yPos += photoSize + 3;
-            checkNewPage(photoSize + 5);
+            if (yPos > pageHeight - margin - photoSize) {
+              pdf.addPage();
+              yPos = margin;
+            }
           }
 
           const photoX = margin + (j % photosPerRow) * (photoSize + 5);

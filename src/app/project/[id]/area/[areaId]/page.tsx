@@ -16,7 +16,6 @@ import {
   MapPin,
   Wrench,
   MessageSquare,
-  Camera,
   X,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -168,7 +167,7 @@ export default function AreaDetailPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -185,18 +184,18 @@ export default function AreaDetailPage({
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href={`/project/${project.id}`}
-              className="p-1 -ml-1 text-gray-600"
+              className="p-1 -ml-1 text-gray-600 dark:text-gray-300"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-lg font-semibold text-gray-900 truncate">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
               {area.name}
             </h1>
           </div>
@@ -204,28 +203,28 @@ export default function AreaDetailPage({
       </header>
 
       {/* Stats */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center gap-6">
           <div className="text-center">
             <div className="text-xl font-semibold text-blue-600">{stats.total}</div>
-            <div className="text-xs text-gray-500">Total</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="text-center">
             <div className="text-xl font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs text-gray-500">OK</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
           </div>
           <div className="text-center">
             <div className="text-xl font-semibold text-orange-500">{stats.issues}</div>
-            <div className="text-xs text-gray-500">Issues</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Issues</div>
           </div>
           <div className="flex-1">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 text-right mt-1">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-right mt-1">
               {Math.round(progress)}%
             </div>
           </div>
@@ -241,16 +240,16 @@ export default function AreaDetailPage({
           return (
             <div
               key={location.id}
-              className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
             >
               {/* Location Header */}
               <button
                 onClick={() => toggleLocation(location.id)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-blue-500" />
-                  <span className="font-medium">{location.name}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{location.name}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {locationStats.ok > 0 && (
@@ -281,21 +280,21 @@ export default function AreaDetailPage({
 
               {/* Location Items */}
               {isExpanded && (
-                <div className="border-t border-gray-100">
+                <div className="border-t border-gray-100 dark:border-gray-700">
                   {location.items.map((item) => {
                     const itemStats = getItemStats(item);
                     const isItemExpanded = expandedItems.has(item.id);
 
                     return (
-                      <div key={item.id} className="border-b border-gray-100 last:border-b-0">
+                      <div key={item.id} className="border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                         {/* Item Header */}
                         <button
                           onClick={() => toggleItem(item.id)}
-                          className="w-full px-4 py-2 pl-8 flex items-center justify-between hover:bg-gray-50"
+                          className="w-full px-4 py-2 pl-8 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                           <div className="flex items-center gap-2">
                             <Wrench className="w-3 h-3 text-orange-500" />
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm text-gray-900 dark:text-white">{item.name}</span>
                           </div>
                           <div className="flex items-center gap-3">
                             {itemStats.ok > 0 && (
@@ -326,14 +325,14 @@ export default function AreaDetailPage({
 
                         {/* Checkpoints */}
                         {isItemExpanded && (
-                          <div className="bg-gray-50 px-4 py-2 pl-12 space-y-3">
+                          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 pl-12 space-y-3">
                             {item.checkpoints.map((checkpoint) => (
                               <div key={checkpoint.id} className="space-y-2">
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
-                                    <span className="text-sm text-gray-700">{checkpoint.name}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{checkpoint.name}</span>
                                     {checkpoint.comments && (
-                                      <p className="text-xs text-gray-500 mt-0.5">{checkpoint.comments}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{checkpoint.comments}</p>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -349,7 +348,7 @@ export default function AreaDetailPage({
                                       className={`p-1.5 rounded ${
                                         checkpoint.comments || checkpoint.photos.length > 0
                                           ? 'text-blue-500'
-                                          : 'text-gray-300'
+                                          : 'text-gray-300 dark:text-gray-600'
                                       }`}
                                     >
                                       {checkpoint.photos.length > 0 ? (
@@ -364,8 +363,8 @@ export default function AreaDetailPage({
                                       }
                                       className={`p-1.5 rounded ${
                                         checkpoint.status === 'ok'
-                                          ? 'bg-green-100 text-green-600'
-                                          : 'text-gray-300 hover:text-green-500'
+                                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
+                                          : 'text-gray-300 dark:text-gray-600 hover:text-green-500'
                                       }`}
                                     >
                                       <CheckCircle className="w-5 h-5" />
@@ -376,8 +375,8 @@ export default function AreaDetailPage({
                                       }
                                       className={`p-1.5 rounded ${
                                         checkpoint.status === 'needsReview'
-                                          ? 'bg-orange-100 text-orange-600'
-                                          : 'text-gray-300 hover:text-orange-500'
+                                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
+                                          : 'text-gray-300 dark:text-gray-600 hover:text-orange-500'
                                       }`}
                                     >
                                       <AlertTriangle className="w-5 h-5" />
@@ -388,8 +387,8 @@ export default function AreaDetailPage({
                                       }
                                       className={`p-1.5 rounded ${
                                         checkpoint.status === 'pending'
-                                          ? 'bg-gray-200 text-gray-600'
-                                          : 'text-gray-300 hover:text-gray-500'
+                                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                          : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'
                                       }`}
                                     >
                                       <Circle className="w-5 h-5" />
@@ -404,7 +403,7 @@ export default function AreaDetailPage({
                                         key={photo.id}
                                         src={photo.thumbnail}
                                         alt=""
-                                        className="w-10 h-10 rounded object-cover flex-shrink-0"
+                                        className="w-10 h-10 rounded object-cover flex-shrink-0 cursor-pointer"
                                         onClick={() => {
                                           setEditingCheckpoint({
                                             locationId: location.id,
@@ -434,15 +433,15 @@ export default function AreaDetailPage({
       {/* Edit Checkpoint Modal */}
       {editingCheckpoint && editingCheckpointData && (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-semibold">{editingCheckpointData.name}</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-t-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 dark:text-white">{editingCheckpointData.name}</h3>
               <button
                 onClick={() => {
                   setEditingCheckpoint(null);
                   setCommentText('');
                 }}
-                className="p-1 text-gray-500"
+                className="p-1 text-gray-500 dark:text-gray-400"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -451,7 +450,7 @@ export default function AreaDetailPage({
             <div className="p-4 space-y-4">
               {/* Photos */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Photos
                 </label>
                 <PhotoCapture
@@ -478,19 +477,19 @@ export default function AreaDetailPage({
 
               {/* Comment */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Comment
                 </label>
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter your comment..."
                 />
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
               <button
                 onClick={saveCheckpointChanges}
                 className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
