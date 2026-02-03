@@ -30,6 +30,16 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_oauth_client_id
 
 After setting the client ID, restart the dev server.
 
+## Self-hosted Inter font
+
+Add the Inter variable font file at:
+
+```
+public/fonts/Inter-Variable.woff2
+```
+
+This avoids fetching Google Fonts during build.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
