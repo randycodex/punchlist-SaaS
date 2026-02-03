@@ -40,8 +40,18 @@ export async function getProject(id: string): Promise<Project | undefined> {
 }
 
 export async function saveProject(project: Project): Promise<void> {
+  await saveProjectInternal(project, { touch: true });
+}
+
+export async function saveProjectPreserveTimestamps(project: Project): Promise<void> {
+  await saveProjectInternal(project, { touch: false });
+}
+
+async function saveProjectInternal(project: Project, options: { touch: boolean }): Promise<void> {
   const db = await getDB();
-  project.updatedAt = new Date();
+  if (options.touch) {
+    project.updatedAt = new Date();
+  }
   await db.put('projects', project);
 }
 

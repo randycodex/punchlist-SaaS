@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Google Drive Sync (Personal Accounts)
+
+To enable Google sign-in and Drive sync, set the following environment variable:
+
+```
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+```
+
+After setting the client ID, restart the dev server.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
+import { syncProjectsWithDrive } from '@/lib/googleSync';
+import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -30,6 +32,9 @@ export default function ProjectsPage() {
   const [newProjectInspector, setNewProjectInspector] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const { accessToken, isSignedIn, isReady, signIn, signOut } = useGoogleAuth();
 
   useEffect(() => {
     // Load saved sort preference
@@ -39,6 +44,11 @@ export default function ProjectsPage() {
     }
     loadProjects();
   }, []);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    handleSync();
+  }, [accessToken]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -54,6 +64,21 @@ export default function ProjectsPage() {
       console.error('Failed to load projects:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    if (!accessToken || syncing) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await syncProjectsWithDrive(accessToken);
+      await loadProjects();
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncError('Sync failed. Please try again.');
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -151,6 +176,34 @@ export default function ProjectsPage() {
                 </>
               )}
             </div>
+            {isReady && (
+              <>
+                {!isSignedIn ? (
+                  <button
+                    onClick={signIn}
+                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  >
+                    Sign in
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+                    >
+                      {syncing ? 'Syncing...' : 'Sync'}
+                    </button>
+                    <button
+                      onClick={signOut}
+                      className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                )}
+              </>
+            )}
             <button
               onClick={() => setShowNewProject(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
@@ -160,6 +213,11 @@ export default function ProjectsPage() {
           </div>
         </div>
       </header>
+      {syncError && (
+        <div className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+          {syncError}
+        </div>
+      )}
 
       {/* Content */}
       <main className="p-4">

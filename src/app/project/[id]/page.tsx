@@ -6,6 +6,8 @@ import { Project, Area, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
 import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
+import { uploadPdfToDrive } from '@/lib/googleDrive';
+import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -44,6 +46,8 @@ export default function ProjectDetailPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingToDrive, setExportingToDrive] = useState(false);
+  const { accessToken, isSignedIn, signIn } = useGoogleAuth();
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -148,6 +152,26 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleExportPDFToDrive() {
+    if (!project) return;
+    if (!accessToken) {
+      signIn();
+      return;
+    }
+    setShowMenu(false);
+    setExportingToDrive(true);
+    try {
+      const blob = await generateProjectPDF(project);
+      const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
+      await uploadPdfToDrive(accessToken, filename, blob);
+    } catch (error) {
+      console.error('Failed to export PDF to Drive:', error);
+      alert('Failed to export PDF to Drive. Please try again.');
+    } finally {
+      setExportingToDrive(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -245,6 +269,18 @@ export default function ProjectDetailPage() {
                         <FileDown className="w-4 h-4" />
                       )}
                       Export PDF
+                    </button>
+                    <button
+                      onClick={handleExportPDFToDrive}
+                      disabled={exportingToDrive}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {exportingToDrive ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileDown className="w-4 h-4" />
+                      )}
+                      {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
                     </button>
                     <button
                       onClick={() => {
