@@ -1,19 +1,30 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Image as ImageIcon, X } from 'lucide-react';
-import { PhotoAttachment } from '@/types';
+import { Camera, Image as ImageIcon, X, Paperclip } from 'lucide-react';
+import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
   photos: PhotoAttachment[];
+  files: FileAttachment[];
   onAddPhoto: (imageData: string, thumbnail: string) => void;
   onDeletePhoto: (photoId: string) => void;
+  onAddFile: (data: string, name: string, mimeType: string, size: number) => void;
+  onDeleteFile: (fileId: string) => void;
 }
 
-export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: PhotoCaptureProps) {
+export default function PhotoCapture({
+  photos,
+  files,
+  onAddPhoto,
+  onDeletePhoto,
+  onAddFile,
+  onDeleteFile,
+}: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const maxImageSize = 1600;
 
   function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
@@ -42,24 +53,25 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
     return canvas.toDataURL('image/jpeg', quality);
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const sourceData = event.target?.result as string;
+    selected.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const sourceData = event.target?.result as string;
 
-      // Create thumbnail
-      const img = new window.Image();
-      img.onload = () => {
-        const imageData = createScaledImageData(img, maxImageSize, 0.8);
-        const thumbnail = createThumbnailData(img, 150, 0.6);
-        onAddPhoto(imageData, thumbnail);
+        const img = new window.Image();
+        img.onload = () => {
+          const imageData = createScaledImageData(img, maxImageSize, 0.8);
+          const thumbnail = createThumbnailData(img, 150, 0.6);
+          onAddPhoto(imageData, thumbnail);
+        };
+        img.src = sourceData;
       };
-      img.src = sourceData;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    });
 
     // Reset inputs
     if (fileInputRef.current) {
@@ -67,6 +79,24 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
     }
     if (cameraInputRef.current) {
       cameraInputRef.current.value = '';
+    }
+  }
+
+  function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    selected.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = event.target?.result as string;
+        onAddFile(data, file.name, file.type || 'application/octet-stream', file.size);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = '';
     }
   }
 
@@ -100,6 +130,32 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
         </div>
       )}
 
+      {/* File attachments */}
+      {files.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-1.5 text-xs"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Paperclip className="w-3.5 h-3.5 text-gray-500" />
+                <span className="truncate text-gray-700 dark:text-gray-300">
+                  {file.name}
+                </span>
+              </div>
+              <button
+                onClick={() => onDeleteFile(file.id)}
+                className="ml-2 p-1 text-gray-400 hover:text-red-500"
+                aria-label={`Delete ${file.name}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Add photo buttons */}
       <div className="flex gap-2">
         <button
@@ -114,7 +170,14 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
           className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-50 text-gray-600 rounded hover:bg-gray-100"
         >
           <ImageIcon className="w-3 h-3" />
-          Gallery
+          Photo Library
+        </button>
+        <button
+          onClick={() => attachmentInputRef.current?.click()}
+          className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-50 text-gray-600 rounded hover:bg-gray-100"
+        >
+          <Paperclip className="w-3 h-3" />
+          Choose Files
         </button>
         {/* Camera input - directly opens camera on mobile */}
         <input
@@ -122,15 +185,24 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={handleFileSelect}
+          onChange={handlePhotoSelect}
           className="hidden"
         />
-        {/* Gallery input - opens photo picker */}
+        {/* Photo library input */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          onChange={handleFileSelect}
+          multiple
+          onChange={handlePhotoSelect}
+          className="hidden"
+        />
+        {/* File attachments input */}
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          onChange={handleAttachmentSelect}
+          multiple
           className="hidden"
         />
       </div>

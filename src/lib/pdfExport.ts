@@ -52,6 +52,30 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   }[] = [];
   let photoRefCounter = 1;
 
+  const allFiles: {
+    ref: number;
+    areaId: string;
+    locationId: string;
+    itemId: string;
+    checkpointId: string;
+    area: string;
+    location: string;
+    item: string;
+    checkpoint: string;
+    name: string;
+    mimeType: string;
+    size: number;
+  }[] = [];
+  let fileRefCounter = 1;
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(1)} MB`;
+  }
+
   // Load logo
   const logoBase64 = await loadLogoBase64();
   let logoWidth = 30;
@@ -254,8 +278,8 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
           pdf.text(cpText, cpColumnX + 12, locY);
 
           // Add photo references if photos exist
+          let photoRefs: number[] = [];
           if (checkpoint.photos.length > 0) {
-            const photoRefs: number[] = [];
             for (const photo of checkpoint.photos) {
               allPhotos.push({
                 ref: photoRefCounter,
@@ -273,9 +297,38 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
               photoRefs.push(photoRefCounter);
               photoRefCounter++;
             }
+          }
+
+          let fileRefs: number[] = [];
+          const checkpointFiles = checkpoint.files ?? [];
+          if (checkpointFiles.length > 0) {
+            for (const file of checkpointFiles) {
+              allFiles.push({
+                ref: fileRefCounter,
+                areaId: area.id,
+                locationId: location.id,
+                itemId: item.id,
+                checkpointId: checkpoint.id,
+                area: area.name,
+                location: location.name,
+                item: item.name,
+                checkpoint: checkpoint.name,
+                name: file.name,
+                mimeType: file.mimeType,
+                size: file.size,
+              });
+              fileRefs.push(fileRefCounter);
+              fileRefCounter++;
+            }
+          }
+
+          if (photoRefs.length > 0 || fileRefs.length > 0) {
             pdf.setFontSize(6);
             pdf.setTextColor(59, 130, 246);
-            const refText = `[Photo ${photoRefs.join(', ')}]`;
+            const refParts: string[] = [];
+            if (photoRefs.length > 0) refParts.push(`Photo ${photoRefs.join(', ')}`);
+            if (fileRefs.length > 0) refParts.push(`File ${fileRefs.join(', ')}`);
+            const refText = `[${refParts.join(' | ')}]`;
             pdf.text(refText, cpColumnX + columnWidth - pdf.getTextWidth(refText) - 2, locY);
             pdf.setTextColor(0, 0, 0);
           }
@@ -300,7 +353,15 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   }
 
   // Issues summary page with photos
-  const allIssues: { area: string; location: string; item: string; checkpoint: string; comment: string; photoRefs: number[] }[] = [];
+  const allIssues: {
+    area: string;
+    location: string;
+    item: string;
+    checkpoint: string;
+    comment: string;
+    photoRefs: number[];
+    fileRefs: number[];
+  }[] = [];
 
   for (const area of project.areas) {
     for (const location of area.locations) {
@@ -315,6 +376,14 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
                 p.checkpointId === checkpoint.id
               )
               .map(p => p.ref);
+            const fileRefs = allFiles
+              .filter(f =>
+                f.areaId === area.id &&
+                f.locationId === location.id &&
+                f.itemId === item.id &&
+                f.checkpointId === checkpoint.id
+              )
+              .map(f => f.ref);
             allIssues.push({
               area: area.name,
               location: location.name,
@@ -322,6 +391,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
               checkpoint: checkpoint.name,
               comment: checkpoint.comments,
               photoRefs,
+              fileRefs,
             });
           }
         }
@@ -329,7 +399,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     }
   }
 
-  if (allIssues.length > 0 || allPhotos.length > 0) {
+  if (allIssues.length > 0 || allPhotos.length > 0 || allFiles.length > 0) {
     pdf.addPage();
     let yPos = margin;
 
@@ -356,8 +426,11 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
 
       pdf.setFont('helvetica', 'normal');
       let checkpointLine = `   ${issue.checkpoint}`;
-      if (issue.photoRefs.length > 0) {
-        checkpointLine += ` [Photo ${issue.photoRefs.join(', ')}]`;
+      const refParts: string[] = [];
+      if (issue.photoRefs.length > 0) refParts.push(`Photo ${issue.photoRefs.join(', ')}`);
+      if (issue.fileRefs.length > 0) refParts.push(`File ${issue.fileRefs.join(', ')}`);
+      if (refParts.length > 0) {
+        checkpointLine += ` [${refParts.join(' | ')}]`;
       }
       pdf.text(checkpointLine, margin, yPos);
       yPos += 4;
@@ -426,6 +499,38 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
           pdf.setFontSize(10);
           pdf.text('Image Error', photoX + 15, yPos + 37);
         }
+      }
+    }
+
+    if (allFiles.length > 0) {
+      pdf.addPage();
+      yPos = margin;
+
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('File Attachments', margin, yPos);
+      yPos += 10;
+
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+
+      for (const file of allFiles) {
+        if (yPos > pageHeight - margin - 12) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        const header = `File ${file.ref}: ${file.name} (${formatFileSize(file.size)})`;
+        const locationLine = `${file.area} > ${file.location} > ${file.item} > ${file.checkpoint}`;
+        const headerLines = pdf.splitTextToSize(header, contentWidth);
+        pdf.text(headerLines, margin, yPos);
+        yPos += headerLines.length * 4;
+
+        pdf.setTextColor(100, 100, 100);
+        const locLines = pdf.splitTextToSize(locationLine, contentWidth);
+        pdf.text(locLines, margin, yPos);
+        yPos += locLines.length * 4 + 2;
+        pdf.setTextColor(0, 0, 0);
       }
     }
   }

@@ -9,6 +9,16 @@ export interface PhotoAttachment {
   createdAt: Date;
 }
 
+export interface FileAttachment {
+  id: string;
+  checkpointId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  data: string; // Base64 encoded
+  createdAt: Date;
+}
+
 export interface Checkpoint {
   id: string;
   itemId: string;
@@ -18,6 +28,7 @@ export interface Checkpoint {
   comments: string;
   sortOrder: number;
   photos: PhotoAttachment[];
+  files: FileAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }

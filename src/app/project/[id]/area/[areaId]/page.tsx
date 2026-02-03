@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
-import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
+import { getProject, saveProject, createPhotoAttachment, createFileAttachment } from '@/lib/db';
 import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -19,6 +19,7 @@ import {
   MessageSquare,
   X,
   Image as ImageIcon,
+  Paperclip,
 } from 'lucide-react';
 
 export default function AreaDetailPage() {
@@ -132,6 +133,28 @@ export default function AreaDetailPage() {
     setArea({ ...area });
   }
 
+  async function handleAddFile(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    data: string,
+    name: string,
+    mimeType: string,
+    size: number
+  ) {
+    if (!project || !area) return;
+
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
+
+    const file = createFileAttachment(checkpointId, data, name, mimeType, size);
+    if (!checkpoint.files) checkpoint.files = [];
+    checkpoint.files.push(file);
+    checkpoint.updatedAt = new Date();
+    await saveProject(project);
+    setArea({ ...area });
+  }
+
   async function handleDeletePhoto(
     locationId: string,
     itemId: string,
@@ -144,6 +167,23 @@ export default function AreaDetailPage() {
     if (!checkpoint) return;
 
     checkpoint.photos = checkpoint.photos.filter((p) => p.id !== photoId);
+    checkpoint.updatedAt = new Date();
+    await saveProject(project);
+    setArea({ ...area });
+  }
+
+  async function handleDeleteFile(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    fileId: string
+  ) {
+    if (!project || !area) return;
+
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
+
+    checkpoint.files = (checkpoint.files ?? []).filter((f) => f.id !== fileId);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
     setArea({ ...area });
@@ -364,7 +404,9 @@ export default function AreaDetailPage() {
                                           : 'text-gray-300 dark:text-gray-600'
                                       }`}
                                     >
-                                      {checkpoint.photos.length > 0 ? (
+                                      {(checkpoint.files?.length ?? 0) > 0 ? (
+                                        <Paperclip className="w-4 h-4" />
+                                      ) : checkpoint.photos.length > 0 ? (
                                         <ImageIcon className="w-4 h-4" />
                                       ) : (
                                         <MessageSquare className="w-4 h-4" />
@@ -464,10 +506,11 @@ export default function AreaDetailPage() {
               {/* Photos */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Photos
+                  Photos & Files
                 </label>
                 <PhotoCapture
                   photos={editingCheckpointData.photos}
+                  files={editingCheckpointData.files ?? []}
                   onAddPhoto={(imageData, thumbnail) =>
                     handleAddPhoto(
                       editingCheckpoint.locationId,
@@ -483,6 +526,25 @@ export default function AreaDetailPage() {
                       editingCheckpoint.itemId,
                       editingCheckpoint.checkpointId,
                       photoId
+                    )
+                  }
+                  onAddFile={(data, name, mimeType, size) =>
+                    handleAddFile(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      data,
+                      name,
+                      mimeType,
+                      size
+                    )
+                  }
+                  onDeleteFile={(fileId) =>
+                    handleDeleteFile(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      fileId
                     )
                   }
                 />

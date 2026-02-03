@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Project, Area, Location, Item, Checkpoint, PhotoAttachment } from '@/types';
+import { Project, Area, Location, Item, Checkpoint, PhotoAttachment, FileAttachment } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface PunchListDB extends DBSchema {
@@ -118,6 +118,7 @@ export function createCheckpoint(itemId: string, name: string, sortOrder: number
     comments: '',
     sortOrder,
     photos: [],
+    files: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -129,6 +130,24 @@ export function createPhotoAttachment(checkpointId: string, imageData: string, t
     checkpointId,
     imageData,
     thumbnail,
+    createdAt: new Date(),
+  };
+}
+
+export function createFileAttachment(
+  checkpointId: string,
+  data: string,
+  name: string,
+  mimeType: string,
+  size: number
+): FileAttachment {
+  return {
+    id: uuidv4(),
+    checkpointId,
+    data,
+    name,
+    mimeType,
+    size,
     createdAt: new Date(),
   };
 }
