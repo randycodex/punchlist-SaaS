@@ -37,8 +37,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isReady || !clientId) return;
+    const oauth2 = window.google?.accounts?.oauth2;
+    if (!oauth2) return;
 
-    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+    tokenClientRef.current = oauth2.initTokenClient({
       client_id: clientId,
       scope: DRIVE_SCOPE,
       callback: (response) => {
@@ -54,13 +56,14 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   }
 
   function signOut() {
-    if (accessToken) {
-      window.google.accounts.oauth2.revoke(accessToken, () => {
+    const oauth2 = window.google?.accounts?.oauth2;
+    if (accessToken && oauth2) {
+      oauth2.revoke(accessToken, () => {
         setAccessToken(null);
       });
-    } else {
-      setAccessToken(null);
+      return;
     }
+    setAccessToken(null);
   }
 
   return (
