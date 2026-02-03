@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -21,12 +21,10 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
-export default function AreaDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string; areaId: string }>;
-}) {
-  const { id, areaId } = use(params);
+export default function AreaDetailPage() {
+  const params = useParams<{ id: string; areaId: string }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const areaId = Array.isArray(params.areaId) ? params.areaId[0] : params.areaId;
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [area, setArea] = useState<Area | null>(null);
@@ -41,10 +39,15 @@ export default function AreaDetailPage({
   const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
+    if (!id || !areaId) {
+      router.push('/');
+      return;
+    }
     loadData();
   }, [id, areaId]);
 
   async function loadData() {
+    if (!id || !areaId) return;
     try {
       const projectData = await getProject(id);
       if (projectData) {

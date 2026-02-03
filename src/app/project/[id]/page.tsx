@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
@@ -31,8 +31,9 @@ type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 
-export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function ProjectDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
+    if (!id) {
+      router.push('/');
+      return;
+    }
     // Load saved sort preference
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
     if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
@@ -66,6 +71,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function loadProject() {
+    if (!id) return;
     try {
       const data = await getProject(id);
       if (data) {

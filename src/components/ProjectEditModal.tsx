@@ -11,14 +11,18 @@ interface ProjectEditModalProps {
 }
 
 export default function ProjectEditModal({ project, onSave, onClose }: ProjectEditModalProps) {
+  function toDateInputValue(value: Date) {
+    const date = new Date(value);
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().split('T')[0];
+  }
+
   const [projectName, setProjectName] = useState(project.projectName);
   const [address, setAddress] = useState(project.address);
   const [inspector, setInspector] = useState(project.inspector);
   const [gcName, setGcName] = useState(project.gcName);
   const [gcSignoff, setGcSignoff] = useState(project.gcSignoff);
-  const [date, setDate] = useState(
-    new Date(project.date).toISOString().split('T')[0]
-  );
+  const [date, setDate] = useState(toDateInputValue(project.date));
 
   function handleSave() {
     if (!projectName.trim()) return;

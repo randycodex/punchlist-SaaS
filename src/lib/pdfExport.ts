@@ -37,7 +37,19 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   const columnGap = 8;
 
   // Collect all photos with references
-  const allPhotos: { ref: number; area: string; location: string; item: string; checkpoint: string; thumbnail: string; imageData: string }[] = [];
+  const allPhotos: {
+    ref: number;
+    areaId: string;
+    locationId: string;
+    itemId: string;
+    checkpointId: string;
+    area: string;
+    location: string;
+    item: string;
+    checkpoint: string;
+    thumbnail: string;
+    imageData: string;
+  }[] = [];
   let photoRefCounter = 1;
 
   // Load logo
@@ -247,6 +259,10 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
             for (const photo of checkpoint.photos) {
               allPhotos.push({
                 ref: photoRefCounter,
+                areaId: area.id,
+                locationId: location.id,
+                itemId: item.id,
+                checkpointId: checkpoint.id,
                 area: area.name,
                 location: location.name,
                 item: item.name,
@@ -292,7 +308,12 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
         for (const checkpoint of item.checkpoints) {
           if (checkpoint.status === 'needsReview') {
             const photoRefs = allPhotos
-              .filter(p => p.area === area.name && p.location === location.name && p.item === item.name && p.checkpoint === checkpoint.name)
+              .filter(p =>
+                p.areaId === area.id &&
+                p.locationId === location.id &&
+                p.itemId === item.id &&
+                p.checkpointId === checkpoint.id
+              )
               .map(p => p.ref);
             allIssues.push({
               area: area.name,

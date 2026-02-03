@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Image as ImageIcon, X, Trash2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, X } from 'lucide-react';
 import { PhotoAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -11,68 +11,35 @@ interface PhotoCaptureProps {
 }
 
 export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: PhotoCaptureProps) {
-  const [showCamera, setShowCamera] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const maxImageSize = 1600;
 
-  async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setShowCamera(true);
-    } catch (error) {
-      console.error('Failed to access camera:', error);
-      alert('Could not access camera. Please check permissions.');
-    }
-  }
-
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setShowCamera(false);
-  }
-
-  function capturePhoto() {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
+  function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) return img.src;
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', quality);
+  }
 
-    ctx.drawImage(video, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
-    // Create thumbnail
-    const thumbCanvas = document.createElement('canvas');
-    thumbCanvas.width = 150;
-    thumbCanvas.height = 150;
-    const thumbCtx = thumbCanvas.getContext('2d');
-    if (thumbCtx) {
-      const size = Math.min(video.videoWidth, video.videoHeight);
-      const x = (video.videoWidth - size) / 2;
-      const y = (video.videoHeight - size) / 2;
-      thumbCtx.drawImage(canvas, x, y, size, size, 0, 0, 150, 150);
-    }
-    const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.6);
-
-    onAddPhoto(imageData, thumbnail);
-    stopCamera();
+  function createThumbnailData(img: HTMLImageElement, size: number, quality: number) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return img.src;
+    const cropSize = Math.min(img.width, img.height);
+    const sx = Math.round((img.width - cropSize) / 2);
+    const sy = Math.round((img.height - cropSize) / 2);
+    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, size, size);
+    return canvas.toDataURL('image/jpeg', quality);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -81,25 +48,16 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const imageData = event.target?.result as string;
+      const sourceData = event.target?.result as string;
 
       // Create thumbnail
       const img = new window.Image();
       img.onload = () => {
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 150;
-        thumbCanvas.height = 150;
-        const thumbCtx = thumbCanvas.getContext('2d');
-        if (thumbCtx) {
-          const size = Math.min(img.width, img.height);
-          const x = (img.width - size) / 2;
-          const y = (img.height - size) / 2;
-          thumbCtx.drawImage(img, x, y, size, size, 0, 0, 150, 150);
-        }
-        const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.6);
+        const imageData = createScaledImageData(img, maxImageSize, 0.8);
+        const thumbnail = createThumbnailData(img, 150, 0.6);
         onAddPhoto(imageData, thumbnail);
       };
-      img.src = imageData;
+      img.src = sourceData;
     };
     reader.readAsDataURL(file);
 
@@ -176,35 +134,6 @@ export default function PhotoCapture({ photos, onAddPhoto, onDeletePhoto }: Phot
           className="hidden"
         />
       </div>
-
-      {/* Camera modal */}
-      {showCamera && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="flex-1 relative">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            <canvas ref={canvasRef} className="hidden" />
-          </div>
-          <div className="p-4 flex justify-center gap-4 bg-black">
-            <button
-              onClick={stopCamera}
-              className="p-4 bg-gray-700 text-white rounded-full"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <button
-              onClick={capturePhoto}
-              className="p-4 bg-white rounded-full"
-            >
-              <div className="w-6 h-6 bg-red-500 rounded-full" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Full photo viewer */}
       {selectedPhoto && (
