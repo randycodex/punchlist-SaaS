@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Image as ImageIcon, X, Paperclip } from 'lucide-react';
+import { Camera, X, Paperclip } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -9,7 +9,6 @@ interface PhotoCaptureProps {
   files: FileAttachment[];
   onAddPhoto: (imageData: string, thumbnail: string) => void;
   onDeletePhoto: (photoId: string) => void;
-  onAddFile: (data: string, name: string, mimeType: string, size: number) => void;
   onDeleteFile: (fileId: string) => void;
 }
 
@@ -18,13 +17,10 @@ export default function PhotoCapture({
   files,
   onAddPhoto,
   onDeletePhoto,
-  onAddFile,
   onDeleteFile,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const maxImageSize = 1600;
 
   function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
@@ -74,29 +70,8 @@ export default function PhotoCapture({
     });
 
     // Reset inputs
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
     if (cameraInputRef.current) {
       cameraInputRef.current.value = '';
-    }
-  }
-
-  function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files ?? []);
-    if (selected.length === 0) return;
-
-    selected.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const data = event.target?.result as string;
-        onAddFile(data, file.name, file.type || 'application/octet-stream', file.size);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    if (attachmentInputRef.current) {
-      attachmentInputRef.current.value = '';
     }
   }
 
@@ -165,20 +140,6 @@ export default function PhotoCapture({
           <Camera className="w-3 h-3" />
           Camera
         </button>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-50 text-gray-600 rounded hover:bg-gray-100"
-        >
-          <ImageIcon className="w-3 h-3" />
-          Photo Library
-        </button>
-        <button
-          onClick={() => attachmentInputRef.current?.click()}
-          className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-50 text-gray-600 rounded hover:bg-gray-100"
-        >
-          <Paperclip className="w-3 h-3" />
-          Choose Files
-        </button>
         {/* Camera input - directly opens camera on mobile */}
         <input
           ref={cameraInputRef}
@@ -186,24 +147,6 @@ export default function PhotoCapture({
           accept="image/*"
           capture="environment"
           onChange={handlePhotoSelect}
-          className="hidden"
-        />
-        {/* Photo library input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handlePhotoSelect}
-          className="hidden"
-        />
-        {/* File attachments input */}
-        <input
-          ref={attachmentInputRef}
-          type="file"
-          accept="application/*,text/*,audio/*,video/*"
-          onChange={handleAttachmentSelect}
-          multiple
           className="hidden"
         />
       </div>
