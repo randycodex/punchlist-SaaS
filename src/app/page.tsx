@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
-import { syncProjectsWithDrive } from '@/lib/googleSync';
+import { syncProjectsWithDrive, SyncConflict } from '@/lib/googleSync';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,6 +34,8 @@ export default function ProjectsPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const { accessToken, isSignedIn, isReady, signIn, signOut } = useGoogleAuth();
 
   useEffect(() => {
@@ -41,6 +43,10 @@ export default function ProjectsPage() {
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
     if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
       setSortOption(savedSort);
+    }
+    const lastSync = localStorage.getItem('punchlist-drive-last-sync');
+    if (lastSync) {
+      setLastSyncAt(lastSync);
     }
     loadProjects();
   }, []);
@@ -72,7 +78,9 @@ export default function ProjectsPage() {
     setSyncing(true);
     setSyncError(null);
     try {
-      await syncProjectsWithDrive(accessToken);
+      const result = await syncProjectsWithDrive(accessToken);
+      setSyncConflicts(result.conflicts);
+      setLastSyncAt(result.syncedAt);
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -216,6 +224,39 @@ export default function ProjectsPage() {
       {syncError && (
         <div className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
+        </div>
+      )}
+      {(isSignedIn || lastSyncAt || syncConflicts.length > 0) && (
+        <div className="px-4 py-2 text-sm border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+            <span className="font-medium">Sync status:</span>
+            <span>{syncing ? 'Syncing…' : 'Idle'}</span>
+            {lastSyncAt && (
+              <span className="text-gray-400">
+                Last sync: {new Date(lastSyncAt).toLocaleString()}
+              </span>
+            )}
+            {syncConflicts.length > 0 && (
+              <span className="text-orange-500">
+                {syncConflicts.length} conflict{syncConflicts.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          {syncConflicts.length > 0 && (
+            <div className="mt-2 text-xs text-orange-600">
+              Conflicts detected:
+              <div className="flex flex-wrap gap-2 mt-1">
+                {syncConflicts.map((conflict) => (
+                  <span
+                    key={conflict.id}
+                    className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200"
+                  >
+                    {conflict.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
