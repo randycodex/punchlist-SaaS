@@ -17,7 +17,7 @@ const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const tokenClientRef = useRef<google.accounts.oauth2.TokenClient | null>(null);
+  const tokenClientRef = useRef<any>(null);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
