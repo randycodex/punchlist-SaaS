@@ -201,6 +201,7 @@ export default function PhotoCapture({
         <input
           ref={attachmentInputRef}
           type="file"
+          accept="application/*,text/*,audio/*,video/*"
           onChange={handleAttachmentSelect}
           multiple
           className="hidden"
