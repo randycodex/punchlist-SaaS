@@ -7,7 +7,6 @@ type DriveFile = {
   id: string;
   name: string;
   modifiedTime?: string;
-  etag?: string;
 };
 
 type PunchListFolders = {
@@ -104,8 +103,7 @@ async function uploadMultipart(
   method: 'POST' | 'PATCH',
   metadata: Record<string, unknown>,
   mimeType: string,
-  data: Blob | string,
-  etag?: string
+  data: Blob | string
 ) {
   const boundary = `punchlist_${Math.random().toString(36).slice(2)}`;
   const body = buildMultipartBody(boundary, metadata, mimeType, data);
@@ -113,10 +111,6 @@ async function uploadMultipart(
     Authorization: `Bearer ${token}`,
     'Content-Type': `multipart/related; boundary=${boundary}`,
   };
-  if (etag) {
-    headers['If-Match'] = etag;
-  }
-
   const response = await fetch(url, {
     method,
     headers,
@@ -147,12 +141,11 @@ async function updateFile(
   token: string,
   fileId: string,
   mimeType: string,
-  data: Blob | string,
-  etag?: string
+  data: Blob | string
 ) {
   const metadata = { mimeType };
   const url = `${DRIVE_UPLOAD_API}/files/${fileId}?uploadType=multipart`;
-  return uploadMultipart(token, url, 'PATCH', metadata, mimeType, data, etag);
+  return uploadMultipart(token, url, 'PATCH', metadata, mimeType, data);
 }
 
 export async function listProjectFiles(token: string, projectsFolderId: string) {
@@ -160,7 +153,7 @@ export async function listProjectFiles(token: string, projectsFolderId: string) 
   const result = await listFiles(
     token,
     query,
-    'files(id,name,modifiedTime,etag)'
+    'files(id,name,modifiedTime)'
   );
   return result.files;
 }
@@ -185,7 +178,7 @@ export async function saveProjectFile(
   const name = `${project.id}.json`;
   const data = JSON.stringify(project);
   if (existing) {
-    return updateFile(token, existing.id, 'application/json', data, existing.etag);
+    return updateFile(token, existing.id, 'application/json', data);
   }
   return createFile(token, name, projectsFolderId, 'application/json', data);
 }
