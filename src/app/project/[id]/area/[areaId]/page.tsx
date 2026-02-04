@@ -208,17 +208,11 @@ export default function AreaDetailPage() {
     : null;
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-20">
+    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href={`/project/${project.id}`}
-              className="p-1 -ml-1 text-gray-600 dark:text-gray-300"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
             <Image
               src="/uai-logo.png"
               alt="UAI Logo"
@@ -226,10 +220,23 @@ export default function AreaDetailPage() {
               height={32}
               className="object-contain"
             />
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-              {area.name}
-            </h1>
           </div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PunchList</h1>
+        </div>
+        <div className="px-4 pb-3 flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <Link
+              href={`/project/${project.id}`}
+              className="p-1 -ml-1 text-gray-600 dark:text-gray-300"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
+              {area.name}
+            </span>
+          </div>
+          <div className="ml-auto" />
         </div>
       </header>
 

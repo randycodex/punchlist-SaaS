@@ -34,8 +34,4 @@ body {
   }
 }
 
-/* Safe area for iOS */
-body {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
+/* Safe area is handled per-page to keep header heights stable. */
