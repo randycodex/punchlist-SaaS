@@ -131,17 +131,17 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
               src="/uai-logo.png"
@@ -150,74 +150,80 @@ export default function ProjectsPage() {
               height={40}
               className="object-contain"
             />
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Sort dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                {sortLabels[sortOption]}
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              {showSortMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowSortMenu(false)}
-                  />
-                  <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => handleSortChange(option)}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {sortLabels[option]}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
+        </div>
+        <div className="px-4 pb-3 flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             {isReady && (
               <>
                 {!isSignedIn ? (
                   <button
                     onClick={signIn}
-                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                   >
                     Sign in
                   </button>
                 ) : (
-                  <>
-                    <button
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-                    >
-                      {syncing ? 'Syncing...' : 'Sync'}
-                    </button>
-                    <button
-                      onClick={signOut}
-                      className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                    >
-                      Sign out
-                    </button>
-                  </>
+                  <button
+                    onClick={signOut}
+                    className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  >
+                    Sign out
+                  </button>
                 )}
+                <span className="text-gray-300 dark:text-gray-600">|</span>
               </>
             )}
             <button
+              onClick={handleSync}
+              disabled={!isSignedIn || syncing}
+              className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+            >
+              {syncing ? 'Syncing...' : 'Sync'}
+            </button>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span className="text-gray-500 dark:text-gray-400">
+              Last: {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : '—'}
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <button
               onClick={() => setShowNewProject(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              aria-label="Add project"
             >
               <Plus className="w-5 h-5" />
             </button>
+          </div>
+          <div className="ml-auto relative">
+            <button
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              {sortLabels[sortOption]}
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {showSortMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowSortMenu(false)}
+                />
+                <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSortChange(option)}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {sortLabels[option]}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -226,37 +232,19 @@ export default function ProjectsPage() {
           {syncError}
         </div>
       )}
-      {(isSignedIn || lastSyncAt || syncConflicts.length > 0) && (
+      {syncConflicts.length > 0 && (
         <div className="px-4 py-2 text-sm border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
-            <span className="font-medium">Sync status:</span>
-            <span>{syncing ? 'Syncing…' : 'Idle'}</span>
-            {lastSyncAt && (
-              <span className="text-gray-400">
-                Last sync: {new Date(lastSyncAt).toLocaleString()}
+          <div className="text-orange-600">Conflicts detected:</div>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {syncConflicts.map((conflict) => (
+              <span
+                key={conflict.id}
+                className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200"
+              >
+                {conflict.name}
               </span>
-            )}
-            {syncConflicts.length > 0 && (
-              <span className="text-orange-500">
-                {syncConflicts.length} conflict{syncConflicts.length > 1 ? 's' : ''}
-              </span>
-            )}
+            ))}
           </div>
-          {syncConflicts.length > 0 && (
-            <div className="mt-2 text-xs text-orange-600">
-              Conflicts detected:
-              <div className="flex flex-wrap gap-2 mt-1">
-                {syncConflicts.map((conflict) => (
-                  <span
-                    key={conflict.id}
-                    className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200"
-                  >
-                    {conflict.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 

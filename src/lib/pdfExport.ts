@@ -35,6 +35,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   const contentWidth = pageWidth - margin * 2;
   const columnWidth = (contentWidth - 8) / 2;
   const columnGap = 8;
+  const statusIconRadius = 1.6;
 
   // Collect all photos with references
   const allPhotos: {
@@ -67,6 +68,28 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     size: number;
   }[] = [];
   let fileRefCounter = 1;
+
+  function drawStatusIcon(status: 'pending' | 'ok' | 'needsReview', x: number, y: number) {
+    const centerY = y - 1.5;
+    pdf.setLineWidth(0.35);
+
+    if (status === 'ok') {
+      pdf.setDrawColor(34, 197, 94);
+      pdf.setFillColor(34, 197, 94);
+      pdf.circle(x, centerY, statusIconRadius, 'F');
+    } else if (status === 'needsReview') {
+      pdf.setDrawColor(249, 115, 22);
+      pdf.circle(x, centerY, statusIconRadius, 'S');
+      pdf.line(x - 1.1, centerY - 1.1, x + 1.1, centerY + 1.1);
+      pdf.line(x - 1.1, centerY + 1.1, x + 1.1, centerY - 1.1);
+    } else {
+      pdf.setDrawColor(156, 163, 175);
+      pdf.circle(x, centerY, statusIconRadius, 'S');
+    }
+
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setFillColor(0, 0, 0);
+  }
 
   function formatFileSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -267,12 +290,7 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
           pdf.setFontSize(7);
           pdf.setFont('helvetica', 'normal');
 
-          const statusSymbol = checkpoint.status === 'ok' ? '✓' : checkpoint.status === 'needsReview' ? '✗' : '○';
-          const statusColor: [number, number, number] = checkpoint.status === 'ok' ? [34, 197, 94] : checkpoint.status === 'needsReview' ? [249, 115, 22] : [156, 163, 175];
-
-          pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-          pdf.text(statusSymbol, cpColumnX + 6, locY);
-          pdf.setTextColor(0, 0, 0);
+          drawStatusIcon(checkpoint.status, cpColumnX + 6, locY);
 
           const cpText = checkpoint.name.length > 22 ? checkpoint.name.substring(0, 19) + '...' : checkpoint.name;
           pdf.text(cpText, cpColumnX + 12, locY);
