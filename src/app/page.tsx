@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithDrive, SyncConflict } from '@/lib/googleSync';
-import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
+import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,6 +27,7 @@ type SortOption = 'name' | 'recent' | 'progress';
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -117,7 +119,7 @@ export default function ProjectsPage() {
     setNewProjectAddress('');
     setNewProjectInspector('');
     setShowNewProject(false);
-    loadProjects();
+    router.push(`/project/${project.id}?edit=1`);
   }
 
   async function handleDeleteProject(id: string) {
@@ -146,15 +148,13 @@ export default function ProjectsPage() {
       const projectsToExport = [...sortedProjects]
         .filter((project) => selectedProjectIds.has(project.id))
         .sort((a, b) => a.projectName.localeCompare(b.projectName));
-      for (const project of projectsToExport) {
-        const projectForExport = {
-          ...project,
-          areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
-        };
-        const blob = await generateProjectPDF(projectForExport);
-        const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
-        downloadPDF(blob, filename);
-      }
+      const projectsForExport = projectsToExport.map((project) => ({
+        ...project,
+        areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+      const blob = await generateMultiProjectPDF(projectsForExport);
+      const filename = 'PunchList_Projects_Report.pdf';
+      downloadPDF(blob, filename);
     } catch (error) {
       console.error('Failed to export selected projects:', error);
       alert('Failed to export selected projects. Please try again.');
@@ -213,7 +213,6 @@ export default function ProjectsPage() {
                     Sign out
                   </button>
                 )}
-                <span className="text-gray-300 dark:text-gray-600">|</span>
               </>
             )}
             <button

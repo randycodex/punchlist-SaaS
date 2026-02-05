@@ -27,8 +27,46 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
   });
 }
 
-export async function generateProjectPDF(project: Project): Promise<Blob> {
-  const pdf = new jsPDF('p', 'mm', 'a4');
+type LogoAssets = {
+  base64: string | null;
+  width: number;
+  height: number;
+};
+
+async function loadLogoAssets(): Promise<LogoAssets> {
+  const base64 = await loadLogoBase64();
+  let width = 30;
+  let height = 30;
+
+  if (base64) {
+    try {
+      const dims = await getImageDimensions(base64);
+      const maxLogoHeight = 25;
+      const aspectRatio = dims.width / dims.height;
+      height = maxLogoHeight;
+      width = maxLogoHeight * aspectRatio;
+    } catch {
+      // Use defaults
+    }
+  }
+
+  return { base64, width, height };
+}
+
+function addFooter(pdf: jsPDF, margin: number) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 150, 150);
+    pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+  }
+}
+
+function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
@@ -99,32 +137,14 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     return `${mb.toFixed(1)} MB`;
   }
 
-  // Load logo
-  const logoBase64 = await loadLogoBase64();
-  let logoWidth = 30;
-  let logoHeight = 30;
-
-  // Calculate logo dimensions maintaining aspect ratio
-  if (logoBase64) {
-    try {
-      const dims = await getImageDimensions(logoBase64);
-      const maxLogoHeight = 25;
-      const aspectRatio = dims.width / dims.height;
-      logoHeight = maxLogoHeight;
-      logoWidth = maxLogoHeight * aspectRatio;
-    } catch {
-      // Use defaults
-    }
-  }
-
   // Cover page
   let coverY = 25;
 
   // Add logo at top (maintaining proportions)
-  if (logoBase64) {
+  if (logo.base64) {
     try {
-      pdf.addImage(logoBase64, 'PNG', pageWidth / 2 - logoWidth / 2, coverY, logoWidth, logoHeight);
-      coverY += logoHeight + 15;
+      pdf.addImage(logo.base64, 'PNG', pageWidth / 2 - logo.width / 2, coverY, logo.width, logo.height);
+      coverY += logo.height + 15;
     } catch (e) {
       coverY += 10;
     }
@@ -553,16 +573,29 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
     }
   }
 
-  // Footer on all pages
-  const totalPages = pdf.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    pdf.setPage(i);
-    pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-  }
+}
 
+export async function generateProjectPDF(project: Project): Promise<Blob> {
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const logo = await loadLogoAssets();
+  renderProjectToPdf(pdf, project, logo);
+  addFooter(pdf, 15);
+
+  return pdf.output('blob');
+}
+
+export async function generateMultiProjectPDF(projects: Project[]): Promise<Blob> {
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const logo = await loadLogoAssets();
+
+  projects.forEach((project, index) => {
+    if (index > 0) {
+      pdf.addPage();
+    }
+    renderProjectToPdf(pdf, project, logo);
+  });
+
+  addFooter(pdf, 15);
   return pdf.output('blob');
 }
 

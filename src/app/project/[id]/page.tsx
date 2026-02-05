@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Project, Area, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
@@ -25,7 +25,6 @@ import {
   MoreVertical,
   MapPin,
   User,
-  Pencil,
   Loader2,
 } from 'lucide-react';
 
@@ -36,6 +35,7 @@ const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +67,12 @@ export default function ProjectDetailPage() {
     }
     loadProject();
   }, [id]);
+
+  useEffect(() => {
+    if (searchParams.get('edit') === '1') {
+      setShowEditProject(true);
+    }
+  }, [searchParams]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -208,7 +214,6 @@ export default function ProjectDetailPage() {
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <button
               onClick={() => setShowEditProject(true)}
               className="font-medium text-gray-700 dark:text-gray-200 truncate hover:text-blue-600 dark:hover:text-blue-400"
@@ -217,7 +222,6 @@ export default function ProjectDetailPage() {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
@@ -248,7 +252,6 @@ export default function ProjectDetailPage() {
                 </>
               )}
             </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
@@ -288,21 +291,10 @@ export default function ProjectDetailPage() {
                       )}
                       {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setShowEditProject(true);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Edit Project
-                    </button>
                   </div>
                 </>
               )}
             </div>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <button
               onClick={() => setShowAddArea(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
@@ -310,7 +302,6 @@ export default function ProjectDetailPage() {
             >
               <Plus className="w-5 h-5" />
             </button>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
           </div>
         </div>
       </header>

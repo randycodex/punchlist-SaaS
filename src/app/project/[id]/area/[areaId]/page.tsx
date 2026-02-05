@@ -232,7 +232,6 @@ export default function AreaDetailPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
               {area.name}
             </span>
