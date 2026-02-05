@@ -215,101 +215,103 @@ export default function ProjectDetailPage() {
             >
               {project.projectName}
             </button>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                {sortLabels[sortOption]}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showSortMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => handleSortChange(option)}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {sortLabels[option]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                aria-label="Export"
+              >
+                <FileDown className="w-4 h-4" />
+              </button>
+              {showMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                    <button
+                      onClick={handleExportPDF}
+                      disabled={exporting}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {exporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileDown className="w-4 h-4" />
+                      )}
+                      Export PDF
+                    </button>
+                    <button
+                      onClick={handleExportPDFToDrive}
+                      disabled={exportingToDrive}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {exportingToDrive ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileDown className="w-4 h-4" />
+                      )}
+                      {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowEditProject(true);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Edit Project
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <button
+              onClick={() => setShowAddArea(true)}
+              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              aria-label="Add area"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
             <span className="text-gray-300 dark:text-gray-600">|</span>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
-              {sortLabels[sortOption]}
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {showSortMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowSortMenu(false)}
-                />
-                <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => handleSortChange(option)}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {sortLabels[option]}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          <span className="text-gray-300 dark:text-gray-600">|</span>
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              aria-label="Export"
-            >
-              <FileDown className="w-4 h-4" />
-            </button>
-            {showMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowMenu(false)}
-                />
-                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                  <button
-                    onClick={handleExportPDF}
-                    disabled={exporting}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {exporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FileDown className="w-4 h-4" />
-                    )}
-                    Export PDF
-                  </button>
-                  <button
-                    onClick={handleExportPDFToDrive}
-                    disabled={exportingToDrive}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {exportingToDrive ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FileDown className="w-4 h-4" />
-                    )}
-                    {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false);
-                      setShowEditProject(true);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Pencil className="w-4 h-4" />
-                    Edit Project
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-          <span className="text-gray-300 dark:text-gray-600">|</span>
-          <button
-            onClick={() => setShowAddArea(true)}
-            className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-            aria-label="Add area"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          <span className="text-gray-300 dark:text-gray-600">|</span>
         </div>
       </header>
 

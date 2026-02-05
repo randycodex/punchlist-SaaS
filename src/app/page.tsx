@@ -143,9 +143,15 @@ export default function ProjectsPage() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
     setExportingSelected(true);
     try {
-      const projectsToExport = sortedProjects.filter((project) => selectedProjectIds.has(project.id));
+      const projectsToExport = [...sortedProjects]
+        .filter((project) => selectedProjectIds.has(project.id))
+        .sort((a, b) => a.projectName.localeCompare(b.projectName));
       for (const project of projectsToExport) {
-        const blob = await generateProjectPDF(project);
+        const projectForExport = {
+          ...project,
+          areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
+        };
+        const blob = await generateProjectPDF(projectForExport);
         const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
         downloadPDF(blob, filename);
       }
@@ -218,51 +224,53 @@ export default function ProjectsPage() {
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
           </div>
-          <div className="relative">
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                {sortLabels[sortOption]}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showSortMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => handleSortChange(option)}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {sortLabels[option]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             <button
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              onClick={handleExportSelected}
+              disabled={selectedProjectIds.size === 0 || exportingSelected}
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+              aria-label="Export selected projects"
             >
-              {sortLabels[sortOption]}
-              <ChevronDown className="w-4 h-4" />
+              <FileDown className="w-4 h-4" />
             </button>
-            {showSortMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowSortMenu(false)}
-                />
-                <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => handleSortChange(option)}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {sortLabels[option]}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            <button
+              onClick={() => setShowNewProject(true)}
+              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              aria-label="Add project"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={handleExportSelected}
-            disabled={selectedProjectIds.size === 0 || exportingSelected}
-            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-            aria-label="Export selected projects"
-          >
-            <FileDown className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowNewProject(true)}
-            className="ml-auto p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-            aria-label="Add project"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
         </div>
       </header>
       {syncError && (
@@ -315,7 +323,7 @@ export default function ProjectsPage() {
                       type="checkbox"
                       checked={selectedProjectIds.has(project.id)}
                       onChange={() => toggleProjectSelection(project.id)}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       aria-label={`Select ${project.projectName}`}
                     />
                     <Link href={`/project/${project.id}`} className="flex-1 min-w-0">
