@@ -196,7 +196,7 @@ export default function ProjectDetailPage() {
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
-        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+        <div className="px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
               src="/uai-logo.png"
