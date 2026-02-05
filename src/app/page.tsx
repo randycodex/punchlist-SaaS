@@ -183,10 +183,6 @@ export default function ProjectsPage() {
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
             <span className="text-gray-300 dark:text-gray-600">|</span>
-            <span className="text-gray-500 dark:text-gray-400">
-              Last: {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : '—'}
-            </span>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
             <button
               onClick={() => setShowNewProject(true)}
               className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
@@ -198,7 +194,7 @@ export default function ProjectsPage() {
           <div className="ml-auto relative">
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
             >
               {sortLabels[sortOption]}
               <ChevronDown className="w-4 h-4" />

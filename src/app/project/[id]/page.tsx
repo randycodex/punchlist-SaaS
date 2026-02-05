@@ -217,7 +217,7 @@ export default function ProjectDetailPage() {
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 {sortLabels[sortOption]}
                 <ChevronDown className="w-4 h-4" />
