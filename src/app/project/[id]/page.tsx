@@ -260,44 +260,43 @@ export default function ProjectDetailPage() {
                   onClick={() => setShowMenu(false)}
                 />
                 <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                    <button
-                      onClick={handleExportPDF}
-                      disabled={exporting}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {exporting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <FileDown className="w-4 h-4" />
-                      )}
-                      Export PDF
-                    </button>
-                    <button
-                      onClick={handleExportPDFToDrive}
-                      disabled={exportingToDrive}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {exportingToDrive ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <FileDown className="w-4 h-4" />
-                      )}
-                      {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setShowEditProject(true);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Edit Project
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={exporting}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileDown className="w-4 h-4" />
+                    )}
+                    Export PDF
+                  </button>
+                  <button
+                    onClick={handleExportPDFToDrive}
+                    disabled={exportingToDrive}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {exportingToDrive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileDown className="w-4 h-4" />
+                    )}
+                    {isSignedIn ? 'Export PDF to Drive' : 'Sign in to Export'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowEditProject(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit Project
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           <span className="text-gray-300 dark:text-gray-600">|</span>
           <button
