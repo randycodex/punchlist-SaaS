@@ -206,7 +206,7 @@ export default function ProjectDetailPage() {
               className="object-contain"
             />
           </div>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PunchList</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700" />
         <div className="px-4 h-full flex items-center gap-2">
