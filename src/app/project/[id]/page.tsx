@@ -209,7 +209,7 @@ export default function ProjectDetailPage() {
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700" />
-        <div className="px-4 py-3 flex items-center gap-2">
+        <div className="px-4 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
@@ -225,7 +225,7 @@ export default function ProjectDetailPage() {
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 {sortLabels[sortOption]}
                 <ChevronDown className="w-4 h-4" />
@@ -255,7 +255,7 @@ export default function ProjectDetailPage() {
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="h-9 w-9 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 aria-label="Export"
               >
                 <FileDown className="w-4 h-4" />
@@ -297,7 +297,7 @@ export default function ProjectDetailPage() {
             </div>
             <button
               onClick={() => setShowAddArea(true)}
-              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
               aria-label="Add area"
             >
               <Plus className="w-5 h-5" />

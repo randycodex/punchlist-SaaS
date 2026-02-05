@@ -194,21 +194,21 @@ export default function ProjectsPage() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700" />
-        <div className="px-4 py-3 flex items-center gap-2">
+        <div className="px-4 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             {isReady && (
               <>
                 {!isSignedIn ? (
                   <button
                     onClick={signIn}
-                    className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                   >
                     Sign in
                   </button>
                 ) : (
                   <button
                     onClick={signOut}
-                    className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                   >
                     Sign out
                   </button>
@@ -218,7 +218,7 @@ export default function ProjectsPage() {
             <button
               onClick={handleSync}
               disabled={!isSignedIn || syncing}
-              className="px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+              className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
             >
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
@@ -227,7 +227,7 @@ export default function ProjectsPage() {
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 {sortLabels[sortOption]}
                 <ChevronDown className="w-4 h-4" />
@@ -257,14 +257,14 @@ export default function ProjectsPage() {
             <button
               onClick={handleExportSelected}
               disabled={selectedProjectIds.size === 0 || exportingSelected}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+              className="h-9 w-9 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
               aria-label="Export selected projects"
             >
               <FileDown className="w-4 h-4" />
             </button>
             <button
               onClick={() => setShowNewProject(true)}
-              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
               aria-label="Add project"
             >
               <Plus className="w-5 h-5" />
