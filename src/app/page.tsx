@@ -251,10 +251,10 @@ export default function ProjectsPage() {
           <button
             onClick={handleExportSelected}
             disabled={selectedProjectIds.size === 0 || exportingSelected}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+            aria-label="Export selected projects"
           >
             <FileDown className="w-4 h-4" />
-            {exportingSelected ? 'Exporting...' : 'Export Selected'}
           </button>
           <button
             onClick={() => setShowNewProject(true)}
