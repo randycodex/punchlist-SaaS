@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithDrive, SyncConflict } from '@/lib/googleSync';
+import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,6 +18,7 @@ import {
   AlertTriangle,
   Circle,
   ChevronDown,
+  FileDown,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -36,6 +38,8 @@ export default function ProjectsPage() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
+  const [exportingSelected, setExportingSelected] = useState(false);
   const { accessToken, isSignedIn, isReady, signIn, signOut } = useGoogleAuth();
 
   useEffect(() => {
@@ -120,6 +124,36 @@ export default function ProjectsPage() {
     if (confirm('Are you sure you want to delete this project?')) {
       await deleteProject(id);
       loadProjects();
+    }
+  }
+
+  function toggleProjectSelection(id: string) {
+    setSelectedProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleExportSelected() {
+    if (exportingSelected || selectedProjectIds.size === 0) return;
+    setExportingSelected(true);
+    try {
+      const projectsToExport = sortedProjects.filter((project) => selectedProjectIds.has(project.id));
+      for (const project of projectsToExport) {
+        const blob = await generateProjectPDF(project);
+        const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
+        downloadPDF(blob, filename);
+      }
+    } catch (error) {
+      console.error('Failed to export selected projects:', error);
+      alert('Failed to export selected projects. Please try again.');
+    } finally {
+      setExportingSelected(false);
     }
   }
 
@@ -215,6 +249,14 @@ export default function ProjectsPage() {
             )}
           </div>
           <button
+            onClick={handleExportSelected}
+            disabled={selectedProjectIds.size === 0 || exportingSelected}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+          >
+            <FileDown className="w-4 h-4" />
+            {exportingSelected ? 'Exporting...' : 'Export Selected'}
+          </button>
+          <button
             onClick={() => setShowNewProject(true)}
             className="ml-auto p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
             aria-label="Add project"
@@ -264,13 +306,19 @@ export default function ProjectsPage() {
               const stats = getProjectStats(project);
               const pending = stats.total - stats.ok - stats.issues;
               return (
-                <Link
+                <div
                   key={project.id}
-                  href={`/project/${project.id}`}
-                  className="block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjectIds.has(project.id)}
+                      onChange={() => toggleProjectSelection(project.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      aria-label={`Select ${project.projectName}`}
+                    />
+                    <Link href={`/project/${project.id}`} className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-900 dark:text-white">{project.projectName}</h3>
                       {project.address && (
                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
@@ -299,7 +347,7 @@ export default function ProjectsPage() {
                           </span>
                         )}
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => {
@@ -310,10 +358,16 @@ export default function ProjectsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <Link
+                        href={`/project/${project.id}`}
+                        className="p-1 text-gray-400 hover:text-blue-500"
+                        aria-label={`Open ${project.projectName}`}
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </Link>
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

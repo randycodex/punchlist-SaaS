@@ -209,9 +209,12 @@ export default function ProjectDetailPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <span className="text-gray-300 dark:text-gray-600">|</span>
-            <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
+            <button
+              onClick={() => setShowEditProject(true)}
+              className="font-medium text-gray-700 dark:text-gray-200 truncate hover:text-blue-600 dark:hover:text-blue-400"
+            >
               {project.projectName}
-            </span>
+            </button>
             <span className="text-gray-300 dark:text-gray-600">|</span>
           </div>
           <div className="relative">
@@ -248,10 +251,10 @@ export default function ProjectDetailPage() {
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              aria-label="Export"
             >
               <FileDown className="w-4 h-4" />
-              Export
             </button>
             {showMenu && (
               <>
