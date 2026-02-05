@@ -71,8 +71,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
-  const columnWidth = (contentWidth - 8) / 2;
-  const columnGap = 8;
+  const columnGap = 6;
+  const columnCount = 3;
+  const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
   const statusIconRadius = 1.6;
 
   // Collect all photos with references
@@ -192,41 +193,39 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   // Each area starts on a new page
   for (const area of project.areas) {
     pdf.addPage();
-    let leftColumnY = margin;
-    let rightColumnY = margin;
+    const columnYs = Array.from({ length: columnCount }, () => margin);
     let currentColumn = 0;
 
     function getColumnX(col: number): number {
-      return col === 0 ? margin : margin + columnWidth + columnGap;
+      return margin + col * (columnWidth + columnGap);
     }
 
     function getCurrentY(): number {
-      return currentColumn === 0 ? leftColumnY : rightColumnY;
+      return columnYs[currentColumn];
     }
 
     function setCurrentY(y: number) {
-      if (currentColumn === 0) {
-        leftColumnY = y;
-      } else {
-        rightColumnY = y;
-      }
+      columnYs[currentColumn] = y;
     }
 
     function switchColumn() {
-      currentColumn = currentColumn === 0 ? 1 : 0;
+      currentColumn = (currentColumn + 1) % columnCount;
     }
 
     function needsNewPage(neededHeight: number): boolean {
       const currentY = getCurrentY();
       if (currentY + neededHeight > pageHeight - margin) {
-        const otherY = currentColumn === 0 ? rightColumnY : leftColumnY;
-        if (otherY + neededHeight <= pageHeight - margin) {
-          switchColumn();
-          return false;
+        for (let i = 0; i < columnCount; i++) {
+          if (i === currentColumn) continue;
+          if (columnYs[i] + neededHeight <= pageHeight - margin) {
+            currentColumn = i;
+            return false;
+          }
         }
         pdf.addPage();
-        leftColumnY = margin;
-        rightColumnY = margin;
+        for (let i = 0; i < columnCount; i++) {
+          columnYs[i] = margin;
+        }
         currentColumn = 0;
         return true;
       }
@@ -250,8 +249,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.text(areaStatsText, pageWidth - margin - pdf.getTextWidth(areaStatsText) - 3, y + 2);
     pdf.setTextColor(0, 0, 0);
 
-    leftColumnY = y + 12;
-    rightColumnY = y + 12;
+    for (let i = 0; i < columnCount; i++) {
+      columnYs[i] = y + 12;
+    }
 
     // Process locations within this area
     for (const location of area.locations) {
