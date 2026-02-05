@@ -216,13 +216,14 @@ export default function AreaDetailPage() {
             <Image
               src="/uai-logo.png"
               alt="UAI Logo"
-              width={32}
-              height={32}
+              width={40}
+              height={40}
               className="object-contain"
             />
           </div>
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
+        <div className="border-t border-gray-200 dark:border-gray-700" />
         <div className="px-4 pb-3 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Link

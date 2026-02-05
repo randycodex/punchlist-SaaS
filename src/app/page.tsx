@@ -153,7 +153,8 @@ export default function ProjectsPage() {
           </div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
-        <div className="px-4 pb-3 flex items-center gap-2">
+        <div className="border-t border-gray-200 dark:border-gray-700" />
+        <div className="px-4 py-3 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             {isReady && (
               <>
@@ -182,16 +183,8 @@ export default function ProjectsPage() {
             >
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <button
-              onClick={() => setShowNewProject(true)}
-              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-              aria-label="Add project"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
           </div>
-          <div className="ml-auto relative">
+          <div className="relative">
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
               className="flex items-center justify-between gap-1 min-w-[6.5rem] px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -221,6 +214,13 @@ export default function ProjectsPage() {
               </>
             )}
           </div>
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="ml-auto p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+            aria-label="Add project"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
       </header>
       {syncError && (
