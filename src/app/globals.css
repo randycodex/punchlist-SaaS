@@ -11,11 +11,15 @@
 :root {
   --background: #f9fafb;
   --foreground: #111827;
+  --surface: #ffffff;
+  --surface-border: #e5e7eb;
 }
 
 .dark {
   --background: #111827;
   --foreground: #f9fafb;
+  --surface: #1f2937;
+  --surface-border: #374151;
 }
 
 body {
@@ -33,6 +37,8 @@ body {
 
 .app-shell {
   padding-top: calc(env(safe-area-inset-top) + 3.5rem);
+  min-height: 100dvh;
+  background-color: var(--background);
 }
 
 .safe-top-shim {
@@ -41,17 +47,28 @@ body {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top);
-  background: #ffffff;
+  background: var(--surface);
   z-index: 100;
   pointer-events: none;
   transform: translateZ(0);
 }
 
-.dark .safe-top-shim {
-  background: #1f2937;
+html {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+.persistent-top-bar {
+  background-color: var(--surface);
+  border-color: var(--surface-border);
 }
 
 .header-stable {
+  background-color: var(--surface);
+  border-color: var(--surface-border);
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: transform;

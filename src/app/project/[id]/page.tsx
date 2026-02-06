@@ -174,7 +174,7 @@ export default function ProjectDetailPage() {
   const remainingCount = stats.total - stats.ok - stats.issues;
 
   return (
-    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
       <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
@@ -286,7 +286,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Areas List */}
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)]">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
         {project.areas.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
