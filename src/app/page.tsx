@@ -300,7 +300,7 @@ export default function ProjectsPage() {
                 <>
                   <div
                     className="fixed inset-0 z-40"
-                    onClick={() => setShowSortMenu(false)}
+                    onPointerDown={() => setShowSortMenu(false)}
                   />
                   <div className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                     {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (

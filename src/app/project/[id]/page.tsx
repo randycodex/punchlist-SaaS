@@ -154,12 +154,10 @@ export default function ProjectDetailPage() {
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
-          <div className="flex flex-1 min-w-0 items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-          </div>
-          <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 shrink-0">
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
@@ -172,7 +170,7 @@ export default function ProjectDetailPage() {
                 <>
                   <div
                     className="fixed inset-0 z-40"
-                    onClick={() => setShowSortMenu(false)}
+                    onPointerDown={() => setShowSortMenu(false)}
                   />
                   <div className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                     {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
@@ -208,6 +206,8 @@ export default function ProjectDetailPage() {
             >
               <Trash2 className="w-4 h-4" />
             </button>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 shrink-0">
             <div className="w-[4.75rem] flex justify-end">
               {deleteMode ? (
                 <button
