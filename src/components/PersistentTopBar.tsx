@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { getProject } from '@/lib/db';
@@ -50,14 +51,16 @@ export default function PersistentTopBar() {
     <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pt-[env(safe-area-inset-top)]">
       <div className="h-14 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image
-            src="/uai-logo.png"
-            alt="UAI Logo"
-            width={40}
-            height={40}
-            className="object-contain"
-            priority
-          />
+          <Link href="/" aria-label="Go to projects" className="flex items-center">
+            <Image
+              src="/uai-logo.png"
+              alt="UAI Logo"
+              width={40}
+              height={40}
+              className="object-contain"
+              priority
+            />
+          </Link>
         </div>
         {showAuth && isReady && (
           <>

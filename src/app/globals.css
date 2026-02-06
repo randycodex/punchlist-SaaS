@@ -52,14 +52,26 @@ body {
   will-change: transform;
 }
 
-.sync-active .persistent-top-bar {
-  background: #dcfce7;
-  border-color: #86efac;
+.persistent-top-bar::after {
+  content: "";
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 0.45rem);
+  right: 0.75rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: #22c55e;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
 }
 
-.dark.sync-active .persistent-top-bar {
-  background: #14532d;
-  border-color: #166534;
+.dark .persistent-top-bar::after {
+  background: #4ade80;
+}
+
+.sync-active .persistent-top-bar::after {
+  opacity: 1;
 }
 
 /* PWA styles */

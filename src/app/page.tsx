@@ -52,6 +52,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [pullArmed, setPullArmed] = useState(false);
   const pullStartYRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -249,7 +250,8 @@ export default function ProjectsPage() {
   }
 
   function handlePullStart(e: TouchEvent<HTMLElement>) {
-    if (window.scrollY > 0 || syncing) {
+    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    if (!atTop || syncing) {
       pullStartYRef.current = null;
       return;
     }
@@ -257,7 +259,8 @@ export default function ProjectsPage() {
   }
 
   function handlePullMove(e: TouchEvent<HTMLElement>) {
-    if (pullStartYRef.current === null || window.scrollY > 0 || syncing) return;
+    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    if (pullStartYRef.current === null || !atTop || syncing) return;
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
     setPullArmed(delta >= 90);
@@ -280,9 +283,9 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
+    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
+      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative">
@@ -430,7 +433,8 @@ export default function ProjectsPage() {
 
       {/* Content */}
       <main
-        className="p-4"
+        ref={listRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4"
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
