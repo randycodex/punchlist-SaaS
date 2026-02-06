@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type TouchEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
@@ -50,9 +50,6 @@ export default function ProjectsPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [pullArmed, setPullArmed] = useState(false);
-  const pullStartYRef = useRef<number | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -68,6 +65,13 @@ export default function ProjectsPage() {
     if (!accessToken) return;
     void handleSync();
   }, [accessToken]);
+
+  useEffect(() => {
+    document.body.classList.toggle('sync-active', syncing);
+    return () => {
+      document.body.classList.remove('sync-active');
+    };
+  }, [syncing]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -242,37 +246,6 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set());
   }
 
-  function handlePullStart(e: TouchEvent<HTMLDivElement>) {
-    if (window.scrollY > 0 || syncing) {
-      pullStartYRef.current = null;
-      return;
-    }
-    pullStartYRef.current = e.touches[0]?.clientY ?? null;
-  }
-
-  function handlePullMove(e: TouchEvent<HTMLDivElement>) {
-    if (pullStartYRef.current === null || window.scrollY > 0 || syncing) return;
-    const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
-    const delta = currentY - pullStartYRef.current;
-    if (delta <= 0) {
-      setPullDistance(0);
-      setPullArmed(false);
-      return;
-    }
-    const visualDistance = Math.min(96, delta * 0.45);
-    setPullDistance(visualDistance);
-    setPullArmed(delta >= 90);
-  }
-
-  function handlePullEnd() {
-    pullStartYRef.current = null;
-    if (pullArmed && !syncing) {
-      void handleSync();
-    }
-    setPullDistance(0);
-    setPullArmed(false);
-  }
-
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -282,13 +255,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div
-      className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]"
-      onTouchStart={handlePullStart}
-      onTouchMove={handlePullMove}
-      onTouchEnd={handlePullEnd}
-      onTouchCancel={handlePullEnd}
-    >
+    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
@@ -415,19 +382,6 @@ export default function ProjectsPage() {
           </div>
         </div>
       </header>
-      {(pullDistance > 0 || syncing) && (
-        <div className="px-4 py-1 text-xs border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 ${
-              syncing || pullArmed
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-            }`}
-          >
-            {syncing ? 'Sync' : pullArmed ? 'Release to Sync' : 'Pull down to Sync'}
-          </span>
-        </div>
-      )}
       {syncError && (
         <div className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
@@ -450,7 +404,7 @@ export default function ProjectsPage() {
       )}
 
       {/* Content */}
-      <main className="p-4">
+      <main className="flex-1 overflow-y-auto overscroll-y-contain p-4">
         {projects.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />

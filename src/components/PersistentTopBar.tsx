@@ -47,7 +47,7 @@ export default function PersistentTopBar() {
   }, [pathname]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pt-[env(safe-area-inset-top)]">
+    <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pt-[env(safe-area-inset-top)]">
       <div className="h-14 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Image

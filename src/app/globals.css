@@ -52,6 +52,16 @@ body {
   will-change: transform;
 }
 
+.sync-active .persistent-top-bar {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.dark.sync-active .persistent-top-bar {
+  background: #14532d;
+  border-color: #166534;
+}
+
 /* PWA styles */
 @media (display-mode: standalone) {
   body {
