@@ -174,9 +174,9 @@ export default function ProjectDetailPage() {
   const remainingCount = stats.total - stats.ok - stats.issues;
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
+    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
+      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
@@ -252,7 +252,7 @@ export default function ProjectDetailPage() {
       </header>
 
       {/* Project Info */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         {project.address && (
           <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
             <MapPin className="w-4 h-4" />
@@ -265,7 +265,7 @@ export default function ProjectDetailPage() {
             {project.inspector}
           </p>
         )}
-        <div className="flex items-center gap-6 mt-3">
+        <div className="mt-3 grid grid-cols-4 gap-2 w-full max-w-lg">
           <div className="text-center">
             <div className="text-2xl font-semibold text-purple-600">{stats.areas}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Areas</div>
@@ -286,7 +286,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Areas List */}
-      <main className="p-4">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
         {project.areas.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
