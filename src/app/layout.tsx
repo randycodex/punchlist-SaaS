@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AppProviders from "@/components/AppProviders";
 import PersistentTopBar from "@/components/PersistentTopBar";
-import RouteTransition from "@/components/RouteTransition";
 
 export const metadata: Metadata = {
   title: "PunchList",
@@ -38,7 +37,7 @@ export default function RootLayout({
         <div className="app-shell">
           <AppProviders>
             <PersistentTopBar />
-            <RouteTransition>{children}</RouteTransition>
+            {children}
           </AppProviders>
         </div>
       </body>
