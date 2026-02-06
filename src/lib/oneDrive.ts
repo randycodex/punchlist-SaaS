@@ -41,10 +41,13 @@ async function getItemByPath(token: string, path: string): Promise<DriveItem | n
       `/me/drive/root:/${encodeURI(path)}?$select=id,name,eTag,lastModifiedDateTime,folder`
     );
   } catch (error) {
-    if (error instanceof Error && error.message.includes('itemNotFound')) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('itemNotFound') || error.message.includes('404'))
+    ) {
       return null;
     }
-    return null;
+    throw error;
   }
 }
 
@@ -120,20 +123,40 @@ export async function uploadPdfToOneDrive(token: string, filename: string, blob:
   });
 }
 
-export function buildExportPdfFilename(baseName: string, now = new Date()): string {
-  const cleanBase = baseName
+function sanitizeExportNamePart(name: string): string {
+  const cleaned = name
     .trim()
-    .replace(/[^a-z0-9._-]/gi, '_')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_-]/gi, '')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
+  return cleaned || 'Project';
+}
+
+function formatDateForExport(now: Date): string {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mi = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  const stamp = `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
-  return `${cleanBase || 'PunchList_Report'}_${stamp}.pdf`;
+  return `${yyyy}.${mm}.${dd}`;
+}
+
+export async function getNextOneDriveExportFilename(
+  token: string,
+  projectNames: string[],
+  now = new Date()
+): Promise<string> {
+  const base = projectNames.map(sanitizeExportNamePart).join('_') || 'PunchList';
+  const date = formatDateForExport(now);
+
+  for (let version = 1; version < 10000; version += 1) {
+    const filename = `${base}_${date}_${version}.pdf`;
+    const existing = await getItemByPath(token, `PunchList/exports/${filename}`);
+    if (!existing) {
+      return filename;
+    }
+  }
+
+  throw new Error('Could not determine next export filename.');
 }
 
 export async function deleteDriveItem(token: string, id: string): Promise<void> {

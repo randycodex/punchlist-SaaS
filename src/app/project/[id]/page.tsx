@@ -6,7 +6,7 @@ import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
 import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
-import { uploadPdfToOneDrive, buildExportPdfFilename } from '@/lib/oneDrive';
+import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import Link from 'next/link';
 import {
@@ -172,7 +172,7 @@ export default function ProjectDetailPage() {
         return;
       }
       const blob = await generateProjectPDF(project);
-      const filename = buildExportPdfFilename(`${project.projectName}_Report`);
+      const filename = await getNextOneDriveExportFilename(token, [project.projectName]);
       await uploadPdfToOneDrive(token, filename, blob);
     } catch (error) {
       console.error('Failed to export PDF to Drive:', error);
