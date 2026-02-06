@@ -478,6 +478,7 @@ export default function ProjectsPage() {
             {sortedProjects.map((project) => {
               const stats = getProjectStats(project);
               const pending = stats.total - stats.ok - stats.issues;
+              const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
               const photoCount = project.areas.reduce(
                 (sum, area) =>
                   sum +
@@ -583,6 +584,14 @@ export default function ProjectsPage() {
                           </span>
                         )}
                       </div>
+                      {stats.total > 0 && (
+                        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      )}
                     </Link>
                     <div className="flex items-center gap-2">
                       <div className="relative">
