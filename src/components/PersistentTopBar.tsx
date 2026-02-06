@@ -63,7 +63,11 @@ export default function PersistentTopBar() {
           </Link>
         </div>
         {showAuth && isReady && (
-          <>
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="sync-indicator h-2.5 w-2.5 rounded-full bg-green-500 dark:bg-green-400"
+            />
             {!isSignedIn ? (
               <button
                 onClick={signIn}
@@ -79,7 +83,7 @@ export default function PersistentTopBar() {
                 Sign out
               </button>
             )}
-          </>
+          </div>
         )}
         {!showAuth && projectTitle && (
           <div className="max-w-[45vw] truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">

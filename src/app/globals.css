@@ -52,25 +52,12 @@ body {
   will-change: transform;
 }
 
-.persistent-top-bar::after {
-  content: "";
-  position: absolute;
-  top: calc(env(safe-area-inset-top) + 0.45rem);
-  right: 0.75rem;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 9999px;
-  background: #22c55e;
+.sync-indicator {
   opacity: 0;
-  pointer-events: none;
   transition: opacity 160ms ease;
 }
 
-.dark .persistent-top-bar::after {
-  background: #4ade80;
-}
-
-.sync-active .persistent-top-bar::after {
+.sync-active .sync-indicator {
   opacity: 1;
 }
 
