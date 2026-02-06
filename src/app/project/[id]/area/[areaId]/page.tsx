@@ -207,9 +207,9 @@ export default function AreaDetailPage() {
     : null;
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
+    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
+      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link
@@ -227,7 +227,7 @@ export default function AreaDetailPage() {
       </header>
 
       {/* Stats */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center gap-6">
           <div className="text-center">
             <div className="text-xl font-semibold text-blue-600">{remainingCount}</div>
@@ -256,7 +256,7 @@ export default function AreaDetailPage() {
       </div>
 
       {/* Inspection Items */}
-      <main className="p-4 space-y-2">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] space-y-2">
         {area.locations.map((location) => {
           const locationStats = getLocationStats(location);
           const locationPhotoCount = location.items.reduce(

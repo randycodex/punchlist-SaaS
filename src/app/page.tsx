@@ -306,7 +306,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
       <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
@@ -455,7 +455,7 @@ export default function ProjectsPage() {
       {/* Content */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)]"
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}

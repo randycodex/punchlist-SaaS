@@ -26,6 +26,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body {
+  background-color: var(--background);
+}
+
 .app-shell {
   padding-top: calc(env(safe-area-inset-top) + 3.5rem);
 }
