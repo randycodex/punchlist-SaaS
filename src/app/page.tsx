@@ -61,11 +61,6 @@ export default function ProjectsPage() {
     loadProjects();
   }, []);
 
-  useEffect(() => {
-    if (!accessToken) return;
-    handleSync();
-  }, [accessToken]);
-
   function handleSortChange(option: SortOption) {
     setSortOption(option);
     localStorage.setItem(SORT_STORAGE_KEY, option);
