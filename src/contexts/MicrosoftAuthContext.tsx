@@ -16,14 +16,10 @@ const MicrosoftAuthContext = createContext<MicrosoftAuthContextValue | undefined
 
 const SCOPES = ['User.Read', 'Files.ReadWrite'];
 
-function getEnv(name: string) {
-  return process.env[name] ?? '';
-}
-
 export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
-  const clientId = getEnv('NEXT_PUBLIC_MS_CLIENT_ID');
-  const tenantId = getEnv('NEXT_PUBLIC_MS_TENANT_ID');
-  const redirectUriFromEnv = getEnv('NEXT_PUBLIC_MS_REDIRECT_URI');
+  const clientId = process.env.NEXT_PUBLIC_MS_CLIENT_ID ?? '';
+  const tenantId = process.env.NEXT_PUBLIC_MS_TENANT_ID ?? '';
+  const redirectUriFromEnv = process.env.NEXT_PUBLIC_MS_REDIRECT_URI ?? '';
   const redirectUri =
     redirectUriFromEnv || (typeof window !== 'undefined' ? `${window.location.origin}/` : '');
 
