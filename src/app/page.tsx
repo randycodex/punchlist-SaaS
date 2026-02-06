@@ -23,6 +23,7 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -53,6 +54,8 @@ export default function ProjectsPage() {
   const [pullArmed, setPullArmed] = useState(false);
   const pullStartYRef = useRef<number | null>(null);
   const listRef = useRef<HTMLElement | null>(null);
+  const sortButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -75,6 +78,23 @@ export default function ProjectsPage() {
       document.body.classList.remove('sync-active');
     };
   }, [syncing]);
+
+  useEffect(() => {
+    if (!showSortMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const inButton = !!sortButtonRef.current?.contains(target);
+      const inMenu = !!sortMenuRef.current?.contains(target);
+      if (!inButton && !inMenu) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [showSortMenu]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -290,6 +310,7 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative">
               <button
+                ref={sortButtonRef}
                 onClick={() => setShowSortMenu(!showSortMenu)}
                 className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg shrink-0"
               >
@@ -297,25 +318,22 @@ export default function ProjectsPage() {
                 <ChevronDown className="w-4 h-4" />
               </button>
               {showSortMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onPointerDown={() => setShowSortMenu(false)}
-                  />
-                  <div className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => handleSortChange(option)}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {sortLabels[option]}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                <div
+                  ref={sortMenuRef}
+                  className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                >
+                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSortChange(option)}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {sortLabels[option]}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <button
@@ -457,6 +475,22 @@ export default function ProjectsPage() {
             {sortedProjects.map((project) => {
               const stats = getProjectStats(project);
               const pending = stats.total - stats.ok - stats.issues;
+              const photoCount = project.areas.reduce(
+                (sum, area) =>
+                  sum +
+                  area.locations.reduce(
+                    (locSum, location) =>
+                      locSum +
+                      location.items.reduce(
+                        (itemSum, item) =>
+                          itemSum +
+                          item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
+                        0
+                      ),
+                    0
+                  ),
+                0
+              );
               const isSelectionMode = deleteMode || exportMode;
               const isSelected = selectedProjectIds.has(project.id);
               return (
@@ -506,6 +540,12 @@ export default function ProjectsPage() {
                           <span className="text-gray-400 flex items-center gap-1">
                             <Circle className="w-3 h-3" />
                             {pending}
+                          </span>
+                        )}
+                        {photoCount > 0 && (
+                          <span className="text-amber-500 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            {photoCount}
                           </span>
                         )}
                       </div>

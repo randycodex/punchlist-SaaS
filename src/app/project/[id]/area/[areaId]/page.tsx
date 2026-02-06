@@ -210,8 +210,8 @@ export default function AreaDetailPage() {
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
-        <div className="px-4 h-12 flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link
               href={`/project/${project.id}`}
               className="p-1 -ml-1 text-gray-600 dark:text-gray-300"

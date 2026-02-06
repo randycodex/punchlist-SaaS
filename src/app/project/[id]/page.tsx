@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
@@ -36,6 +36,8 @@ export default function ProjectDetailPage() {
   const [newAreaName, setNewAreaName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -55,6 +57,23 @@ export default function ProjectDetailPage() {
     }
     loadProject();
   }, [id]);
+
+  useEffect(() => {
+    if (!showSortMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const inButton = !!sortButtonRef.current?.contains(target);
+      const inMenu = !!sortMenuRef.current?.contains(target);
+      if (!inButton && !inMenu) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [showSortMenu]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -160,6 +179,7 @@ export default function ProjectDetailPage() {
             </Link>
             <div className="relative">
               <button
+                ref={sortButtonRef}
                 onClick={() => setShowSortMenu(!showSortMenu)}
                 className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
@@ -167,25 +187,22 @@ export default function ProjectDetailPage() {
                 <ChevronDown className="w-4 h-4" />
               </button>
               {showSortMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onPointerDown={() => setShowSortMenu(false)}
-                  />
-                  <div className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-                    {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => handleSortChange(option)}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {sortLabels[option]}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                <div
+                  ref={sortMenuRef}
+                  className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                >
+                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSortChange(option)}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {sortLabels[option]}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <button
