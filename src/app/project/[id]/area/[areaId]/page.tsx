@@ -234,12 +234,12 @@ export default function AreaDetailPage() {
             <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="text-center">
-            <div className="text-xl font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
-          </div>
-          <div className="text-center">
             <div className="text-xl font-semibold text-orange-500">{stats.issues}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Issues</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-semibold text-green-600">{stats.ok}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
           </div>
           <div className="flex-1">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

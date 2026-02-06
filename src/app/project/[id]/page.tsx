@@ -275,12 +275,12 @@ export default function ProjectDetailPage() {
             <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
-          </div>
-          <div className="text-center">
             <div className="text-2xl font-semibold text-orange-500">{stats.issues}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Issues</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-semibold text-green-600">{stats.ok}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
           </div>
         </div>
       </div>
