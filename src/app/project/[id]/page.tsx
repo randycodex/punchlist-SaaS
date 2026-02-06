@@ -287,21 +287,22 @@ export default function ProjectDetailPage() {
               const pending = areaStats.total - areaStats.ok - areaStats.issues;
               const progress =
                 areaStats.total > 0 ? (areaStats.ok / areaStats.total) * 100 : 0;
+              const isSelected = selectedAreaIds.has(area.id);
               return (
                 <div
                   key={area.id}
-                  className="block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                  onClick={() => {
+                    if (deleteMode) {
+                      toggleAreaSelection(area.id);
+                    }
+                  }}
+                  className={`block rounded-lg border p-4 transition-colors ${
+                    isSelected
+                      ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                  } ${deleteMode ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex items-start gap-3">
-                    {deleteMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedAreaIds.has(area.id)}
-                        onChange={() => toggleAreaSelection(area.id)}
-                        className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Select ${area.name}`}
-                      />
-                    )}
                     <Link
                       href={deleteMode ? '#' : `/project/${project.id}/area/${area.id}`}
                       onClick={(e) => {
