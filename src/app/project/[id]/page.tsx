@@ -158,9 +158,6 @@ export default function ProjectDetailPage() {
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="font-medium text-gray-700 dark:text-gray-200 truncate min-w-0">
-              {project.projectName}
-            </span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 shrink-0">
             <div className="relative">

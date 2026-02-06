@@ -1,13 +1,50 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import { getProject } from '@/lib/db';
 
 export default function PersistentTopBar() {
   const pathname = usePathname();
   const { isReady, isSignedIn, signIn, signOut } = useMicrosoftAuth();
   const showAuth = pathname === '/';
+  const [projectTitle, setProjectTitle] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjectTitle() {
+      if (!pathname.startsWith('/project/')) {
+        if (!cancelled) setProjectTitle('');
+        return;
+      }
+
+      const segments = pathname.split('/').filter(Boolean);
+      const projectId = segments[1];
+      if (!projectId) {
+        if (!cancelled) setProjectTitle('');
+        return;
+      }
+
+      try {
+        const project = await getProject(projectId);
+        if (!cancelled) {
+          setProjectTitle(project?.projectName ?? '');
+        }
+      } catch {
+        if (!cancelled) {
+          setProjectTitle('');
+        }
+      }
+    }
+
+    void loadProjectTitle();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   return (
     <div className="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pt-[env(safe-area-inset-top)]">
@@ -21,7 +58,6 @@ export default function PersistentTopBar() {
             className="object-contain"
             priority
           />
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
         </div>
         {showAuth && isReady && (
           <>
@@ -41,6 +77,11 @@ export default function PersistentTopBar() {
               </button>
             )}
           </>
+        )}
+        {!showAuth && projectTitle && (
+          <div className="max-w-[45vw] truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">
+            {projectTitle}
+          </div>
         )}
       </div>
     </div>
