@@ -24,6 +24,7 @@ import {
   MoreVertical,
   Pencil,
   Image as ImageIcon,
+  MessageSquare,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -493,6 +494,25 @@ export default function ProjectsPage() {
                   ),
                 0
               );
+              const commentCount = project.areas.reduce(
+                (sum, area) =>
+                  sum +
+                  area.locations.reduce(
+                    (locSum, location) =>
+                      locSum +
+                      location.items.reduce(
+                        (itemSum, item) =>
+                          itemSum +
+                          item.checkpoints.reduce(
+                            (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
+                            0
+                          ),
+                        0
+                      ),
+                    0
+                  ),
+                0
+              );
               const isSelectionMode = deleteMode || exportMode;
               const isSelected = selectedProjectIds.has(project.id);
               return (
@@ -548,6 +568,12 @@ export default function ProjectsPage() {
                           <span className="text-amber-500 flex items-center gap-1">
                             <ImageIcon className="w-3 h-3" />
                             {photoCount}
+                          </span>
+                        )}
+                        {commentCount > 0 && (
+                          <span className="text-sky-600 flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            {commentCount}
                           </span>
                         )}
                       </div>

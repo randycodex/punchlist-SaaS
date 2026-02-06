@@ -19,6 +19,7 @@ import {
   MapPin,
   User,
   Image as ImageIcon,
+  MessageSquare,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -312,6 +313,20 @@ export default function ProjectDetailPage() {
                   ),
                 0
               );
+              const areaCommentCount = area.locations.reduce(
+                (locSum, location) =>
+                  locSum +
+                  location.items.reduce(
+                    (itemSum, item) =>
+                      itemSum +
+                      item.checkpoints.reduce(
+                        (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
+                        0
+                      ),
+                    0
+                  ),
+                0
+              );
               const progress =
                 areaStats.total > 0 ? (areaStats.ok / areaStats.total) * 100 : 0;
               const isSelected = selectedAreaIds.has(area.id);
@@ -367,6 +382,12 @@ export default function ProjectDetailPage() {
                           <span className="text-amber-500 flex items-center gap-1">
                             <ImageIcon className="w-3 h-3" />
                             {areaPhotoCount}
+                          </span>
+                        )}
+                        {areaCommentCount > 0 && (
+                          <span className="text-sky-600 flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            {areaCommentCount}
                           </span>
                         )}
                       </div>

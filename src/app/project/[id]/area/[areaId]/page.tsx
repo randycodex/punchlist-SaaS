@@ -264,6 +264,15 @@ export default function AreaDetailPage() {
               itemSum + item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
             0
           );
+          const locationCommentCount = location.items.reduce(
+            (itemSum, item) =>
+              itemSum +
+              item.checkpoints.reduce(
+                (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
+                0
+              ),
+            0
+          );
           const isExpanded = expandedLocations.has(location.id);
 
           return (
@@ -305,6 +314,12 @@ export default function AreaDetailPage() {
                       {locationPhotoCount}
                     </span>
                   )}
+                  {locationCommentCount > 0 && (
+                    <span className="text-sky-600 flex items-center gap-1 text-sm">
+                      <MessageSquare className="w-3 h-3" />
+                      {locationCommentCount}
+                    </span>
+                  )}
                   {isExpanded ? (
                     <ChevronDown className="w-5 h-5 text-gray-400" />
                   ) : (
@@ -320,6 +335,10 @@ export default function AreaDetailPage() {
                     const itemStats = getItemStats(item);
                     const itemPhotoCount = item.checkpoints.reduce(
                       (cpSum, checkpoint) => cpSum + checkpoint.photos.length,
+                      0
+                    );
+                    const itemCommentCount = item.checkpoints.reduce(
+                      (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
                       0
                     );
                     const isItemExpanded = expandedItems.has(item.id);
@@ -358,6 +377,12 @@ export default function AreaDetailPage() {
                               <span className="text-amber-500 flex items-center gap-1 text-xs">
                                 <ImageIcon className="w-3 h-3" />
                                 {itemPhotoCount}
+                              </span>
+                            )}
+                            {itemCommentCount > 0 && (
+                              <span className="text-sky-600 flex items-center gap-1 text-xs">
+                                <MessageSquare className="w-3 h-3" />
+                                {itemCommentCount}
                               </span>
                             )}
                             {isItemExpanded ? (
