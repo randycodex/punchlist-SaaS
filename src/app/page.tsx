@@ -5,7 +5,7 @@ import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
-import { uploadPdfToOneDrive } from '@/lib/oneDrive';
+import { uploadPdfToOneDrive, buildExportPdfFilename } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
@@ -203,7 +203,8 @@ export default function ProjectsPage() {
         areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
       }));
       const blob = await generateMultiProjectPDF(projectsForExport);
-      await uploadPdfToOneDrive(token, 'PunchList_Projects_Report.pdf', blob);
+      const filename = buildExportPdfFilename('PunchList_Projects_Report');
+      await uploadPdfToOneDrive(token, filename, blob);
     } catch (error) {
       console.error('Failed to export selected projects to OneDrive:', error);
       alert('Failed to export selected projects to OneDrive. Please try again.');

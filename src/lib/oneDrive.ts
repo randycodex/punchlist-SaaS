@@ -120,6 +120,22 @@ export async function uploadPdfToOneDrive(token: string, filename: string, blob:
   });
 }
 
+export function buildExportPdfFilename(baseName: string, now = new Date()): string {
+  const cleanBase = baseName
+    .trim()
+    .replace(/[^a-z0-9._-]/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mi = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const stamp = `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+  return `${cleanBase || 'PunchList_Report'}_${stamp}.pdf`;
+}
+
 export async function deleteDriveItem(token: string, id: string): Promise<void> {
   await graphFetch(token, `/me/drive/items/${id}`, {
     method: 'DELETE',
