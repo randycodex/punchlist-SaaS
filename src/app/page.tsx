@@ -240,7 +240,7 @@ export default function ProjectsPage() {
   return (
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 grid grid-rows-[3.5rem_1px_3rem]">
+      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 grid grid-rows-[3.5rem_1px_3rem]">
         <div className="px-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image

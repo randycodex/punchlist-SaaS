@@ -24,7 +24,32 @@ body {
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.app-shell {
   padding-top: env(safe-area-inset-top);
+}
+
+.safe-top-shim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: #ffffff;
+  z-index: 100;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+.dark .safe-top-shim {
+  background: #1f2937;
+}
+
+.header-stable {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 /* PWA styles */

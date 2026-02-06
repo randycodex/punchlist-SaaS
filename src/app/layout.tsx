@@ -32,7 +32,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="font-sans antialiased">
-        <AppProviders>{children}</AppProviders>
+        <div className="safe-top-shim" />
+        <div className="app-shell">
+          <AppProviders>{children}</AppProviders>
+        </div>
       </body>
     </html>
   );
