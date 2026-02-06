@@ -90,6 +90,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     thumbnail: string;
     imageData: string;
   }[] = [];
+  const photoRefsByCheckpoint = new Map<string, number[]>();
   let photoRefCounter = 1;
 
   const allFiles: {
@@ -106,6 +107,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     mimeType: string;
     size: number;
   }[] = [];
+  const fileRefsByCheckpoint = new Map<string, number[]>();
   let fileRefCounter = 1;
 
   function drawStatusIcon(status: 'pending' | 'ok' | 'needsReview', x: number, y: number) {
@@ -333,6 +335,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
                 imageData: photo.imageData,
               });
               photoRefs.push(photoRefCounter);
+              const existingRefs = photoRefsByCheckpoint.get(checkpoint.id) ?? [];
+              existingRefs.push(photoRefCounter);
+              photoRefsByCheckpoint.set(checkpoint.id, existingRefs);
               photoRefCounter++;
             }
           }
@@ -356,6 +361,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
                 size: file.size,
               });
               fileRefs.push(fileRefCounter);
+              const existingRefs = fileRefsByCheckpoint.get(checkpoint.id) ?? [];
+              existingRefs.push(fileRefCounter);
+              fileRefsByCheckpoint.set(checkpoint.id, existingRefs);
               fileRefCounter++;
             }
           }
@@ -406,22 +414,8 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
       for (const item of location.items) {
         for (const checkpoint of item.checkpoints) {
           if (checkpoint.status === 'needsReview') {
-            const photoRefs = allPhotos
-              .filter(p =>
-                p.areaId === area.id &&
-                p.locationId === location.id &&
-                p.itemId === item.id &&
-                p.checkpointId === checkpoint.id
-              )
-              .map(p => p.ref);
-            const fileRefs = allFiles
-              .filter(f =>
-                f.areaId === area.id &&
-                f.locationId === location.id &&
-                f.itemId === item.id &&
-                f.checkpointId === checkpoint.id
-              )
-              .map(f => f.ref);
+            const photoRefs = photoRefsByCheckpoint.get(checkpoint.id) ?? [];
+            const fileRefs = fileRefsByCheckpoint.get(checkpoint.id) ?? [];
             allIssues.push({
               area: area.name,
               location: location.name,

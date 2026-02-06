@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type TouchEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
@@ -30,6 +30,14 @@ import {
 type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
+
+type ProjectMetrics = {
+  stats: ReturnType<typeof getProjectStats>;
+  pending: number;
+  progress: number;
+  photoCount: number;
+  commentCount: number;
+};
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -137,19 +145,43 @@ export default function ProjectsPage() {
     }
   }
 
-  const sortedProjects = [...projects].sort((a, b) => {
-    if (sortOption === 'name') {
-      return a.projectName.localeCompare(b.projectName);
-    } else if (sortOption === 'recent') {
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    } else {
-      const statsA = getProjectStats(a);
-      const statsB = getProjectStats(b);
-      const progressA = statsA.total > 0 ? statsA.ok / statsA.total : 0;
-      const progressB = statsB.total > 0 ? statsB.ok / statsB.total : 0;
-      return progressB - progressA;
+  const projectMetrics = useMemo(() => {
+    const metrics = new Map<string, ProjectMetrics>();
+    for (const project of projects) {
+      let photoCount = 0;
+      let commentCount = 0;
+      for (const area of project.areas) {
+        for (const location of area.locations) {
+          for (const item of location.items) {
+            for (const checkpoint of item.checkpoints) {
+              photoCount += checkpoint.photos.length;
+              if (checkpoint.comments.trim()) commentCount += 1;
+            }
+          }
+        }
+      }
+
+      const stats = getProjectStats(project);
+      const pending = stats.total - stats.ok - stats.issues;
+      const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+      metrics.set(project.id, { stats, pending, progress, photoCount, commentCount });
     }
-  });
+    return metrics;
+  }, [projects]);
+
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => {
+      if (sortOption === 'name') {
+        return a.projectName.localeCompare(b.projectName);
+      }
+      if (sortOption === 'recent') {
+        return b.updatedAt.getTime() - a.updatedAt.getTime();
+      }
+      const progressA = projectMetrics.get(a.id)?.progress ?? 0;
+      const progressB = projectMetrics.get(b.id)?.progress ?? 0;
+      return progressB - progressA;
+    });
+  }, [projects, sortOption, projectMetrics]);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -476,44 +508,12 @@ export default function ProjectsPage() {
         ) : (
           <div className="space-y-2">
             {sortedProjects.map((project) => {
-              const stats = getProjectStats(project);
-              const pending = stats.total - stats.ok - stats.issues;
-              const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
-              const photoCount = project.areas.reduce(
-                (sum, area) =>
-                  sum +
-                  area.locations.reduce(
-                    (locSum, location) =>
-                      locSum +
-                      location.items.reduce(
-                        (itemSum, item) =>
-                          itemSum +
-                          item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
-                        0
-                      ),
-                    0
-                  ),
-                0
-              );
-              const commentCount = project.areas.reduce(
-                (sum, area) =>
-                  sum +
-                  area.locations.reduce(
-                    (locSum, location) =>
-                      locSum +
-                      location.items.reduce(
-                        (itemSum, item) =>
-                          itemSum +
-                          item.checkpoints.reduce(
-                            (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
-                            0
-                          ),
-                        0
-                      ),
-                    0
-                  ),
-                0
-              );
+              const metric = projectMetrics.get(project.id);
+              const stats = metric?.stats ?? { total: 0, ok: 0, issues: 0, areas: project.areas.length };
+              const pending = metric?.pending ?? 0;
+              const progress = metric?.progress ?? 0;
+              const photoCount = metric?.photoCount ?? 0;
+              const commentCount = metric?.commentCount ?? 0;
               const isSelectionMode = deleteMode || exportMode;
               const isSelected = selectedProjectIds.has(project.id);
               return (

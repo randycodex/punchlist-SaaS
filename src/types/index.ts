@@ -80,39 +80,86 @@ export interface Project {
 
 // Helper functions for calculating stats
 export function getAreaStats(area: Area) {
-  const checkpoints = area.locations.flatMap(l => l.items.flatMap(i => i.checkpoints));
+  let total = 0;
+  let ok = 0;
+  let issues = 0;
+
+  for (const location of area.locations) {
+    for (const item of location.items) {
+      for (const checkpoint of item.checkpoints) {
+        total += 1;
+        if (checkpoint.status === 'ok') ok += 1;
+        else if (checkpoint.status === 'needsReview') issues += 1;
+      }
+    }
+  }
+
   return {
-    total: checkpoints.length,
-    ok: checkpoints.filter(c => c.status === 'ok').length,
-    issues: checkpoints.filter(c => c.status === 'needsReview').length,
+    total,
+    ok,
+    issues,
   };
 }
 
 export function getLocationStats(location: Location) {
-  const checkpoints = location.items.flatMap(i => i.checkpoints);
+  let total = 0;
+  let ok = 0;
+  let issues = 0;
+
+  for (const item of location.items) {
+    for (const checkpoint of item.checkpoints) {
+      total += 1;
+      if (checkpoint.status === 'ok') ok += 1;
+      else if (checkpoint.status === 'needsReview') issues += 1;
+    }
+  }
+
   return {
-    total: checkpoints.length,
-    ok: checkpoints.filter(c => c.status === 'ok').length,
-    issues: checkpoints.filter(c => c.status === 'needsReview').length,
+    total,
+    ok,
+    issues,
   };
 }
 
 export function getItemStats(item: Item) {
+  let total = 0;
+  let ok = 0;
+  let issues = 0;
+
+  for (const checkpoint of item.checkpoints) {
+    total += 1;
+    if (checkpoint.status === 'ok') ok += 1;
+    else if (checkpoint.status === 'needsReview') issues += 1;
+  }
+
   return {
-    total: item.checkpoints.length,
-    ok: item.checkpoints.filter(c => c.status === 'ok').length,
-    issues: item.checkpoints.filter(c => c.status === 'needsReview').length,
+    total,
+    ok,
+    issues,
   };
 }
 
 export function getProjectStats(project: Project) {
-  const checkpoints = project.areas.flatMap(a =>
-    a.locations.flatMap(l => l.items.flatMap(i => i.checkpoints))
-  );
+  let total = 0;
+  let ok = 0;
+  let issues = 0;
+
+  for (const area of project.areas) {
+    for (const location of area.locations) {
+      for (const item of location.items) {
+        for (const checkpoint of item.checkpoints) {
+          total += 1;
+          if (checkpoint.status === 'ok') ok += 1;
+          else if (checkpoint.status === 'needsReview') issues += 1;
+        }
+      }
+    }
+  }
+
   return {
-    total: checkpoints.length,
-    ok: checkpoints.filter(c => c.status === 'ok').length,
-    issues: checkpoints.filter(c => c.status === 'needsReview').length,
+    total,
+    ok,
+    issues,
     areas: project.areas.length,
   };
 }

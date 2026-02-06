@@ -40,6 +40,26 @@ function changedAfterLastSync(timestamp: string | Date, lastSync: Date | null) {
   return value > lastSync.getTime() + CONFLICT_CHANGE_TOLERANCE_MS;
 }
 
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>
+) {
+  if (items.length === 0) return;
+  const size = Math.max(1, Math.min(limit, items.length));
+  let index = 0;
+
+  const runners = Array.from({ length: size }, async () => {
+    while (true) {
+      const current = index++;
+      if (current >= items.length) return;
+      await worker(items[current]);
+    }
+  });
+
+  await Promise.all(runners);
+}
+
 function projectFilename(projectId: string) {
   return `${projectId}.json`;
 }
@@ -153,6 +173,8 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       .map((file) => [file.name.replace(/\.json$/, ''), file])
   );
   const localProjectMap = new Map(localProjects.map((project) => [project.id, project]));
+  const remoteDeleteQueue: string[] = [];
+  const localDeleteQueue: string[] = [];
 
   // Apply deletions from the merged tombstone log.
   for (const [projectId, deletedAt] of Object.entries(mergedDeletions)) {
@@ -160,22 +182,28 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const local = localProjectMap.get(projectId);
 
     if (remote && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
-      await deleteDriveItem(token, remote.id);
+      remoteDeleteQueue.push(remote.id);
       remoteById.delete(projectId);
     }
 
     if (local && new Date(deletedAt).getTime() >= local.updatedAt.getTime()) {
-      await deleteProjectFromDb(projectId);
+      localDeleteQueue.push(projectId);
       localProjectMap.delete(projectId);
     }
   }
 
+  await Promise.all([
+    runWithConcurrency(remoteDeleteQueue, 4, (remoteId) => deleteDriveItem(token, remoteId)),
+    runWithConcurrency(localDeleteQueue, 4, (projectId) => deleteProjectFromDb(projectId)),
+  ]);
+
   // Pull newer or missing projects from OneDrive
-  for (const [projectId, remote] of remoteById.entries()) {
-    if (!remote.name.endsWith('.json') || !remote.id) continue;
+  const pullQueue = [...remoteById.entries()];
+  await runWithConcurrency(pullQueue, 4, async ([projectId, remote]) => {
+    if (!remote.name.endsWith('.json') || !remote.id) return;
     const deletedAt = mergedDeletions[projectId];
     if (deletedAt && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
-      continue;
+      return;
     }
     const localProject = localProjectMap.get(projectId);
     const remoteChangedSinceSync =
@@ -198,15 +226,16 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         addConflict(localProject.id, localProject.projectName);
       }
     }
-  }
+  });
 
   // Push local changes to OneDrive
-  for (const project of localProjectMap.values()) {
+  const pushQueue = [...localProjectMap.values()];
+  await runWithConcurrency(pushQueue, 3, async (project) => {
     const filename = projectFilename(project.id);
     const remote = remoteById.get(project.id);
     const deletedAt = mergedDeletions[project.id];
     if (deletedAt && new Date(deletedAt).getTime() >= project.updatedAt.getTime()) {
-      continue;
+      return;
     }
     const localChangedSinceSync =
       changedAfterLastSync(project.updatedAt, lastSync);
@@ -215,7 +244,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
 
     if (remote && localChangedSinceSync && remoteChangedSinceSync) {
       addConflict(project.id, project.projectName);
-      continue;
+      return;
     }
 
     // Do not resurrect remotely deleted projects unless this project changed locally after last sync.
@@ -235,7 +264,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         }
       }
     }
-  }
+  });
 
   const syncedAt = new Date();
   setLastSyncTime(syncedAt);

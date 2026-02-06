@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
@@ -25,6 +25,14 @@ import {
 type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
+
+type AreaMetrics = {
+  stats: ReturnType<typeof getAreaStats>;
+  pending: number;
+  progress: number;
+  photoCount: number;
+  commentCount: number;
+};
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -102,21 +110,44 @@ export default function ProjectDetailPage() {
     }
   }
 
-  const sortedAreas = project?.areas
-    ? [...project.areas].sort((a, b) => {
-        if (sortOption === 'name') {
-          return a.name.localeCompare(b.name);
-        } else if (sortOption === 'recent') {
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        } else {
-          const statsA = getAreaStats(a);
-          const statsB = getAreaStats(b);
-          const progressA = statsA.total > 0 ? statsA.ok / statsA.total : 0;
-          const progressB = statsB.total > 0 ? statsB.ok / statsB.total : 0;
-          return progressB - progressA;
+  const areaMetrics = useMemo(() => {
+    const metrics = new Map<string, AreaMetrics>();
+    if (!project) return metrics;
+
+    for (const area of project.areas) {
+      let photoCount = 0;
+      let commentCount = 0;
+      for (const location of area.locations) {
+        for (const item of location.items) {
+          for (const checkpoint of item.checkpoints) {
+            photoCount += checkpoint.photos.length;
+            if (checkpoint.comments.trim()) commentCount += 1;
+          }
         }
-      })
-    : [];
+      }
+      const stats = getAreaStats(area);
+      const pending = stats.total - stats.ok - stats.issues;
+      const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+      metrics.set(area.id, { stats, pending, progress, photoCount, commentCount });
+    }
+
+    return metrics;
+  }, [project]);
+
+  const sortedAreas = useMemo(() => {
+    if (!project) return [];
+    return [...project.areas].sort((a, b) => {
+      if (sortOption === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortOption === 'recent') {
+        return b.updatedAt.getTime() - a.updatedAt.getTime();
+      }
+      const progressA = areaMetrics.get(a.id)?.progress ?? 0;
+      const progressB = areaMetrics.get(b.id)?.progress ?? 0;
+      return progressB - progressA;
+    });
+  }, [project, sortOption, areaMetrics]);
 
   async function handleAddArea() {
     if (!project || !newAreaName.trim()) return;
@@ -302,34 +333,12 @@ export default function ProjectDetailPage() {
         ) : (
           <div className="space-y-2">
             {sortedAreas.map((area) => {
-              const areaStats = getAreaStats(area);
-              const pending = areaStats.total - areaStats.ok - areaStats.issues;
-              const areaPhotoCount = area.locations.reduce(
-                (locSum, location) =>
-                  locSum +
-                  location.items.reduce(
-                    (itemSum, item) =>
-                      itemSum + item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
-                    0
-                  ),
-                0
-              );
-              const areaCommentCount = area.locations.reduce(
-                (locSum, location) =>
-                  locSum +
-                  location.items.reduce(
-                    (itemSum, item) =>
-                      itemSum +
-                      item.checkpoints.reduce(
-                        (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
-                        0
-                      ),
-                    0
-                  ),
-                0
-              );
-              const progress =
-                areaStats.total > 0 ? (areaStats.ok / areaStats.total) * 100 : 0;
+              const metric = areaMetrics.get(area.id);
+              const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
+              const pending = metric?.pending ?? 0;
+              const areaPhotoCount = metric?.photoCount ?? 0;
+              const areaCommentCount = metric?.commentCount ?? 0;
+              const progress = metric?.progress ?? 0;
               const isSelected = selectedAreaIds.has(area.id);
               return (
                 <div
