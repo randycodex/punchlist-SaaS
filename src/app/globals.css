@@ -33,11 +33,15 @@ body {
 html,
 body {
   background-color: var(--background);
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior-y: none;
 }
 
 .app-shell {
   padding-top: calc(env(safe-area-inset-top) + 3.5rem);
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   background-color: var(--background);
 }
 
@@ -61,6 +65,10 @@ html {
   color-scheme: dark;
 }
 
+html:not(.dark) {
+  color-scheme: light;
+}
+
 .persistent-top-bar {
   background-color: var(--surface);
   border-color: var(--surface-border);
@@ -81,6 +89,15 @@ html {
 .dark .pinned-surface {
   background-color: var(--surface) !important;
   border-color: var(--surface-border) !important;
+}
+
+/* In light mode, keep these surfaces explicitly white. */
+html:not(.dark) .safe-top-shim,
+html:not(.dark) .persistent-top-bar,
+html:not(.dark) .header-stable,
+html:not(.dark) .pinned-surface {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
 }
 
 .sync-indicator {
