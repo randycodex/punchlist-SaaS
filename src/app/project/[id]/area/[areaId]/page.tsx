@@ -207,7 +207,7 @@ export default function AreaDetailPage() {
     : null;
 
   return (
-    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
       <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
@@ -227,7 +227,7 @@ export default function AreaDetailPage() {
       </header>
 
       {/* Stats */}
-      <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center gap-6">
           <div className="text-center">
             <div className="text-xl font-semibold text-blue-600">{remainingCount}</div>

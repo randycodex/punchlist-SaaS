@@ -252,7 +252,7 @@ export default function ProjectDetailPage() {
       </header>
 
       {/* Project Info */}
-      <div className="shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         {project.address && (
           <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
             <MapPin className="w-4 h-4" />

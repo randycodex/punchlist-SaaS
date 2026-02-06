@@ -18,8 +18,8 @@
 .dark {
   --background: #111827;
   --foreground: #f9fafb;
-  --surface: #1f2937;
-  --surface-border: #374151;
+  --surface: #111827;
+  --surface-border: #1f2937;
 }
 
 body {
@@ -72,6 +72,15 @@ html {
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: transform;
+}
+
+/* In dark mode, force pinned top surfaces to match the page background tone. */
+.dark .safe-top-shim,
+.dark .persistent-top-bar,
+.dark .header-stable,
+.dark .pinned-surface {
+  background-color: var(--surface) !important;
+  border-color: var(--surface-border) !important;
 }
 
 .sync-indicator {
