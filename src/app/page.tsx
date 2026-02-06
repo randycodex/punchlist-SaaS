@@ -247,7 +247,7 @@ export default function ProjectsPage() {
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
-        <div className="px-4 h-12 flex items-center gap-2">
+        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={handleSync}
@@ -358,14 +358,16 @@ export default function ProjectsPage() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            {(deleteMode || exportMode) && (
-              <button
-                onClick={cancelSelectionMode}
-                className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Cancel
-              </button>
-            )}
+            <div className="w-[4.75rem] flex justify-end">
+              {(deleteMode || exportMode) ? (
+                <button
+                  onClick={cancelSelectionMode}
+                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
