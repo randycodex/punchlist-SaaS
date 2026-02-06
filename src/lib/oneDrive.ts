@@ -114,6 +114,7 @@ export async function uploadProjectFile(
 }
 
 export async function uploadPdfToOneDrive(token: string, filename: string, blob: Blob) {
+  await ensurePunchListFolders(token);
   return graphFetch<DriveItem>(token, `/me/drive/root:/PunchList/exports/${encodeURI(filename)}:/content`, {
     method: 'PUT',
     headers: {
@@ -145,18 +146,23 @@ export async function getNextOneDriveExportFilename(
   projectNames: string[],
   now = new Date()
 ): Promise<string> {
+  await ensurePunchListFolders(token);
   const base = projectNames.map(sanitizeExportNamePart).join('_') || 'PunchList';
   const date = formatDateForExport(now);
+  const existingFiles = await graphFetch<{ value: DriveItem[] }>(
+    token,
+    '/me/drive/root:/PunchList/exports:/children?$select=name'
+  );
+  const prefix = `${base}_${date}_`;
+  const matchingVersions = (existingFiles.value ?? [])
+    .map((item) => item.name)
+    .filter((name) => name.startsWith(prefix) && name.toLowerCase().endsWith('.pdf'))
+    .map((name) => name.slice(prefix.length, -4))
+    .map((rawVersion) => Number.parseInt(rawVersion, 10))
+    .filter((version) => Number.isFinite(version) && version > 0);
 
-  for (let version = 1; version < 10000; version += 1) {
-    const filename = `${base}_${date}_${version}.pdf`;
-    const existing = await getItemByPath(token, `PunchList/exports/${filename}`);
-    if (!existing) {
-      return filename;
-    }
-  }
-
-  throw new Error('Could not determine next export filename.');
+  const nextVersion = (matchingVersions.length > 0 ? Math.max(...matchingVersions) : 0) + 1;
+  return `${base}_${date}_${nextVersion}.pdf`;
 }
 
 export async function deleteDriveItem(token: string, id: string): Promise<void> {
