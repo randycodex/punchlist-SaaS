@@ -15,11 +15,14 @@ type MicrosoftAuthContextValue = {
 const MicrosoftAuthContext = createContext<MicrosoftAuthContextValue | undefined>(undefined);
 
 const SCOPES = ['User.Read', 'Files.ReadWrite'];
+const DEFAULT_MS_CLIENT_ID = '376ef496-5fa7-447d-9559-2e128a6b74a4';
+const DEFAULT_MS_TENANT_ID = '1b27ef8c-da05-4c5c-b767-632ba5ae10da';
+const DEFAULT_MS_REDIRECT_URI = 'https://punchlist-pwa.vercel.app/';
 
 export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
-  const clientId = process.env.NEXT_PUBLIC_MS_CLIENT_ID ?? '';
-  const tenantId = process.env.NEXT_PUBLIC_MS_TENANT_ID ?? '';
-  const redirectUriFromEnv = process.env.NEXT_PUBLIC_MS_REDIRECT_URI ?? '';
+  const clientId = process.env.NEXT_PUBLIC_MS_CLIENT_ID ?? DEFAULT_MS_CLIENT_ID;
+  const tenantId = process.env.NEXT_PUBLIC_MS_TENANT_ID ?? DEFAULT_MS_TENANT_ID;
+  const redirectUriFromEnv = process.env.NEXT_PUBLIC_MS_REDIRECT_URI ?? DEFAULT_MS_REDIRECT_URI;
   const redirectUri =
     redirectUriFromEnv || (typeof window !== 'undefined' ? `${window.location.origin}/` : '');
 
