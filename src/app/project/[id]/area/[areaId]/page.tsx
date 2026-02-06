@@ -13,7 +13,6 @@ import {
   CheckCircle,
   AlertTriangle,
   Circle,
-  MapPin,
   Wrench,
   MessageSquare,
   X,
@@ -201,6 +200,7 @@ export default function AreaDetailPage() {
   }
 
   const stats = getAreaStats(area);
+  const remainingCount = stats.total - stats.ok - stats.issues;
   const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
@@ -230,7 +230,7 @@ export default function AreaDetailPage() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <div className="text-xl font-semibold text-blue-600">{stats.total}</div>
+            <div className="text-xl font-semibold text-blue-600">{remainingCount}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="text-center">
@@ -286,7 +286,6 @@ export default function AreaDetailPage() {
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-500" />
                   <span className="font-medium text-gray-900 dark:text-white">{location.name}</span>
                 </div>
                 <div className="flex items-center gap-3">
