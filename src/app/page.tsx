@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
+import { uploadPdfToOneDrive } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -20,6 +21,9 @@ import {
   Circle,
   ChevronDown,
   FileDown,
+  Loader2,
+  MoreVertical,
+  Pencil,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -27,21 +31,27 @@ type SortOption = 'name' | 'recent' | 'progress';
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
 
 export default function ProjectsPage() {
-  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectAddress, setNewProjectAddress] = useState('');
   const [newProjectInspector, setNewProjectInspector] = useState('');
+  const [newProjectGcName, setNewProjectGcName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [exportMode, setExportMode] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
+  const [exportingSelectedToDrive, setExportingSelectedToDrive] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { accessToken, isSignedIn, isReady, signIn, signOut, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -119,19 +129,14 @@ export default function ProjectsPage() {
     if (!newProjectName.trim()) return;
 
     const project = createProject(newProjectName.trim(), newProjectAddress.trim(), newProjectInspector.trim());
+    project.gcName = newProjectGcName.trim();
     await saveProject(project);
     setNewProjectName('');
     setNewProjectAddress('');
     setNewProjectInspector('');
+    setNewProjectGcName('');
     setShowNewProject(false);
-    router.push(`/project/${project.id}?edit=1`);
-  }
-
-  async function handleDeleteProject(id: string) {
-    if (confirm('Are you sure you want to delete this project?')) {
-      await deleteProject(id);
-      loadProjects();
-    }
+    await loadProjects();
   }
 
   function toggleProjectSelection(id: string) {
@@ -146,8 +151,24 @@ export default function ProjectsPage() {
     });
   }
 
-  async function handleExportSelected() {
+  async function handleDeleteSelectedProjects() {
+    if (selectedProjectIds.size === 0) {
+      setDeleteMode(false);
+      return;
+    }
+    if (!confirm(`Delete ${selectedProjectIds.size} selected project(s)?`)) return;
+    for (const id of selectedProjectIds) {
+      await deleteProject(id);
+    }
+    setSelectedProjectIds(new Set());
+    setDeleteMode(false);
+    setExportMode(false);
+    await loadProjects();
+  }
+
+  async function handleExportSelectedLocal() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
+    setShowExportMenu(false);
     setExportingSelected(true);
     try {
       const projectsToExport = [...sortedProjects]
@@ -165,7 +186,46 @@ export default function ProjectsPage() {
       alert('Failed to export selected projects. Please try again.');
     } finally {
       setExportingSelected(false);
+      setExportMode(false);
+      setSelectedProjectIds(new Set());
     }
+  }
+
+  async function handleExportSelectedToDrive() {
+    if (exportingSelectedToDrive || selectedProjectIds.size === 0) return;
+    setShowExportMenu(false);
+    setExportingSelectedToDrive(true);
+    try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) {
+        signIn();
+        return;
+      }
+      const projectsToExport = [...sortedProjects]
+        .filter((project) => selectedProjectIds.has(project.id))
+        .sort((a, b) => a.projectName.localeCompare(b.projectName));
+      const projectsForExport = projectsToExport.map((project) => ({
+        ...project,
+        areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+      const blob = await generateMultiProjectPDF(projectsForExport);
+      await uploadPdfToOneDrive(token, 'PunchList_Projects_Report.pdf', blob);
+    } catch (error) {
+      console.error('Failed to export selected projects to OneDrive:', error);
+      alert('Failed to export selected projects to OneDrive. Please try again.');
+    } finally {
+      setExportingSelectedToDrive(false);
+      setExportMode(false);
+      setSelectedProjectIds(new Set());
+    }
+  }
+
+  async function handleEditProject(updates: Partial<Project>) {
+    if (!editingProject) return;
+    Object.assign(editingProject, updates);
+    await saveProject(editingProject);
+    setEditingProject(null);
+    await loadProjects();
   }
 
   const sortLabels: Record<SortOption, string> = {
@@ -260,13 +320,73 @@ export default function ProjectsPage() {
               )}
             </div>
             <button
-              onClick={handleExportSelected}
-              disabled={selectedProjectIds.size === 0 || exportingSelected}
-              className="h-9 w-9 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-              aria-label="Export selected projects"
+              onClick={() => {
+                if (deleteMode) {
+                  void handleDeleteSelectedProjects();
+                } else {
+                  setDeleteMode(true);
+                  setExportMode(false);
+                  setSelectedProjectIds(new Set());
+                }
+              }}
+              className={`h-9 w-9 flex items-center justify-center rounded-lg ${
+                deleteMode
+                  ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              aria-label="Select projects to delete"
             >
-              <FileDown className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" />
             </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  if (!exportMode) {
+                    setExportMode(true);
+                    setDeleteMode(false);
+                    setSelectedProjectIds(new Set());
+                    return;
+                  }
+                  if (selectedProjectIds.size === 0) {
+                    setExportMode(false);
+                    return;
+                  }
+                  setShowExportMenu(!showExportMenu);
+                }}
+                disabled={exportingSelected || exportingSelectedToDrive}
+                className={`h-9 w-9 flex items-center justify-center rounded-lg disabled:opacity-50 ${
+                  exportMode
+                    ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                aria-label="Export selected projects"
+              >
+                {exportingSelected || exportingSelectedToDrive ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4" />
+                )}
+              </button>
+              {showExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+                  <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                    <button
+                      onClick={handleExportSelectedLocal}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Export Selected PDF
+                    </button>
+                    <button
+                      onClick={handleExportSelectedToDrive}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Export Selected to Drive
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
@@ -323,14 +443,22 @@ export default function ProjectsPage() {
                   className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
                 >
                   <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedProjectIds.has(project.id)}
-                      onChange={() => toggleProjectSelection(project.id)}
-                      className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label={`Select ${project.projectName}`}
-                    />
-                    <Link href={`/project/${project.id}`} className="flex-1 min-w-0">
+                    {(deleteMode || exportMode) && (
+                      <input
+                        type="checkbox"
+                        checked={selectedProjectIds.has(project.id)}
+                        onChange={() => toggleProjectSelection(project.id)}
+                        className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select ${project.projectName}`}
+                      />
+                    )}
+                    <Link
+                      href={deleteMode || exportMode ? '#' : `/project/${project.id}`}
+                      onClick={(e) => {
+                        if (deleteMode || exportMode) e.preventDefault();
+                      }}
+                      className="flex-1 min-w-0"
+                    >
                       <h3 className="font-medium text-gray-900 dark:text-white">{project.projectName}</h3>
                       {project.address && (
                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
@@ -361,17 +489,42 @@ export default function ProjectsPage() {
                       </div>
                     </Link>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteProject(project.id);
-                        }}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() =>
+                            setShowProjectMenuId((prev) => (prev === project.id ? null : project.id))
+                          }
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+                          aria-label={`Project actions for ${project.projectName}`}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {showProjectMenuId === project.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setShowProjectMenuId(null)}
+                            />
+                            <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                              <button
+                                onClick={() => {
+                                  setShowProjectMenuId(null);
+                                  setEditingProject(project);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                              >
+                                <Pencil className="w-4 h-4" />
+                                Edit Project
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                       <Link
-                        href={`/project/${project.id}`}
+                        href={deleteMode || exportMode ? '#' : `/project/${project.id}`}
+                        onClick={(e) => {
+                          if (deleteMode || exportMode) e.preventDefault();
+                        }}
                         className="p-1 text-gray-400 hover:text-blue-500"
                         aria-label={`Open ${project.projectName}`}
                       >
@@ -429,6 +582,18 @@ export default function ProjectsPage() {
                   placeholder="Enter inspector name"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  GC Name
+                </label>
+                <input
+                  type="text"
+                  value={newProjectGcName}
+                  onChange={(e) => setNewProjectGcName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Enter GC name"
+                />
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -437,6 +602,7 @@ export default function ProjectsPage() {
                   setNewProjectName('');
                   setNewProjectAddress('');
                   setNewProjectInspector('');
+                  setNewProjectGcName('');
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
@@ -452,6 +618,14 @@ export default function ProjectsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingProject && (
+        <ProjectEditModal
+          project={editingProject}
+          onSave={handleEditProject}
+          onClose={() => setEditingProject(null)}
+        />
       )}
     </div>
   );

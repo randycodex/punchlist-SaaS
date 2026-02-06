@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { Project, Area, getProjectStats, getAreaStats } from '@/types';
+import { useRouter, useParams } from 'next/navigation';
+import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
 import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
-import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -22,7 +21,6 @@ import {
   AlertTriangle,
   Circle,
   FileDown,
-  MoreVertical,
   MapPin,
   User,
   Loader2,
@@ -35,12 +33,12 @@ const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddArea, setShowAddArea] = useState(false);
-  const [showEditProject, setShowEditProject] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedAreaIds, setSelectedAreaIds] = useState<Set<string>>(new Set());
   const [newAreaName, setNewAreaName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -67,12 +65,6 @@ export default function ProjectDetailPage() {
     }
     loadProject();
   }, [id]);
-
-  useEffect(() => {
-    if (searchParams.get('edit') === '1') {
-      setShowEditProject(true);
-    }
-  }, [searchParams]);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -125,21 +117,27 @@ export default function ProjectDetailPage() {
     loadProject();
   }
 
-  async function handleDeleteArea(areaId: string) {
-    if (!project) return;
-    if (confirm('Are you sure you want to delete this area?')) {
-      project.areas = project.areas.filter((a) => a.id !== areaId);
-      await saveProject(project);
-      loadProject();
-    }
+  function toggleAreaSelection(areaId: string) {
+    setSelectedAreaIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(areaId)) next.delete(areaId);
+      else next.add(areaId);
+      return next;
+    });
   }
 
-  async function handleEditProject(updates: Partial<Project>) {
+  async function handleDeleteSelectedAreas() {
     if (!project) return;
-    Object.assign(project, updates);
+    if (selectedAreaIds.size === 0) {
+      setDeleteMode(false);
+      return;
+    }
+    if (!confirm(`Delete ${selectedAreaIds.size} selected area(s)?`)) return;
+    project.areas = project.areas.filter((area) => !selectedAreaIds.has(area.id));
     await saveProject(project);
-    setShowEditProject(false);
-    loadProject();
+    setSelectedAreaIds(new Set());
+    setDeleteMode(false);
+    await loadProject();
   }
 
   async function handleExportPDF() {
@@ -215,12 +213,9 @@ export default function ProjectDetailPage() {
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <button
-              onClick={() => setShowEditProject(true)}
-              className="font-medium text-gray-700 dark:text-gray-200 truncate hover:text-blue-600 dark:hover:text-blue-400"
-            >
+            <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
               {project.projectName}
-            </button>
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <div className="relative">
@@ -253,6 +248,24 @@ export default function ProjectDetailPage() {
                 </>
               )}
             </div>
+            <button
+              onClick={() => {
+                if (deleteMode) {
+                  void handleDeleteSelectedAreas();
+                } else {
+                  setDeleteMode(true);
+                  setSelectedAreaIds(new Set());
+                }
+              }}
+              className={`h-9 w-9 flex items-center justify-center rounded-lg ${
+                deleteMode
+                  ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              aria-label="Select areas to delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
@@ -363,13 +376,27 @@ export default function ProjectDetailPage() {
               const progress =
                 areaStats.total > 0 ? (areaStats.ok / areaStats.total) * 100 : 0;
               return (
-                <Link
+                <div
                   key={area.id}
-                  href={`/project/${project.id}/area/${area.id}`}
                   className="block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-start gap-3">
+                    {deleteMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedAreaIds.has(area.id)}
+                        onChange={() => toggleAreaSelection(area.id)}
+                        className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select ${area.name}`}
+                      />
+                    )}
+                    <Link
+                      href={deleteMode ? '#' : `/project/${project.id}/area/${area.id}`}
+                      onClick={(e) => {
+                        if (deleteMode) e.preventDefault();
+                      }}
+                      className="flex-1"
+                    >
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
                         {area.isComplete && (
@@ -405,21 +432,19 @@ export default function ProjectDetailPage() {
                           />
                         </div>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteArea(area.id);
-                        }}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    </Link>
+                    <Link
+                      href={deleteMode ? '#' : `/project/${project.id}/area/${area.id}`}
+                      onClick={(e) => {
+                        if (deleteMode) e.preventDefault();
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-500"
+                      aria-label={`Open ${area.name}`}
+                    >
                       <ChevronRight className="w-5 h-5 text-gray-400" />
-                    </div>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -464,15 +489,6 @@ export default function ProjectDetailPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Edit Project Modal */}
-      {showEditProject && (
-        <ProjectEditModal
-          project={project}
-          onSave={handleEditProject}
-          onClose={() => setShowEditProject(false)}
-        />
       )}
 
       {/* Export loading overlay */}
