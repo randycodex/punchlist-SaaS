@@ -61,6 +61,11 @@ export default function ProjectsPage() {
     loadProjects();
   }, []);
 
+  useEffect(() => {
+    if (!accessToken) return;
+    void handleSync();
+  }, [accessToken]);
+
   function handleSortChange(option: SortOption) {
     setSortOption(option);
     localStorage.setItem(SORT_STORAGE_KEY, option);
@@ -251,9 +256,13 @@ export default function ProjectsPage() {
             <button
               onClick={handleSync}
               disabled={!isSignedIn || syncing}
-              className="h-9 w-[5.5rem] text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 shrink-0"
+              className={`h-9 w-[5.5rem] text-sm rounded-lg disabled:opacity-50 shrink-0 ${
+                syncing
+                  ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
             >
-              {syncing ? 'Syncing...' : 'Sync'}
+              Sync
             </button>
             <div className="relative">
               <button
