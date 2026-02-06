@@ -255,31 +255,31 @@ export default function ProjectsPage() {
               height={40}
               className="object-contain"
             />
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
+          {isReady && (
+            <>
+              {!isSignedIn ? (
+                <button
+                  onClick={signIn}
+                  className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Sign in
+                </button>
+              ) : (
+                <button
+                  onClick={signOut}
+                  className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Sign out
+                </button>
+              )}
+            </>
+          )}
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700" />
         <div className="px-4 h-full flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            {isReady && (
-              <>
-                {!isSignedIn ? (
-                  <button
-                    onClick={signIn}
-                    className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                  >
-                    Sign in
-                  </button>
-                ) : (
-                  <button
-                    onClick={signOut}
-                    className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                  >
-                    Sign out
-                  </button>
-                )}
-              </>
-            )}
             <button
               onClick={handleSync}
               disabled={!isSignedIn || syncing}
