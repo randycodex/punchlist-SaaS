@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type TouchEvent } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
@@ -50,6 +50,8 @@ export default function ProjectsPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [pullArmed, setPullArmed] = useState(false);
+  const pullStartYRef = useRef<number | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -246,6 +248,29 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set());
   }
 
+  function handlePullStart(e: TouchEvent<HTMLElement>) {
+    if (window.scrollY > 0 || syncing) {
+      pullStartYRef.current = null;
+      return;
+    }
+    pullStartYRef.current = e.touches[0]?.clientY ?? null;
+  }
+
+  function handlePullMove(e: TouchEvent<HTMLElement>) {
+    if (pullStartYRef.current === null || window.scrollY > 0 || syncing) return;
+    const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
+    const delta = currentY - pullStartYRef.current;
+    setPullArmed(delta >= 90);
+  }
+
+  function handlePullEnd() {
+    pullStartYRef.current = null;
+    if (pullArmed && !syncing) {
+      void handleSync();
+    }
+    setPullArmed(false);
+  }
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -255,7 +280,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
+    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
@@ -404,7 +429,13 @@ export default function ProjectsPage() {
       )}
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto overscroll-y-contain p-4">
+      <main
+        className="p-4"
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        onTouchCancel={handlePullEnd}
+      >
         {projects.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
