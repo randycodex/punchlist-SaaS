@@ -23,7 +23,9 @@ function getEnv(name: string) {
 export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
   const clientId = getEnv('NEXT_PUBLIC_MS_CLIENT_ID');
   const tenantId = getEnv('NEXT_PUBLIC_MS_TENANT_ID');
-  const redirectUri = getEnv('NEXT_PUBLIC_MS_REDIRECT_URI');
+  const redirectUriFromEnv = getEnv('NEXT_PUBLIC_MS_REDIRECT_URI');
+  const redirectUri =
+    redirectUriFromEnv || (typeof window !== 'undefined' ? `${window.location.origin}/` : '');
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -51,7 +53,8 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
     }
 
     pca
-      .handleRedirectPromise()
+      .initialize()
+      .then(() => pca.handleRedirectPromise())
       .then(async (result: AuthenticationResult | null) => {
         if (!active) return;
         if (result?.account) {
@@ -79,12 +82,22 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
   }, [pca]);
 
   async function signIn() {
-    if (!pca) return;
-    await pca.loginRedirect({ scopes: SCOPES });
+    if (!pca) {
+      alert('Microsoft sign-in is not configured. Check NEXT_PUBLIC_MS_* environment variables.');
+      return;
+    }
+    try {
+      await pca.initialize();
+      await pca.loginRedirect({ scopes: SCOPES });
+    } catch (error) {
+      console.error('Microsoft sign-in failed:', error);
+      alert('Microsoft sign-in failed. Please try again.');
+    }
   }
 
   async function signOut() {
     if (!pca) return;
+    await pca.initialize();
     await pca.logoutRedirect({ postLogoutRedirectUri: redirectUri || '/' });
     setAccessToken(null);
     setIsSignedIn(false);
@@ -92,6 +105,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
 
   async function ensureAccessToken() {
     if (!pca) return null;
+    await pca.initialize();
     const account: AccountInfo | undefined = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
     if (!account) return null;
     try {
