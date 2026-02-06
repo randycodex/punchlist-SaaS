@@ -171,6 +171,7 @@ export default function ProjectDetailPage() {
   }
 
   const stats = getProjectStats(project);
+  const remainingCount = stats.total - stats.ok - stats.issues;
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
@@ -270,7 +271,7 @@ export default function ProjectDetailPage() {
             <div className="text-xs text-gray-500 dark:text-gray-400">Areas</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-semibold text-blue-600">{stats.total}</div>
+            <div className="text-2xl font-semibold text-blue-600">{remainingCount}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="text-center">
