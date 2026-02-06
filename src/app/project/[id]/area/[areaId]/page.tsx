@@ -259,6 +259,11 @@ export default function AreaDetailPage() {
       <main className="p-4 space-y-2">
         {area.locations.map((location) => {
           const locationStats = getLocationStats(location);
+          const locationPhotoCount = location.items.reduce(
+            (itemSum, item) =>
+              itemSum + item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
+            0
+          );
           const isExpanded = expandedLocations.has(location.id);
 
           return (
@@ -294,6 +299,12 @@ export default function AreaDetailPage() {
                       {locationStats.total - locationStats.ok - locationStats.issues}
                     </span>
                   )}
+                  {locationPhotoCount > 0 && (
+                    <span className="text-amber-500 flex items-center gap-1 text-sm">
+                      <ImageIcon className="w-3 h-3" />
+                      {locationPhotoCount}
+                    </span>
+                  )}
                   {isExpanded ? (
                     <ChevronDown className="w-5 h-5 text-gray-400" />
                   ) : (
@@ -307,6 +318,10 @@ export default function AreaDetailPage() {
                 <div className="border-t border-gray-100 dark:border-gray-700">
                   {location.items.map((item) => {
                     const itemStats = getItemStats(item);
+                    const itemPhotoCount = item.checkpoints.reduce(
+                      (cpSum, checkpoint) => cpSum + checkpoint.photos.length,
+                      0
+                    );
                     const isItemExpanded = expandedItems.has(item.id);
 
                     return (
@@ -337,6 +352,12 @@ export default function AreaDetailPage() {
                               <span className="text-gray-400 flex items-center gap-1 text-xs">
                                 <Circle className="w-3 h-3" />
                                 {itemStats.total - itemStats.ok - itemStats.issues}
+                              </span>
+                            )}
+                            {itemPhotoCount > 0 && (
+                              <span className="text-amber-500 flex items-center gap-1 text-xs">
+                                <ImageIcon className="w-3 h-3" />
+                                {itemPhotoCount}
                               </span>
                             )}
                             {isItemExpanded ? (

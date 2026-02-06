@@ -18,6 +18,7 @@ import {
   Circle,
   MapPin,
   User,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -60,7 +61,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!showSortMenu) return;
-    const onPointerDown = (event: PointerEvent) => {
+    const onDocInteract = (event: Event) => {
       const target = event.target as Node | null;
       if (!target) return;
       const inButton = !!sortButtonRef.current?.contains(target);
@@ -69,9 +70,11 @@ export default function ProjectDetailPage() {
         setShowSortMenu(false);
       }
     };
-    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('touchstart', onDocInteract, true);
+    document.addEventListener('mousedown', onDocInteract, true);
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('touchstart', onDocInteract, true);
+      document.removeEventListener('mousedown', onDocInteract, true);
     };
   }, [showSortMenu]);
 
@@ -299,6 +302,16 @@ export default function ProjectDetailPage() {
             {sortedAreas.map((area) => {
               const areaStats = getAreaStats(area);
               const pending = areaStats.total - areaStats.ok - areaStats.issues;
+              const areaPhotoCount = area.locations.reduce(
+                (locSum, location) =>
+                  locSum +
+                  location.items.reduce(
+                    (itemSum, item) =>
+                      itemSum + item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
+                    0
+                  ),
+                0
+              );
               const progress =
                 areaStats.total > 0 ? (areaStats.ok / areaStats.total) * 100 : 0;
               const isSelected = selectedAreaIds.has(area.id);
@@ -348,6 +361,12 @@ export default function ProjectDetailPage() {
                           <span className="text-gray-400 flex items-center gap-1">
                             <Circle className="w-3 h-3" />
                             {pending}
+                          </span>
+                        )}
+                        {areaPhotoCount > 0 && (
+                          <span className="text-amber-500 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            {areaPhotoCount}
                           </span>
                         )}
                       </div>

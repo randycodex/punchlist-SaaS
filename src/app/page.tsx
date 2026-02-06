@@ -81,7 +81,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (!showSortMenu) return;
-    const onPointerDown = (event: PointerEvent) => {
+    const onDocInteract = (event: Event) => {
       const target = event.target as Node | null;
       if (!target) return;
       const inButton = !!sortButtonRef.current?.contains(target);
@@ -90,9 +90,11 @@ export default function ProjectsPage() {
         setShowSortMenu(false);
       }
     };
-    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('touchstart', onDocInteract, true);
+    document.addEventListener('mousedown', onDocInteract, true);
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('touchstart', onDocInteract, true);
+      document.removeEventListener('mousedown', onDocInteract, true);
     };
   }, [showSortMenu]);
 
