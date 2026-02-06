@@ -1,0 +1,129 @@
+'use client';
+
+import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { PublicClientApplication, type AccountInfo, type AuthenticationResult } from '@azure/msal-browser';
+
+type MicrosoftAuthContextValue = {
+  accessToken: string | null;
+  isSignedIn: boolean;
+  isReady: boolean;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  ensureAccessToken: () => Promise<string | null>;
+};
+
+const MicrosoftAuthContext = createContext<MicrosoftAuthContextValue | undefined>(undefined);
+
+const SCOPES = ['User.Read', 'Files.ReadWrite'];
+
+function getEnv(name: string) {
+  return process.env[name] ?? '';
+}
+
+export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
+  const clientId = getEnv('NEXT_PUBLIC_MS_CLIENT_ID');
+  const tenantId = getEnv('NEXT_PUBLIC_MS_TENANT_ID');
+  const redirectUri = getEnv('NEXT_PUBLIC_MS_REDIRECT_URI');
+
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  const pca = useMemo(() => {
+    if (!clientId || !tenantId || !redirectUri) return null;
+    return new PublicClientApplication({
+      auth: {
+        clientId,
+        authority: `https://login.microsoftonline.com/${tenantId}`,
+        redirectUri,
+      },
+      cache: {
+        cacheLocation: 'localStorage',
+      },
+    });
+  }, [clientId, tenantId, redirectUri]);
+
+  useEffect(() => {
+    let active = true;
+    if (!pca) {
+      setIsReady(true);
+      return;
+    }
+
+    pca
+      .handleRedirectPromise()
+      .then(async (result: AuthenticationResult | null) => {
+        if (!active) return;
+        if (result?.account) {
+          pca.setActiveAccount(result.account);
+        }
+        const account = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
+        if (!account) {
+          setIsReady(true);
+          return;
+        }
+        const tokenResult = await pca.acquireTokenSilent({ scopes: SCOPES, account });
+        if (!active) return;
+        setAccessToken(tokenResult.accessToken);
+        setIsSignedIn(true);
+        setIsReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [pca]);
+
+  async function signIn() {
+    if (!pca) return;
+    await pca.loginRedirect({ scopes: SCOPES });
+  }
+
+  async function signOut() {
+    if (!pca) return;
+    await pca.logoutRedirect({ postLogoutRedirectUri: redirectUri || '/' });
+    setAccessToken(null);
+    setIsSignedIn(false);
+  }
+
+  async function ensureAccessToken() {
+    if (!pca) return null;
+    const account: AccountInfo | undefined = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
+    if (!account) return null;
+    try {
+      const tokenResult = await pca.acquireTokenSilent({ scopes: SCOPES, account });
+      setAccessToken(tokenResult.accessToken);
+      setIsSignedIn(true);
+      return tokenResult.accessToken;
+    } catch {
+      return null;
+    }
+  }
+
+  return (
+    <MicrosoftAuthContext.Provider
+      value={{
+        accessToken,
+        isSignedIn,
+        isReady,
+        signIn,
+        signOut,
+        ensureAccessToken,
+      }}
+    >
+      {children}
+    </MicrosoftAuthContext.Provider>
+  );
+}
+
+export function useMicrosoftAuth() {
+  const context = useContext(MicrosoftAuthContext);
+  if (!context) {
+    throw new Error('useMicrosoftAuth must be used within a MicrosoftAuthProvider');
+  }
+  return context;
+}

@@ -6,8 +6,8 @@ import { Project, Area, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
 import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
-import { uploadPdfToDrive } from '@/lib/googleDrive';
-import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
+import { uploadPdfToOneDrive } from '@/lib/oneDrive';
+import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -47,7 +47,7 @@ export default function ProjectDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingToDrive, setExportingToDrive] = useState(false);
-  const { accessToken, isSignedIn, signIn } = useGoogleAuth();
+  const { accessToken, isSignedIn, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -160,16 +160,17 @@ export default function ProjectDetailPage() {
 
   async function handleExportPDFToDrive() {
     if (!project) return;
-    if (!accessToken) {
-      signIn();
-      return;
-    }
     setShowMenu(false);
     setExportingToDrive(true);
     try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) {
+        signIn();
+        return;
+      }
       const blob = await generateProjectPDF(project);
       const filename = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
-      await uploadPdfToDrive(accessToken, filename, blob);
+      await uploadPdfToOneDrive(token, filename, blob);
     } catch (error) {
       console.error('Failed to export PDF to Drive:', error);
       alert('Failed to export PDF to Drive. Please try again.');

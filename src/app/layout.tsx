@@ -30,7 +30,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
       </head>
       <body className="font-sans antialiased">
         <AppProviders>{children}</AppProviders>

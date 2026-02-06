@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
-import { syncProjectsWithDrive, SyncConflict } from '@/lib/googleSync';
+import { syncProjectsWithOneDrive, SyncConflict } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
-import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
+import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -42,7 +42,7 @@ export default function ProjectsPage() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
-  const { accessToken, isSignedIn, isReady, signIn, signOut } = useGoogleAuth();
+  const { accessToken, isSignedIn, isReady, signIn, signOut, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
     // Load saved sort preference
@@ -50,7 +50,7 @@ export default function ProjectsPage() {
     if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
       setSortOption(savedSort);
     }
-    const lastSync = localStorage.getItem('punchlist-drive-last-sync');
+    const lastSync = localStorage.getItem('punchlist-onedrive-last-sync');
     if (lastSync) {
       setLastSyncAt(lastSync);
     }
@@ -80,11 +80,16 @@ export default function ProjectsPage() {
   }
 
   async function handleSync() {
-    if (!accessToken || syncing) return;
+    if (syncing) return;
     setSyncing(true);
     setSyncError(null);
     try {
-      const result = await syncProjectsWithDrive(accessToken);
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) {
+        setSyncError('Please sign in to sync.');
+        return;
+      }
+      const result = await syncProjectsWithOneDrive(token);
       setSyncConflicts(result.conflicts);
       setLastSyncAt(result.syncedAt);
       await loadProjects();

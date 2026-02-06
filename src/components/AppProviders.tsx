@@ -2,12 +2,12 @@
 
 import { ReactNode } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { GoogleAuthProvider } from '@/contexts/GoogleAuthContext';
+import { MicrosoftAuthProvider } from '@/contexts/MicrosoftAuthContext';
 
 export default function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <GoogleAuthProvider>
+    <MicrosoftAuthProvider>
       <ThemeProvider>{children}</ThemeProvider>
-    </GoogleAuthProvider>
+    </MicrosoftAuthProvider>
   );
 }
