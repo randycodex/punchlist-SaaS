@@ -354,16 +354,18 @@ export default function ProjectDetailPage() {
                     >
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                          {areaStats.total} items
+                        </span>
                         {area.isComplete && (
                           <CheckCircle className="w-4 h-4 text-green-500" />
                         )}
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">{areaStats.total} items</span>
-                        {areaStats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            {areaStats.ok}
+                        {pending > 0 && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <Circle className="w-3 h-3" />
+                            {pending}
                           </span>
                         )}
                         {areaStats.issues > 0 && (
@@ -372,10 +374,10 @@ export default function ProjectDetailPage() {
                             {areaStats.issues}
                           </span>
                         )}
-                        {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
-                            <Circle className="w-3 h-3" />
-                            {pending}
+                        {areaStats.ok > 0 && (
+                          <span className="text-green-600 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            {areaStats.ok}
                           </span>
                         )}
                         {areaPhotoCount > 0 && (

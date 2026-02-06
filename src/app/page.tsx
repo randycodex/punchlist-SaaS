@@ -537,7 +537,14 @@ export default function ProjectsPage() {
                       }}
                       className="flex-1 min-w-0"
                     >
-                      <h3 className="font-medium text-gray-900 dark:text-white">{project.projectName}</h3>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                          {project.projectName}
+                        </h3>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                          {stats.areas} areas
+                        </span>
+                      </div>
                       {project.address && (
                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                           <MapPin className="w-3 h-3" />
@@ -545,11 +552,10 @@ export default function ProjectsPage() {
                         </p>
                       )}
                       <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">{stats.areas} areas</span>
-                        {stats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            {stats.ok}
+                        {pending > 0 && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <Circle className="w-3 h-3" />
+                            {pending}
                           </span>
                         )}
                         {stats.issues > 0 && (
@@ -558,10 +564,10 @@ export default function ProjectsPage() {
                             {stats.issues}
                           </span>
                         )}
-                        {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
-                            <Circle className="w-3 h-3" />
-                            {pending}
+                        {stats.ok > 0 && (
+                          <span className="text-green-600 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            {stats.ok}
                           </span>
                         )}
                         {photoCount > 0 && (
