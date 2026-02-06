@@ -248,18 +248,18 @@ export default function ProjectsPage() {
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="px-4 h-12 flex items-center gap-2">
-          <button
-            onClick={handleSync}
-            disabled={!isSignedIn || syncing}
-            className="h-9 w-[5.5rem] text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-          >
-            {syncing ? 'Syncing...' : 'Sync'}
-          </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={handleSync}
+              disabled={!isSignedIn || syncing}
+              className="h-9 w-[5.5rem] text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 shrink-0"
+            >
+              {syncing ? 'Syncing...' : 'Sync'}
+            </button>
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg shrink-0"
               >
                 {sortLabels[sortOption]}
                 <ChevronDown className="w-4 h-4" />
@@ -356,6 +356,8 @@ export default function ProjectsPage() {
                 </>
               )}
             </div>
+          </div>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             {(deleteMode || exportMode) && (
               <button
                 onClick={cancelSelectionMode}
@@ -364,8 +366,6 @@ export default function ProjectsPage() {
                 Cancel
               </button>
             )}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
