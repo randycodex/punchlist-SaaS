@@ -23,6 +23,7 @@ export type SyncResult = {
 
 const STORAGE_KEY = 'punchlist-onedrive-last-sync';
 const DELETIONS_KEY = 'punchlist-onedrive-deletions';
+const CONFLICT_CHANGE_TOLERANCE_MS = 30_000;
 
 function getLastSyncTime() {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -31,6 +32,12 @@ function getLastSyncTime() {
 
 function setLastSyncTime(date: Date) {
   localStorage.setItem(STORAGE_KEY, date.toISOString());
+}
+
+function changedAfterLastSync(timestamp: string | Date, lastSync: Date | null) {
+  if (!lastSync) return true;
+  const value = new Date(timestamp).getTime();
+  return value > lastSync.getTime() + CONFLICT_CHANGE_TOLERANCE_MS;
 }
 
 function projectFilename(projectId: string) {
@@ -124,7 +131,12 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   await ensurePunchListFolders(token);
 
   const lastSync = getLastSyncTime();
-  const conflicts: SyncConflict[] = [];
+  const conflictsById = new Map<string, SyncConflict>();
+  const addConflict = (id: string, name: string) => {
+    if (!conflictsById.has(id)) {
+      conflictsById.set(id, { id, name });
+    }
+  };
   const [remoteFiles, localProjects, remoteDeletions] = await Promise.all([
     listProjectFiles(token),
     getAllProjects(),
@@ -167,9 +179,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     }
     const localProject = localProjectMap.get(projectId);
     const remoteChangedSinceSync =
-      remote.lastModifiedDateTime && lastSync
-        ? new Date(remote.lastModifiedDateTime).getTime() > lastSync.getTime()
-        : !lastSync;
+      remote.lastModifiedDateTime ? changedAfterLastSync(remote.lastModifiedDateTime, lastSync) : !lastSync;
 
     if (!localProject || remoteChangedSinceSync) {
       const raw = await downloadProjectFile(token, remote.id);
@@ -183,9 +193,9 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     }
 
     if (localProject && remoteChangedSinceSync && lastSync) {
-      const localChangedSinceSync = localProject.updatedAt.getTime() > lastSync.getTime();
+      const localChangedSinceSync = changedAfterLastSync(localProject.updatedAt, lastSync);
       if (localChangedSinceSync) {
-        conflicts.push({ id: localProject.id, name: localProject.projectName });
+        addConflict(localProject.id, localProject.projectName);
       }
     }
   }
@@ -199,14 +209,12 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       continue;
     }
     const localChangedSinceSync =
-      lastSync ? project.updatedAt.getTime() > lastSync.getTime() : true;
+      changedAfterLastSync(project.updatedAt, lastSync);
     const remoteChangedSinceSync =
-      remote?.lastModifiedDateTime && lastSync
-        ? new Date(remote.lastModifiedDateTime).getTime() > lastSync.getTime()
-        : false;
+      remote?.lastModifiedDateTime ? changedAfterLastSync(remote.lastModifiedDateTime, lastSync) : false;
 
     if (remote && localChangedSinceSync && remoteChangedSinceSync) {
-      conflicts.push({ id: project.id, name: project.projectName });
+      addConflict(project.id, project.projectName);
       continue;
     }
 
@@ -221,7 +229,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         );
       } catch (error) {
         if (error instanceof Error && error.message.includes('Precondition Failed')) {
-          conflicts.push({ id: project.id, name: project.projectName });
+          addConflict(project.id, project.projectName);
         } else {
           throw error;
         }
@@ -232,5 +240,5 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   const syncedAt = new Date();
   setLastSyncTime(syncedAt);
 
-  return { conflicts, syncedAt: syncedAt.toISOString() };
+  return { conflicts: [...conflictsById.values()], syncedAt: syncedAt.toISOString() };
 }

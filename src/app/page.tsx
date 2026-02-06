@@ -308,7 +308,7 @@ export default function ProjectsPage() {
   return (
     <div className="h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)] flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
+      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative">
@@ -432,18 +432,18 @@ export default function ProjectsPage() {
         </div>
       </header>
       {syncError && (
-        <div className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+        <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
         </div>
       )}
       {syncConflicts.length > 0 && (
-        <div className="px-4 py-2 text-sm border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="shrink-0 px-4 py-2 text-sm border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="text-orange-600">Conflicts detected:</div>
           <div className="flex flex-wrap gap-2 mt-1">
             {syncConflicts.map((conflict) => (
               <span
                 key={conflict.id}
-                className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200"
+                className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-300"
               >
                 {conflict.name}
               </span>
@@ -455,7 +455,7 @@ export default function ProjectsPage() {
       {/* Content */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]"
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
