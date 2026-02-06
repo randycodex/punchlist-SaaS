@@ -20,15 +20,17 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Google Drive Sync (Personal Accounts)
+## Microsoft OneDrive Sync
 
-To enable Google sign-in and Drive sync, set the following environment variable:
+To enable Microsoft sign-in and OneDrive sync, set:
 
 ```
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+NEXT_PUBLIC_MS_CLIENT_ID=your_microsoft_app_client_id
+NEXT_PUBLIC_MS_TENANT_ID=your_microsoft_tenant_id
+NEXT_PUBLIC_MS_REDIRECT_URI=https://punchlist-pwa.vercel.app/
 ```
 
-After setting the client ID, restart the dev server.
+After updating env vars, restart the dev server.
 
 ## Self-hosted Inter font
 
