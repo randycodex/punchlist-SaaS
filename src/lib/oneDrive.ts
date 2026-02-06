@@ -119,3 +119,41 @@ export async function uploadPdfToOneDrive(token: string, filename: string, blob:
     body: blob,
   });
 }
+
+export async function deleteDriveItem(token: string, id: string): Promise<void> {
+  await graphFetch(token, `/me/drive/items/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function downloadDeletionLog(token: string): Promise<Record<string, string>> {
+  try {
+    const response = await fetch(`${GRAPH_API}/me/drive/root:/PunchList/deletions.json:/content`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      return {};
+    }
+    const text = await response.text();
+    if (!text) return {};
+    const parsed = JSON.parse(text) as Record<string, string>;
+    return parsed ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function uploadDeletionLog(
+  token: string,
+  data: Record<string, string>
+): Promise<DriveItem> {
+  return graphFetch<DriveItem>(token, '/me/drive/root:/PunchList/deletions.json:/content', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}

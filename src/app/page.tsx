@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
-import { syncProjectsWithOneDrive, SyncConflict } from '@/lib/oneDriveSync';
+import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
@@ -43,7 +43,6 @@ export default function ProjectsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
@@ -59,10 +58,6 @@ export default function ProjectsPage() {
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
     if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
       setSortOption(savedSort);
-    }
-    const lastSync = localStorage.getItem('punchlist-onedrive-last-sync');
-    if (lastSync) {
-      setLastSyncAt(lastSync);
     }
     loadProjects();
   }, []);
@@ -101,7 +96,6 @@ export default function ProjectsPage() {
       }
       const result = await syncProjectsWithOneDrive(token);
       setSyncConflicts(result.conflicts);
-      setLastSyncAt(result.syncedAt);
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -158,6 +152,7 @@ export default function ProjectsPage() {
     }
     if (!confirm(`Delete ${selectedProjectIds.size} selected project(s)?`)) return;
     for (const id of selectedProjectIds) {
+      markProjectDeleted(id);
       await deleteProject(id);
     }
     setSelectedProjectIds(new Set());
