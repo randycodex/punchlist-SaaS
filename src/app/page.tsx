@@ -439,16 +439,6 @@ export default function ProjectsPage() {
                   } ${isSelectionMode ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex items-start gap-3">
-                    {isSelectionMode && (
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleProjectSelection(project.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Select ${project.projectName}`}
-                      />
-                    )}
                     <Link
                       href={isSelectionMode ? '#' : `/project/${project.id}`}
                       onClick={(e) => {
