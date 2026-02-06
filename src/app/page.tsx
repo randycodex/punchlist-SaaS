@@ -422,25 +422,37 @@ export default function ProjectsPage() {
             {sortedProjects.map((project) => {
               const stats = getProjectStats(project);
               const pending = stats.total - stats.ok - stats.issues;
+              const isSelectionMode = deleteMode || exportMode;
+              const isSelected = selectedProjectIds.has(project.id);
               return (
                 <div
                   key={project.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleProjectSelection(project.id);
+                    }
+                  }}
+                  className={`rounded-lg border p-4 transition-colors ${
+                    isSelected
+                      ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
+                      : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                  } ${isSelectionMode ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex items-start gap-3">
-                    {(deleteMode || exportMode) && (
+                    {isSelectionMode && (
                       <input
                         type="checkbox"
-                        checked={selectedProjectIds.has(project.id)}
+                        checked={isSelected}
                         onChange={() => toggleProjectSelection(project.id)}
+                        onClick={(e) => e.stopPropagation()}
                         className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         aria-label={`Select ${project.projectName}`}
                       />
                     )}
                     <Link
-                      href={deleteMode || exportMode ? '#' : `/project/${project.id}`}
+                      href={isSelectionMode ? '#' : `/project/${project.id}`}
                       onClick={(e) => {
-                        if (deleteMode || exportMode) e.preventDefault();
+                        if (isSelectionMode) e.preventDefault();
                       }}
                       className="flex-1 min-w-0"
                     >
@@ -506,9 +518,9 @@ export default function ProjectsPage() {
                         )}
                       </div>
                       <Link
-                        href={deleteMode || exportMode ? '#' : `/project/${project.id}`}
+                        href={isSelectionMode ? '#' : `/project/${project.id}`}
                         onClick={(e) => {
-                          if (deleteMode || exportMode) e.preventDefault();
+                          if (isSelectionMode) e.preventDefault();
                         }}
                         className="p-1 text-gray-400 hover:text-blue-500"
                         aria-label={`Open ${project.projectName}`}
