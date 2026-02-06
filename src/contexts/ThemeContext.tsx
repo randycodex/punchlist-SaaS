@@ -17,17 +17,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('punchlist-theme') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = () => setTheme(media.matches ? 'dark' : 'light');
+    applySystemTheme();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', applySystemTheme);
+    } else {
+      media.addListener(applySystemTheme);
     }
+    return () => {
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', applySystemTheme);
+      } else {
+        media.removeListener(applySystemTheme);
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (mounted) {
-      localStorage.setItem('punchlist-theme', theme);
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
