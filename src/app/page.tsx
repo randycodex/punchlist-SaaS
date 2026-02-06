@@ -9,7 +9,6 @@ import { uploadPdfToOneDrive } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Plus,
   Building2,
@@ -51,7 +50,7 @@ export default function ProjectsPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const { accessToken, isSignedIn, isReady, signIn, signOut, ensureAccessToken } = useMicrosoftAuth();
+  const { accessToken, isSignedIn, signIn, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
     // Load saved sort preference
@@ -239,41 +238,9 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
-      {/* Header */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 grid grid-rows-[3.5rem_1px_3rem]">
-        <div className="px-4 h-full flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/uai-logo.png"
-              alt="UAI Logo"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
-          </div>
-          {isReady && (
-            <>
-              {!isSignedIn ? (
-                <button
-                  onClick={signIn}
-                  className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Sign in
-                </button>
-              ) : (
-                <button
-                  onClick={signOut}
-                  className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Sign out
-                </button>
-              )}
-            </>
-          )}
-        </div>
-        <div className="border-t border-gray-200 dark:border-gray-700" />
-        <div className="px-4 h-full flex items-center gap-2">
+      {/* Header controls */}
+      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
+        <div className="px-4 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <button
               onClick={handleSync}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AppProviders from "@/components/AppProviders";
+import PersistentTopBar from "@/components/PersistentTopBar";
 
 export const metadata: Metadata = {
   title: "PunchList",
@@ -34,7 +35,10 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <div className="safe-top-shim" />
         <div className="app-shell">
-          <AppProviders>{children}</AppProviders>
+          <AppProviders>
+            <PersistentTopBar />
+            {children}
+          </AppProviders>
         </div>
       </body>
     </html>

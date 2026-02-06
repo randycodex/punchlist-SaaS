@@ -27,7 +27,7 @@ body {
 }
 
 .app-shell {
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(env(safe-area-inset-top) + 3.5rem);
 }
 
 .safe-top-shim {

@@ -9,7 +9,6 @@ import { generateProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive } from '@/lib/oneDrive';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   ArrowLeft,
   Plus,
@@ -193,22 +192,9 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
-      {/* Header */}
-      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 grid grid-rows-[3.5rem_1px_3rem]">
-        <div className="px-4 h-full flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/uai-logo.png"
-              alt="UAI Logo"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">PunchList</h1>
-        </div>
-        <div className="border-t border-gray-200 dark:border-gray-700" />
-        <div className="px-4 h-full flex items-center gap-2">
+      {/* Header controls */}
+      <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
+        <div className="px-4 h-12 flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
