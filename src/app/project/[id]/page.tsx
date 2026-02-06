@@ -154,11 +154,11 @@ export default function ProjectDetailPage() {
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="pl-2 pr-3 h-12 flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="flex flex-1 min-w-0 items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
+            <span className="font-medium text-gray-700 dark:text-gray-200 truncate min-w-0">
               {project.projectName}
             </span>
           </div>
