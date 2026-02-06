@@ -228,6 +228,13 @@ export default function ProjectsPage() {
     progress: 'Progress',
   };
 
+  function cancelSelectionMode() {
+    setDeleteMode(false);
+    setExportMode(false);
+    setShowExportMenu(false);
+    setSelectedProjectIds(new Set());
+  }
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -241,16 +248,14 @@ export default function ProjectsPage() {
       {/* Header controls */}
       <header className="header-stable bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20">
         <div className="px-4 h-12 flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <button
-              onClick={handleSync}
-              disabled={!isSignedIn || syncing}
-              className="h-9 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-            >
-              {syncing ? 'Syncing...' : 'Sync'}
-            </button>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={!isSignedIn || syncing}
+            className="h-9 w-[5.5rem] text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : 'Sync'}
+          </button>
+          <div className="flex items-center gap-2">
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
@@ -288,6 +293,7 @@ export default function ProjectsPage() {
                 } else {
                   setDeleteMode(true);
                   setExportMode(false);
+                  setShowExportMenu(false);
                   setSelectedProjectIds(new Set());
                 }
               }}
@@ -302,13 +308,14 @@ export default function ProjectsPage() {
             </button>
             <div className="relative">
               <button
-                onClick={() => {
-                  if (!exportMode) {
-                    setExportMode(true);
-                    setDeleteMode(false);
-                    setSelectedProjectIds(new Set());
-                    return;
-                  }
+              onClick={() => {
+                if (!exportMode) {
+                  setExportMode(true);
+                  setDeleteMode(false);
+                  setShowExportMenu(false);
+                  setSelectedProjectIds(new Set());
+                  return;
+                }
                   if (selectedProjectIds.size === 0) {
                     setExportMode(false);
                     return;
@@ -349,6 +356,16 @@ export default function ProjectsPage() {
                 </>
               )}
             </div>
+            {(deleteMode || exportMode) && (
+              <button
+                onClick={cancelSelectionMode}
+                className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
