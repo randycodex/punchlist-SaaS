@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
@@ -49,9 +49,14 @@ export default function ProjectDetailPage() {
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [pullArmed, setPullArmed] = useState(false);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
   const sortLabels: Record<SortOption, string> = {
@@ -199,6 +204,26 @@ export default function ProjectDetailPage() {
     await loadProject();
   }
 
+  async function handleSync() {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) {
+        setSyncError('Please sign in to sync.');
+        return;
+      }
+      await syncProjectsWithOneDrive(token);
+      await loadProject();
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncError('Sync failed. Please try again.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   function scheduleSync() {
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
@@ -218,6 +243,31 @@ export default function ProjectDetailPage() {
     setDeleteMode(false);
     setActionSheet(null);
     setSelectedAreaIds(new Set());
+  }
+
+  function handlePullStart(e: TouchEvent<HTMLElement>) {
+    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    if (!atTop || syncing) {
+      pullStartYRef.current = null;
+      return;
+    }
+    pullStartYRef.current = e.touches[0]?.clientY ?? null;
+  }
+
+  function handlePullMove(e: TouchEvent<HTMLElement>) {
+    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    if (pullStartYRef.current === null || !atTop || syncing) return;
+    const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
+    const delta = currentY - pullStartYRef.current;
+    setPullArmed(delta >= 90);
+  }
+
+  function handlePullEnd() {
+    pullStartYRef.current = null;
+    if (pullArmed && !syncing) {
+      void handleSync();
+    }
+    setPullArmed(false);
   }
 
   if (loading) {
@@ -316,6 +366,12 @@ export default function ProjectDetailPage() {
         </div>
       </header>
 
+      {syncError && (
+        <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+          {syncError}
+        </div>
+      )}
+
       {/* Project Info */}
       <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         {project.address && (
@@ -351,7 +407,14 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Areas List */}
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+      <main
+        ref={listRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]"
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        onTouchCancel={handlePullEnd}
+      >
         {project.areas.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
