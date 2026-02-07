@@ -385,20 +385,7 @@ export default function ProjectsPage() {
               >
                 Select
               </button>
-            ) : null}
-          </div>
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="w-[4.75rem] flex justify-end">
-              {selectionMode ? (
-                <button
-                  onClick={cancelSelectionMode}
-                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-            {selectionMode ? (
+            ) : (
               <>
                 <button
                   onClick={() => {
@@ -424,7 +411,19 @@ export default function ProjectsPage() {
                   )}
                 </button>
               </>
-            ) : null}
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <div className="w-[4.75rem] flex justify-end">
+              {selectionMode ? (
+                <button
+                  onClick={cancelSelectionMode}
+                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
