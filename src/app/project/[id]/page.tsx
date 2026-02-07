@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
+import { syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
+import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -49,6 +51,8 @@ export default function ProjectDetailPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -87,6 +91,14 @@ export default function ProjectDetailPage() {
       document.removeEventListener('mousedown', onDocInteract, true);
     };
   }, [showSortMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, []);
 
   function handleSortChange(option: SortOption) {
     setSortOption(option);
@@ -157,6 +169,7 @@ export default function ProjectDetailPage() {
     applyTemplateToArea(area);
     project.areas.push(area);
     await saveProject(project);
+    scheduleSync();
     setNewAreaName('');
     setShowAddArea(false);
     loadProject();
@@ -179,10 +192,26 @@ export default function ProjectDetailPage() {
     }
     project.areas = project.areas.filter((area) => !selectedAreaIds.has(area.id));
     await saveProject(project);
+    scheduleSync();
     setSelectedAreaIds(new Set());
     setDeleteMode(false);
     setActionSheet(null);
     await loadProject();
+  }
+
+  function scheduleSync() {
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+    syncTimerRef.current = setTimeout(async () => {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) return;
+      try {
+        await syncProjectsWithOneDrive(token);
+      } catch (error) {
+        console.error('Background sync failed:', error);
+      }
+    }, 800);
   }
 
   function cancelSelectionMode() {

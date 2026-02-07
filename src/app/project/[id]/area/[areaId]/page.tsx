@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
+import { syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
+import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
 import {
@@ -36,6 +38,8 @@ export default function AreaDetailPage() {
     checkpointId: string;
   } | null>(null);
   const [commentText, setCommentText] = useState('');
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
     if (!id || !areaId) {
@@ -44,6 +48,14 @@ export default function AreaDetailPage() {
     }
     loadData();
   }, [id, areaId]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, []);
 
   async function loadData() {
     if (!id || !areaId) return;
@@ -91,6 +103,7 @@ export default function AreaDetailPage() {
     checkpoint.status = newStatus;
     checkpoint.updatedAt = new Date();
     await saveProject(project);
+    scheduleSync();
     setArea({ ...area });
   }
 
@@ -107,6 +120,7 @@ export default function AreaDetailPage() {
     checkpoint.comments = commentText;
     checkpoint.updatedAt = new Date();
     await saveProject(project);
+    scheduleSync();
     setEditingCheckpoint(null);
     setCommentText('');
     setArea({ ...area });
@@ -128,6 +142,7 @@ export default function AreaDetailPage() {
     checkpoint.photos.push(photo);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
+    scheduleSync();
     setArea({ ...area });
   }
 
@@ -145,6 +160,7 @@ export default function AreaDetailPage() {
     checkpoint.photos = checkpoint.photos.filter((p) => p.id !== photoId);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
+    scheduleSync();
     setArea({ ...area });
   }
 
@@ -162,7 +178,23 @@ export default function AreaDetailPage() {
     checkpoint.files = (checkpoint.files ?? []).filter((f) => f.id !== fileId);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
+    scheduleSync();
     setArea({ ...area });
+  }
+
+  function scheduleSync() {
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+    syncTimerRef.current = setTimeout(async () => {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) return;
+      try {
+        await syncProjectsWithOneDrive(token);
+      } catch (error) {
+        console.error('Background sync failed:', error);
+      }
+    }, 800);
   }
 
   function toggleLocation(locationId: string) {

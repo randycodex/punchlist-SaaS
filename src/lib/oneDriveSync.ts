@@ -27,19 +27,14 @@ const DELETIONS_KEY = 'punchlist-onedrive-deletions';
 // but do not suppress normal recent edits.
 const CLOCK_SKEW_TOLERANCE_MS = 2_000;
 
-function getLastSyncTime() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? new Date(stored) : null;
-}
-
 function setLastSyncTime(date: Date) {
   localStorage.setItem(STORAGE_KEY, date.toISOString());
 }
 
-function changedAfterLastSync(timestamp: string | Date, lastSync: Date | null) {
-  if (!lastSync) return true;
-  const value = new Date(timestamp).getTime();
-  return value >= lastSync.getTime() - CLOCK_SKEW_TOLERANCE_MS;
+function timestampMs(value: string | Date | undefined) {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
 }
 
 async function runWithConcurrency<T>(
@@ -152,7 +147,6 @@ function reviveProjectDates(project: Project): Project {
 export async function syncProjectsWithOneDrive(token: string): Promise<SyncResult> {
   await ensurePunchListFolders(token);
 
-  const lastSync = getLastSyncTime();
   const conflictsById = new Map<string, SyncConflict>();
   const addConflict = (id: string, name: string) => {
     if (!conflictsById.has(id)) {
@@ -208,10 +202,9 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       return;
     }
     const localProject = localProjectMap.get(projectId);
-    const remoteChangedSinceSync =
-      remote.lastModifiedDateTime ? changedAfterLastSync(remote.lastModifiedDateTime, lastSync) : !lastSync;
+    const remoteUpdatedAt = timestampMs(remote.lastModifiedDateTime);
 
-    if (!localProject || remoteChangedSinceSync) {
+    if (!localProject) {
       const raw = await downloadProjectFile(token, remote.id);
       try {
         const parsed = reviveProjectDates(JSON.parse(raw) as Project);
@@ -220,12 +213,18 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       } catch {
         // Ignore malformed files
       }
+      return;
     }
 
-    if (localProject && remoteChangedSinceSync && lastSync) {
-      const localChangedSinceSync = changedAfterLastSync(localProject.updatedAt, lastSync);
-      if (localChangedSinceSync) {
-        addConflict(localProject.id, localProject.projectName);
+    const localUpdatedAt = localProject.updatedAt.getTime();
+    if (remoteUpdatedAt > localUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+      const raw = await downloadProjectFile(token, remote.id);
+      try {
+        const parsed = reviveProjectDates(JSON.parse(raw) as Project);
+        await saveProjectPreserveTimestamps(parsed);
+        localProjectMap.set(projectId, parsed);
+      } catch {
+        // Ignore malformed files
       }
     }
   });
@@ -239,31 +238,27 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     if (deletedAt && new Date(deletedAt).getTime() >= project.updatedAt.getTime()) {
       return;
     }
-    const localChangedSinceSync =
-      changedAfterLastSync(project.updatedAt, lastSync);
-    const remoteChangedSinceSync =
-      remote?.lastModifiedDateTime ? changedAfterLastSync(remote.lastModifiedDateTime, lastSync) : false;
 
-    if (remote && localChangedSinceSync && remoteChangedSinceSync) {
-      addConflict(project.id, project.projectName);
-      return;
+    if (remote) {
+      const localUpdatedAt = project.updatedAt.getTime();
+      const remoteUpdatedAt = timestampMs(remote.lastModifiedDateTime);
+      if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+        return;
+      }
     }
 
-    // Do not resurrect remotely deleted projects unless this project changed locally after last sync.
-    if ((remote && localChangedSinceSync) || (!remote && (lastSync ? localChangedSinceSync : true))) {
-      try {
-        await uploadProjectFile(
-          token,
-          filename,
-          JSON.stringify(project),
-          remote?.eTag
-        );
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('Precondition Failed')) {
-          addConflict(project.id, project.projectName);
-        } else {
-          throw error;
-        }
+    try {
+      await uploadProjectFile(
+        token,
+        filename,
+        JSON.stringify(project),
+        remote?.eTag
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Precondition Failed')) {
+        addConflict(project.id, project.projectName);
+      } else {
+        throw error;
       }
     }
   });
