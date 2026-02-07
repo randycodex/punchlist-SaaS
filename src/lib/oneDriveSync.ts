@@ -23,7 +23,9 @@ export type SyncResult = {
 
 const STORAGE_KEY = 'punchlist-onedrive-last-sync';
 const DELETIONS_KEY = 'punchlist-onedrive-deletions';
-const CONFLICT_CHANGE_TOLERANCE_MS = 30_000;
+// Allow a small clock-skew window between devices/Graph timestamps,
+// but do not suppress normal recent edits.
+const CLOCK_SKEW_TOLERANCE_MS = 2_000;
 
 function getLastSyncTime() {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -37,7 +39,7 @@ function setLastSyncTime(date: Date) {
 function changedAfterLastSync(timestamp: string | Date, lastSync: Date | null) {
   if (!lastSync) return true;
   const value = new Date(timestamp).getTime();
-  return value > lastSync.getTime() + CONFLICT_CHANGE_TOLERANCE_MS;
+  return value >= lastSync.getTime() - CLOCK_SKEW_TOLERANCE_MS;
 }
 
 async function runWithConcurrency<T>(
