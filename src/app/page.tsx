@@ -66,6 +66,7 @@ export default function ProjectsPage() {
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
+  const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
     // Load saved sort preference
@@ -373,63 +374,22 @@ export default function ProjectsPage() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => {
-                if (deleteMode) {
-                  if (selectedProjectIds.size === 0) {
-                    setDeleteMode(false);
-                    return;
-                  }
-                  setActionSheet('delete');
-                } else {
+            {!selectionMode ? (
+              <button
+                onClick={() => {
                   setDeleteMode(true);
                   setExportMode(false);
                   setSelectedProjectIds(new Set());
-                }
-              }}
-              className={`h-9 w-9 flex items-center justify-center rounded-lg ${
-                deleteMode
-                  ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-              aria-label="Select projects to delete"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <div className="relative">
-              <button
-              onClick={() => {
-                if (!exportMode) {
-                  setExportMode(true);
-                  setDeleteMode(false);
-                  setSelectedProjectIds(new Set());
-                  return;
-                }
-                  if (selectedProjectIds.size === 0) {
-                    setExportMode(false);
-                    return;
-                  }
-                  void handleExportSelectedConfirm();
                 }}
-                disabled={exportingSelected || exportingSelectedToDrive}
-                className={`h-9 w-9 flex items-center justify-center rounded-lg disabled:opacity-50 ${
-                  exportMode
-                    ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                aria-label="Export selected projects"
+                className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
-                {exportingSelected || exportingSelectedToDrive ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileDown className="w-4 h-4" />
-                )}
+                Select
               </button>
-            </div>
+            ) : null}
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <div className="w-[4.75rem] flex justify-end">
-              {(deleteMode || exportMode) ? (
+              {selectionMode ? (
                 <button
                   onClick={cancelSelectionMode}
                   className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -438,6 +398,33 @@ export default function ProjectsPage() {
                 </button>
               ) : null}
             </div>
+            {selectionMode ? (
+              <>
+                <button
+                  onClick={() => {
+                    if (selectedProjectIds.size === 0) return;
+                    setActionSheet('delete');
+                  }}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
+                  aria-label="Delete selected projects"
+                  disabled={selectedProjectIds.size === 0}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => void handleExportSelectedConfirm()}
+                  disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-900/20 disabled:opacity-40"
+                  aria-label="Export selected projects"
+                >
+                  {exportingSelected || exportingSelectedToDrive ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4" />
+                  )}
+                </button>
+              </>
+            ) : null}
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
@@ -499,7 +486,7 @@ export default function ProjectsPage() {
               const progress = metric?.progress ?? 0;
               const photoCount = metric?.photoCount ?? 0;
               const commentCount = metric?.commentCount ?? 0;
-              const isSelectionMode = deleteMode || exportMode;
+              const isSelectionMode = selectionMode;
               const isSelected = selectedProjectIds.has(project.id);
               return (
                 <div
