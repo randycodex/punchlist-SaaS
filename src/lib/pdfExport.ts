@@ -76,37 +76,21 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
   const statusIconRadius = 1.6;
 
-  // Collect all photos with references
-  const allPhotos: {
-    ref: number;
-    areaId: string;
-    locationId: string;
-    itemId: string;
-    checkpointId: string;
-    area: string;
+  type AreaIssue = {
     location: string;
     item: string;
     checkpoint: string;
-    thumbnail: string;
-    imageData: string;
-  }[] = [];
+    comment: string;
+    photoRefs: number[];
+    fileRefs: number[];
+    photoData: string[];
+    fileNames: string[];
+  };
+
+  const areaIssuesById = new Map<string, AreaIssue[]>();
   const photoRefsByCheckpoint = new Map<string, number[]>();
   let photoRefCounter = 1;
 
-  const allFiles: {
-    ref: number;
-    areaId: string;
-    locationId: string;
-    itemId: string;
-    checkpointId: string;
-    area: string;
-    location: string;
-    item: string;
-    checkpoint: string;
-    name: string;
-    mimeType: string;
-    size: number;
-  }[] = [];
   const fileRefsByCheckpoint = new Map<string, number[]>();
   let fileRefCounter = 1;
 
@@ -131,12 +115,112 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.setFillColor(0, 0, 0);
   }
 
-  function formatFileSize(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    const kb = bytes / 1024;
-    if (kb < 1024) return `${kb.toFixed(1)} KB`;
-    const mb = kb / 1024;
-    return `${mb.toFixed(1)} MB`;
+  function renderAreaIssuesSummary(areaName: string, issues: AreaIssue[]) {
+    if (issues.length === 0) return;
+
+    const photoSize = 18;
+    const photosPerRow = 4;
+    const photoGap = 3;
+    const photoRowHeight = photoSize + 2;
+    const photoBlockWidth = photosPerRow * photoSize + (photosPerRow - 1) * photoGap;
+    const photoStartX = margin + (contentWidth - photoBlockWidth) / 2;
+
+    function drawAreaIssueHeader(y: number, continuation: boolean) {
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      const headerText = continuation ? `Issues Summary - ${areaName} (cont.)` : `Issues Summary - ${areaName}`;
+      pdf.text(headerText, margin, y);
+      pdf.setDrawColor(220, 220, 220);
+      pdf.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
+      return y + 8;
+    }
+
+    pdf.addPage();
+    let yPos = drawAreaIssueHeader(margin, false);
+
+    for (let i = 0; i < issues.length; i++) {
+      const issue = issues[i];
+      const refParts: string[] = [];
+      if (issue.photoRefs.length > 0) refParts.push(`Photo ${issue.photoRefs.join(', ')}`);
+      if (issue.fileRefs.length > 0) refParts.push(`File ${issue.fileRefs.join(', ')}`);
+      const refsText = refParts.length > 0 ? ` [${refParts.join(' | ')}]` : '';
+
+      const title = `${i + 1}. ${issue.location} > ${issue.item}`;
+      const titleLines = pdf.splitTextToSize(title, contentWidth - 4).slice(0, 1) as string[];
+      const checkpointLine = `${issue.checkpoint}${refsText}`;
+      const checkpointLines = pdf.splitTextToSize(checkpointLine, contentWidth - 8).slice(0, 1) as string[];
+      const commentLines = issue.comment
+        ? (pdf.splitTextToSize(`"${issue.comment}"`, contentWidth - 10).slice(0, 2) as string[])
+        : [];
+      const fileLine = issue.fileNames.length > 0 ? `Files: ${issue.fileNames.join(', ')}` : '';
+      const fileLines = fileLine ? (pdf.splitTextToSize(fileLine, contentWidth - 10).slice(0, 1) as string[]) : [];
+
+      const previewPhotos = issue.photoData.slice(0, 8);
+      const photoRows = Math.ceil(previewPhotos.length / photosPerRow);
+      const photoSectionHeight = photoRows > 0 ? 3 + photoRows * photoRowHeight : 0;
+      const textHeight = 4 + titleLines.length * 4 + checkpointLines.length * 3.5 + commentLines.length * 3.2 + fileLines.length * 3.2;
+      const extraMorePhotosHeight = issue.photoData.length > 8 ? 3 : 0;
+      const issueHeight = textHeight + photoSectionHeight + extraMorePhotosHeight + 2;
+
+      if (yPos + issueHeight > pageHeight - margin) {
+        pdf.addPage();
+        yPos = drawAreaIssueHeader(margin, true);
+      }
+
+      pdf.setDrawColor(232, 232, 232);
+      pdf.rect(margin, yPos - 3, contentWidth, issueHeight);
+
+      let rowY = yPos;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(titleLines, margin + 2, rowY);
+      rowY += 4.2;
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(checkpointLines, margin + 4, rowY);
+      rowY += 3.8;
+
+      if (commentLines.length > 0) {
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(commentLines, margin + 4, rowY);
+        rowY += commentLines.length * 3.2;
+        pdf.setTextColor(0, 0, 0);
+      }
+
+      if (fileLines.length > 0) {
+        pdf.setTextColor(80, 80, 80);
+        pdf.text(fileLines, margin + 4, rowY);
+        rowY += 3.2;
+        pdf.setTextColor(0, 0, 0);
+      }
+
+      if (previewPhotos.length > 0) {
+        rowY += 1.5;
+        for (let j = 0; j < previewPhotos.length; j++) {
+          const col = j % photosPerRow;
+          const row = Math.floor(j / photosPerRow);
+          const x = photoStartX + col * (photoSize + photoGap);
+          const y = rowY + row * photoRowHeight;
+          try {
+            pdf.addImage(previewPhotos[j], 'JPEG', x, y, photoSize, photoSize);
+          } catch {
+            pdf.setFillColor(225, 225, 225);
+            pdf.rect(x, y, photoSize, photoSize, 'F');
+          }
+        }
+        rowY += photoRows * photoRowHeight;
+      }
+
+      if (issue.photoData.length > 8) {
+        pdf.setFontSize(7);
+        pdf.setTextColor(90, 90, 90);
+        pdf.text(`+${issue.photoData.length - 8} more photos`, margin + 4, rowY + 1.5);
+        pdf.setTextColor(0, 0, 0);
+      }
+
+      yPos += issueHeight + 3;
+    }
   }
 
   // Cover page
@@ -320,19 +404,6 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
           let photoRefs: number[] = [];
           if (checkpoint.photos.length > 0) {
             for (const photo of checkpoint.photos) {
-              allPhotos.push({
-                ref: photoRefCounter,
-                areaId: area.id,
-                locationId: location.id,
-                itemId: item.id,
-                checkpointId: checkpoint.id,
-                area: area.name,
-                location: location.name,
-                item: item.name,
-                checkpoint: checkpoint.name,
-                thumbnail: photo.thumbnail,
-                imageData: photo.imageData,
-              });
               photoRefs.push(photoRefCounter);
               const existingRefs = photoRefsByCheckpoint.get(checkpoint.id) ?? [];
               existingRefs.push(photoRefCounter);
@@ -345,20 +416,6 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
           const checkpointFiles = checkpoint.files ?? [];
           if (checkpointFiles.length > 0) {
             for (const file of checkpointFiles) {
-              allFiles.push({
-                ref: fileRefCounter,
-                areaId: area.id,
-                locationId: location.id,
-                itemId: item.id,
-                checkpointId: checkpoint.id,
-                area: area.name,
-                location: location.name,
-                item: item.name,
-                checkpoint: checkpoint.name,
-                name: file.name,
-                mimeType: file.mimeType,
-                size: file.size,
-              });
               fileRefs.push(fileRefCounter);
               const existingRefs = fileRefsByCheckpoint.get(checkpoint.id) ?? [];
               existingRefs.push(fileRefCounter);
@@ -378,6 +435,21 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
             pdf.setTextColor(0, 0, 0);
           }
 
+          if (checkpoint.status === 'needsReview') {
+            const areaIssues = areaIssuesById.get(area.id) ?? [];
+            areaIssues.push({
+              location: location.name,
+              item: item.name,
+              checkpoint: checkpoint.name,
+              comment: checkpoint.comments,
+              photoRefs,
+              fileRefs,
+              photoData: checkpoint.photos.map((photo) => photo.imageData || photo.thumbnail),
+              fileNames: checkpointFiles.map((file) => file.name),
+            });
+            areaIssuesById.set(area.id, areaIssues);
+          }
+
           locY += 3.5;
 
           if (checkpoint.comments) {
@@ -395,175 +467,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
       setCurrentY(locY);
       switchColumn();
     }
-  }
 
-  // Issues summary page with photos
-  const allIssues: {
-    area: string;
-    location: string;
-    item: string;
-    checkpoint: string;
-    comment: string;
-    photoRefs: number[];
-    fileRefs: number[];
-  }[] = [];
-
-  for (const area of project.areas) {
-    for (const location of area.locations) {
-      for (const item of location.items) {
-        for (const checkpoint of item.checkpoints) {
-          if (checkpoint.status === 'needsReview') {
-            const photoRefs = photoRefsByCheckpoint.get(checkpoint.id) ?? [];
-            const fileRefs = fileRefsByCheckpoint.get(checkpoint.id) ?? [];
-            allIssues.push({
-              area: area.name,
-              location: location.name,
-              item: item.name,
-              checkpoint: checkpoint.name,
-              comment: checkpoint.comments,
-              photoRefs,
-              fileRefs,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  if (allIssues.length > 0 || allPhotos.length > 0 || allFiles.length > 0) {
-    pdf.addPage();
-    let yPos = margin;
-
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Issues Summary', margin, yPos);
-    yPos += 10;
-
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-
-    for (let i = 0; i < allIssues.length; i++) {
-      if (yPos > pageHeight - margin - 25) {
-        pdf.addPage();
-        yPos = margin;
-      }
-
-      const issue = allIssues[i];
-      pdf.setFont('helvetica', 'bold');
-      const issueHeader = `${i + 1}. ${issue.area} > ${issue.location} > ${issue.item}`;
-      const truncatedHeader = issueHeader.length > 70 ? issueHeader.substring(0, 67) + '...' : issueHeader;
-      pdf.text(truncatedHeader, margin, yPos);
-      yPos += 5;
-
-      pdf.setFont('helvetica', 'normal');
-      let checkpointLine = `   ${issue.checkpoint}`;
-      const refParts: string[] = [];
-      if (issue.photoRefs.length > 0) refParts.push(`Photo ${issue.photoRefs.join(', ')}`);
-      if (issue.fileRefs.length > 0) refParts.push(`File ${issue.fileRefs.join(', ')}`);
-      if (refParts.length > 0) {
-        checkpointLine += ` [${refParts.join(' | ')}]`;
-      }
-      pdf.text(checkpointLine, margin, yPos);
-      yPos += 4;
-
-      if (issue.comment) {
-        pdf.setFontSize(9);
-        pdf.setTextColor(100, 100, 100);
-        const commentLines = pdf.splitTextToSize(`   "${issue.comment}"`, contentWidth - 10);
-        const limitedLines = commentLines.slice(0, 2);
-        pdf.text(limitedLines, margin, yPos);
-        yPos += limitedLines.length * 3.5;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(10);
-      }
-
-      yPos += 5;
-    }
-
-    // Photo appendix - larger photos at end
-    if (allPhotos.length > 0) {
-      pdf.addPage();
-      yPos = margin;
-
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Photo Appendix', margin, yPos);
-      yPos += 12;
-
-      const photoSize = 60; // Larger photos
-      const photosPerRow = 2;
-      const photoSpacing = (contentWidth - (photosPerRow * photoSize)) / (photosPerRow + 1);
-
-      for (let i = 0; i < allPhotos.length; i++) {
-        const photo = allPhotos[i];
-        const col = i % photosPerRow;
-
-        if (col === 0 && i > 0) {
-          yPos += photoSize + 20;
-        }
-
-        if (yPos + photoSize + 15 > pageHeight - margin) {
-          pdf.addPage();
-          yPos = margin;
-        }
-
-        const photoX = margin + photoSpacing + col * (photoSize + photoSpacing);
-
-        // Photo reference number
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(`Photo ${photo.ref}`, photoX, yPos);
-
-        // Photo caption
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'normal');
-        const caption = `${photo.location} > ${photo.item} > ${photo.checkpoint}`;
-        const truncatedCaption = caption.length > 40 ? caption.substring(0, 37) + '...' : caption;
-        pdf.text(truncatedCaption, photoX, yPos + 4);
-
-        // Add photo
-        try {
-          pdf.addImage(photo.imageData || photo.thumbnail, 'JPEG', photoX, yPos + 7, photoSize, photoSize);
-        } catch (e) {
-          pdf.setFillColor(200, 200, 200);
-          pdf.rect(photoX, yPos + 7, photoSize, photoSize, 'F');
-          pdf.setFontSize(10);
-          pdf.text('Image Error', photoX + 15, yPos + 37);
-        }
-      }
-    }
-
-    if (allFiles.length > 0) {
-      pdf.addPage();
-      yPos = margin;
-
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('File Attachments', margin, yPos);
-      yPos += 10;
-
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-
-      for (const file of allFiles) {
-        if (yPos > pageHeight - margin - 12) {
-          pdf.addPage();
-          yPos = margin;
-        }
-
-        const header = `File ${file.ref}: ${file.name} (${formatFileSize(file.size)})`;
-        const locationLine = `${file.area} > ${file.location} > ${file.item} > ${file.checkpoint}`;
-        const headerLines = pdf.splitTextToSize(header, contentWidth);
-        pdf.text(headerLines, margin, yPos);
-        yPos += headerLines.length * 4;
-
-        pdf.setTextColor(100, 100, 100);
-        const locLines = pdf.splitTextToSize(locationLine, contentWidth);
-        pdf.text(locLines, margin, yPos);
-        yPos += locLines.length * 4 + 2;
-        pdf.setTextColor(0, 0, 0);
-      }
-    }
+    const areaIssues = areaIssuesById.get(area.id) ?? [];
+    renderAreaIssuesSummary(area.name, areaIssues);
   }
 
 }
