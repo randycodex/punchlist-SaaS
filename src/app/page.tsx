@@ -388,15 +388,10 @@ export default function ProjectsPage() {
             ) : (
               <>
                 <button
-                  onClick={() => {
-                    if (selectedProjectIds.size === 0) return;
-                    setActionSheet('delete');
-                  }}
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
-                  aria-label="Delete selected projects"
-                  disabled={selectedProjectIds.size === 0}
+                  onClick={cancelSelectionMode}
+                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Cancel
                 </button>
                 <button
                   onClick={() => void handleExportSelectedConfirm()}
@@ -410,20 +405,21 @@ export default function ProjectsPage() {
                     <FileDown className="w-4 h-4" />
                   )}
                 </button>
+                <button
+                  onClick={() => {
+                    if (selectedProjectIds.size === 0) return;
+                    setActionSheet('delete');
+                  }}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
+                  aria-label="Delete selected projects"
+                  disabled={selectedProjectIds.size === 0}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </>
             )}
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="w-[4.75rem] flex justify-end">
-              {selectionMode ? (
-                <button
-                  onClick={cancelSelectionMode}
-                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
             <button
               onClick={() => setShowNewProject(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
