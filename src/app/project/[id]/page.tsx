@@ -56,6 +56,7 @@ export default function ProjectDetailPage() {
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pullStartYRef = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
@@ -249,9 +250,11 @@ export default function ProjectDetailPage() {
     const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
     if (!atTop || syncing) {
       pullStartYRef.current = null;
+      pullDistanceRef.current = 0;
       return;
     }
     pullStartYRef.current = e.touches[0]?.clientY ?? null;
+    pullDistanceRef.current = 0;
   }
 
   function handlePullMove(e: TouchEvent<HTMLElement>) {
@@ -259,14 +262,16 @@ export default function ProjectDetailPage() {
     if (pullStartYRef.current === null || !atTop || syncing) return;
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
-    setPullArmed(delta >= 90);
+    pullDistanceRef.current = delta;
+    setPullArmed(delta >= 70);
   }
 
   function handlePullEnd() {
     pullStartYRef.current = null;
-    if (pullArmed && !syncing) {
+    if (pullDistanceRef.current >= 70 && !syncing) {
       void handleSync();
     }
+    pullDistanceRef.current = 0;
     setPullArmed(false);
   }
 
