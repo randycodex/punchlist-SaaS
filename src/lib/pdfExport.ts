@@ -122,8 +122,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     const photosPerRow = 4;
     const photoGap = 3;
     const photoRowHeight = photoSize + 2;
-    const photoBlockWidth = photosPerRow * photoSize + (photosPerRow - 1) * photoGap;
-    const photoStartX = margin + (contentWidth - photoBlockWidth) / 2;
+    const photoStartX = margin + 4;
 
     function drawAreaIssueHeader(y: number, continuation: boolean) {
       pdf.setFontSize(14);
@@ -166,9 +165,6 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         pdf.addPage();
         yPos = drawAreaIssueHeader(margin, true);
       }
-
-      pdf.setDrawColor(232, 232, 232);
-      pdf.rect(margin, yPos - 3, contentWidth, issueHeight);
 
       let rowY = yPos;
       pdf.setFontSize(9);
@@ -219,6 +215,8 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         pdf.setTextColor(0, 0, 0);
       }
 
+      pdf.setDrawColor(232, 232, 232);
+      pdf.line(margin, yPos + issueHeight, pageWidth - margin, yPos + issueHeight);
       yPos += issueHeight + 3;
     }
   }

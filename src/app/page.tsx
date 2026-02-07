@@ -227,6 +227,7 @@ export default function ProjectsPage() {
 
   async function handleExportSelectedLocal() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
+    if (!confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF?`)) return;
     setShowExportMenu(false);
     setExportingSelected(true);
     try {
@@ -252,6 +253,7 @@ export default function ProjectsPage() {
 
   async function handleExportSelectedToDrive() {
     if (exportingSelectedToDrive || selectedProjectIds.size === 0) return;
+    if (!confirm(`Export ${selectedProjectIds.size} selected project(s) to OneDrive?`)) return;
     setShowExportMenu(false);
     setExportingSelectedToDrive(true);
     try {

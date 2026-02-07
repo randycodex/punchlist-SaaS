@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Camera, X, Paperclip } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Camera, Check, RotateCcw, X, Paperclip } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -20,7 +20,12 @@ export default function PhotoCapture({
   onDeleteFile,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail: string }>>([]);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const maxImageSize = 1600;
 
   function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
@@ -49,6 +54,68 @@ export default function PhotoCapture({
     return canvas.toDataURL('image/jpeg', quality);
   }
 
+  function stopCameraStream() {
+    if (!streamRef.current) return;
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+
+  async function openCamera() {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setCapturedBatch([]);
+      setCameraOpen(true);
+    } catch {
+      setCameraError('Could not access camera. Opening device camera fallback.');
+      cameraInputRef.current?.click();
+    }
+  }
+
+  function closeCamera(discard = false) {
+    stopCameraStream();
+    setCameraOpen(false);
+    if (discard) {
+      setCapturedBatch([]);
+    }
+  }
+
+  function captureFromVideo() {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const frameData = canvas.toDataURL('image/jpeg', 0.92);
+    const img = new window.Image();
+    img.onload = () => {
+      const imageData = createScaledImageData(img, maxImageSize, 0.8);
+      const thumbnail = createThumbnailData(img, 150, 0.6);
+      setCapturedBatch((prev) => [...prev, { imageData, thumbnail }]);
+    };
+    img.src = frameData;
+  }
+
+  function addCapturedBatch() {
+    if (capturedBatch.length === 0) return;
+    capturedBatch.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+    closeCamera(true);
+  }
+
+  function removeCaptured(index: number) {
+    setCapturedBatch((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     if (selected.length === 0) return;
@@ -74,6 +141,20 @@ export default function PhotoCapture({
       cameraInputRef.current.value = '';
     }
   }
+
+  useEffect(() => {
+    if (!cameraOpen || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => {
+      setCameraError('Camera preview failed to start.');
+    });
+  }, [cameraOpen]);
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
 
   return (
     <div>
@@ -134,12 +215,13 @@ export default function PhotoCapture({
       {/* Add photo buttons */}
       <div className="flex gap-2">
         <button
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={openCamera}
           className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
         >
           <Camera className="w-3 h-3" />
           Camera
         </button>
+        {cameraError && <span className="text-[11px] text-gray-500">{cameraError}</span>}
         {/* Camera input - directly opens camera on mobile */}
         <input
           ref={cameraInputRef}
@@ -150,6 +232,80 @@ export default function PhotoCapture({
           className="hidden"
         />
       </div>
+
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-white/15">
+            <button
+              onClick={() => closeCamera(true)}
+              className="text-white/90 text-sm px-2 py-1 rounded border border-white/30"
+            >
+              Cancel
+            </button>
+            <span className="text-white text-sm">
+              {capturedBatch.length} photo{capturedBatch.length === 1 ? '' : 's'}
+            </span>
+            <button
+              onClick={addCapturedBatch}
+              disabled={capturedBatch.length === 0}
+              className="text-white text-sm px-2 py-1 rounded border border-green-400 disabled:opacity-40"
+            >
+              Add All
+            </button>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center p-2">
+            <video ref={videoRef} autoPlay playsInline className="w-full max-h-full object-contain rounded-lg" />
+          </div>
+
+          {capturedBatch.length > 0 && (
+            <div className="px-3 pb-2 overflow-x-auto">
+              <div className="flex gap-2">
+                {capturedBatch.map((photo, index) => (
+                  <div key={`${photo.thumbnail}-${index}`} className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden">
+                    <img src={photo.thumbnail} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeCaptured(index)}
+                      className="absolute top-0 right-0 bg-black/70 text-white rounded-bl px-1"
+                      aria-label={`Remove captured photo ${index + 1}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 border-t border-white/15">
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={captureFromVideo}
+                className="w-14 h-14 rounded-full border-4 border-white flex items-center justify-center text-white"
+                aria-label="Capture photo"
+              >
+                <Camera className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => setCapturedBatch([])}
+                disabled={capturedBatch.length === 0}
+                className="px-3 py-2 rounded border border-white/35 text-white text-xs disabled:opacity-40 flex items-center gap-1"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Clear
+              </button>
+              <button
+                onClick={addCapturedBatch}
+                disabled={capturedBatch.length === 0}
+                className="px-3 py-2 rounded border border-green-400 text-green-300 text-xs disabled:opacity-40 flex items-center gap-1"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full photo viewer */}
       {selectedPhoto && (
