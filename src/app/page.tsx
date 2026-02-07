@@ -233,8 +233,6 @@ export default function ProjectsPage() {
       await handleExportSelectedToDrive(true);
       return;
     }
-    const exportLocal = confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF to this device?`);
-    if (!exportLocal) return;
     await handleExportSelectedLocal(true);
   }
 
