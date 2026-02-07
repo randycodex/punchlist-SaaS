@@ -228,18 +228,18 @@ export default function AreaDetailPage() {
 
       {/* Stats */}
       <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className="text-xl font-semibold text-blue-600">{remainingCount}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
+        <div className="flex items-center gap-8">
+          <div className="min-w-[4rem] text-left">
+            <div className="text-xl leading-6 font-semibold text-blue-600">{remainingCount}</div>
+            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Total</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl font-semibold text-orange-500">{stats.issues}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Issues</div>
+          <div className="min-w-[4rem] text-left">
+            <div className="text-xl leading-6 font-semibold text-orange-500">{stats.issues}</div>
+            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Issues</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">OK</div>
+          <div className="min-w-[4rem] text-left">
+            <div className="text-xl leading-6 font-semibold text-green-600">{stats.ok}</div>
+            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">OK</div>
           </div>
           <div className="flex-1">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
