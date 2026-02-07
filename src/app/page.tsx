@@ -57,6 +57,7 @@ export default function ProjectsPage() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const [exportingSelectedToDrive, setExportingSelectedToDrive] = useState(false);
+  const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [pullArmed, setPullArmed] = useState(false);
@@ -209,11 +210,7 @@ export default function ProjectsPage() {
   }
 
   async function handleDeleteSelectedProjects() {
-    if (selectedProjectIds.size === 0) {
-      setDeleteMode(false);
-      return;
-    }
-    if (!confirm(`Delete ${selectedProjectIds.size} selected project(s)?`)) return;
+    if (selectedProjectIds.size === 0) return;
     for (const id of selectedProjectIds) {
       markProjectDeleted(id);
       await deleteProject(id);
@@ -221,24 +218,18 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
     setExportMode(false);
+    setActionSheet(null);
     await loadProjects();
   }
 
-  async function handleExportSelectedConfirm() {
+  function handleExportSelectedConfirm() {
     if (exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0) return;
-    const exportToDrive = confirm(
-      `Export ${selectedProjectIds.size} selected project(s) to OneDrive?\n\nTap Cancel to export as PDF to this device.`
-    );
-    if (exportToDrive) {
-      await handleExportSelectedToDrive(true);
-      return;
-    }
-    await handleExportSelectedLocal(true);
+    setActionSheet('export');
   }
 
-  async function handleExportSelectedLocal(skipConfirm = false) {
+  async function handleExportSelectedLocal() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
-    if (!skipConfirm && !confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF?`)) return;
+    setActionSheet(null);
     setExportingSelected(true);
     try {
       const projectsToExport = [...sortedProjects]
@@ -261,9 +252,9 @@ export default function ProjectsPage() {
     }
   }
 
-  async function handleExportSelectedToDrive(skipConfirm = false) {
+  async function handleExportSelectedToDrive() {
     if (exportingSelectedToDrive || selectedProjectIds.size === 0) return;
-    if (!skipConfirm && !confirm(`Export ${selectedProjectIds.size} selected project(s) to OneDrive?`)) return;
+    setActionSheet(null);
     setExportingSelectedToDrive(true);
     try {
       const token = accessToken ?? (await ensureAccessToken());
@@ -311,6 +302,7 @@ export default function ProjectsPage() {
   function cancelSelectionMode() {
     setDeleteMode(false);
     setExportMode(false);
+    setActionSheet(null);
     setSelectedProjectIds(new Set());
   }
 
@@ -384,7 +376,11 @@ export default function ProjectsPage() {
             <button
               onClick={() => {
                 if (deleteMode) {
-                  void handleDeleteSelectedProjects();
+                  if (selectedProjectIds.size === 0) {
+                    setDeleteMode(false);
+                    return;
+                  }
+                  setActionSheet('delete');
                 } else {
                   setDeleteMode(true);
                   setExportMode(false);
@@ -720,6 +716,52 @@ export default function ProjectsPage() {
           onSave={handleEditProject}
           onClose={() => setEditingProject(null)}
         />
+      )}
+
+      {actionSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-4">
+          <div className="w-full max-w-md">
+            <div className="rounded-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              {actionSheet === 'export' ? (
+                <>
+                  <button
+                    onClick={() => void handleExportSelectedToDrive()}
+                    className="w-full py-3 text-center text-[17px] text-blue-600 border-b border-gray-200 dark:border-gray-700"
+                  >
+                    OneDrive
+                  </button>
+                  <button
+                    onClick={() => void handleExportSelectedLocal()}
+                    className="w-full py-3 text-center text-[17px] text-blue-600 border-b border-gray-200 dark:border-gray-700"
+                  >
+                    Local
+                  </button>
+                  <button
+                    onClick={() => setActionSheet(null)}
+                    className="w-full py-3 text-center text-[17px] text-blue-600"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => void handleDeleteSelectedProjects()}
+                    className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setActionSheet(null)}
+                    className="w-full py-3 text-center text-[17px] text-blue-600"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
