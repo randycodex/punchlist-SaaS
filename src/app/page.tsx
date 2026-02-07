@@ -719,7 +719,7 @@ export default function ProjectsPage() {
       )}
 
       {actionSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
           <div className="w-full max-w-md">
             <div className="rounded-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
               {actionSheet === 'export' ? (
