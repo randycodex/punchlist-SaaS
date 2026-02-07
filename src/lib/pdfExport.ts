@@ -119,10 +119,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
       pdf.setFillColor(34, 197, 94);
       pdf.circle(x, centerY, statusIconRadius, 'F');
     } else if (status === 'needsReview') {
-      pdf.setDrawColor(249, 115, 22);
-      pdf.circle(x, centerY, statusIconRadius, 'S');
-      pdf.line(x - 1.1, centerY - 1.1, x + 1.1, centerY + 1.1);
-      pdf.line(x - 1.1, centerY + 1.1, x + 1.1, centerY - 1.1);
+      pdf.setDrawColor(239, 68, 68);
+      pdf.setFillColor(239, 68, 68);
+      pdf.circle(x, centerY, statusIconRadius, 'F');
     } else {
       pdf.setDrawColor(156, 163, 175);
       pdf.circle(x, centerY, statusIconRadius, 'S');
