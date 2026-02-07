@@ -57,7 +57,6 @@ export default function ProjectsPage() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const [exportingSelectedToDrive, setExportingSelectedToDrive] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [pullArmed, setPullArmed] = useState(false);
@@ -225,10 +224,23 @@ export default function ProjectsPage() {
     await loadProjects();
   }
 
-  async function handleExportSelectedLocal() {
+  async function handleExportSelectedConfirm() {
+    if (exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0) return;
+    const exportToDrive = confirm(
+      `Export ${selectedProjectIds.size} selected project(s) to OneDrive?\n\nTap Cancel to export as PDF to this device.`
+    );
+    if (exportToDrive) {
+      await handleExportSelectedToDrive(true);
+      return;
+    }
+    const exportLocal = confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF to this device?`);
+    if (!exportLocal) return;
+    await handleExportSelectedLocal(true);
+  }
+
+  async function handleExportSelectedLocal(skipConfirm = false) {
     if (exportingSelected || selectedProjectIds.size === 0) return;
-    if (!confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF?`)) return;
-    setShowExportMenu(false);
+    if (!skipConfirm && !confirm(`Export ${selectedProjectIds.size} selected project(s) as PDF?`)) return;
     setExportingSelected(true);
     try {
       const projectsToExport = [...sortedProjects]
@@ -251,10 +263,9 @@ export default function ProjectsPage() {
     }
   }
 
-  async function handleExportSelectedToDrive() {
+  async function handleExportSelectedToDrive(skipConfirm = false) {
     if (exportingSelectedToDrive || selectedProjectIds.size === 0) return;
-    if (!confirm(`Export ${selectedProjectIds.size} selected project(s) to OneDrive?`)) return;
-    setShowExportMenu(false);
+    if (!skipConfirm && !confirm(`Export ${selectedProjectIds.size} selected project(s) to OneDrive?`)) return;
     setExportingSelectedToDrive(true);
     try {
       const token = accessToken ?? (await ensureAccessToken());
@@ -302,7 +313,6 @@ export default function ProjectsPage() {
   function cancelSelectionMode() {
     setDeleteMode(false);
     setExportMode(false);
-    setShowExportMenu(false);
     setSelectedProjectIds(new Set());
   }
 
@@ -380,7 +390,6 @@ export default function ProjectsPage() {
                 } else {
                   setDeleteMode(true);
                   setExportMode(false);
-                  setShowExportMenu(false);
                   setSelectedProjectIds(new Set());
                 }
               }}
@@ -399,7 +408,6 @@ export default function ProjectsPage() {
                 if (!exportMode) {
                   setExportMode(true);
                   setDeleteMode(false);
-                  setShowExportMenu(false);
                   setSelectedProjectIds(new Set());
                   return;
                 }
@@ -407,7 +415,7 @@ export default function ProjectsPage() {
                     setExportMode(false);
                     return;
                   }
-                  setShowExportMenu(!showExportMenu);
+                  void handleExportSelectedConfirm();
                 }}
                 disabled={exportingSelected || exportingSelectedToDrive}
                 className={`h-9 w-9 flex items-center justify-center rounded-lg disabled:opacity-50 ${
@@ -423,25 +431,6 @@ export default function ProjectsPage() {
                   <FileDown className="w-4 h-4" />
                 )}
               </button>
-              {showExportMenu && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                  <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                    <button
-                      onClick={handleExportSelectedLocal}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Export Selected PDF
-                    </button>
-                    <button
-                      onClick={handleExportSelectedToDrive}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Export Selected to Drive
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
