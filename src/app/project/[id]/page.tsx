@@ -46,6 +46,7 @@ export default function ProjectDetailPage() {
   const [newAreaName, setNewAreaName] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -176,16 +177,17 @@ export default function ProjectDetailPage() {
       setDeleteMode(false);
       return;
     }
-    if (!confirm(`Delete ${selectedAreaIds.size} selected area(s)?`)) return;
     project.areas = project.areas.filter((area) => !selectedAreaIds.has(area.id));
     await saveProject(project);
     setSelectedAreaIds(new Set());
     setDeleteMode(false);
+    setActionSheet(null);
     await loadProject();
   }
 
   function cancelSelectionMode() {
     setDeleteMode(false);
+    setActionSheet(null);
     setSelectedAreaIds(new Set());
   }
 
@@ -260,7 +262,10 @@ export default function ProjectDetailPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => void handleDeleteSelectedAreas()}
+                  onClick={() => {
+                    if (selectedAreaIds.size === 0) return;
+                    setActionSheet('delete');
+                  }}
                   disabled={selectedAreaIds.size === 0}
                   className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
                   aria-label="Delete selected areas"
@@ -464,6 +469,27 @@ export default function ProjectDetailPage() {
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionSheet && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-md">
+            <div className="rounded-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => void handleDeleteSelectedAreas()}
+                className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setActionSheet(null)}
+                className="w-full py-3 text-center text-[17px] text-blue-600"
+              >
+                Cancel
               </button>
             </div>
           </div>
