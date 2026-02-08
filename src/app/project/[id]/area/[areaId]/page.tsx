@@ -41,7 +41,9 @@ export default function AreaDetailPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [pullArmed, setPullArmed] = useState(false);
+  const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
   const listRef = useRef<HTMLElement | null>(null);
@@ -60,8 +62,15 @@ export default function AreaDetailPage() {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
       }
+      if (notesTimerRef.current) {
+        clearTimeout(notesTimerRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    setGeneralNotes(area?.notes ?? '');
+  }, [area?.id, area?.notes]);
 
   async function loadData() {
     if (!id || !areaId) return;
@@ -208,6 +217,26 @@ export default function AreaDetailPage() {
     }
   }
 
+  async function saveGeneralNotes(value: string) {
+    if (!project || !area) return;
+    if ((area.notes ?? '') === value) return;
+    area.notes = value;
+    area.updatedAt = new Date();
+    await saveProject(project);
+    scheduleSync();
+    setArea({ ...area });
+  }
+
+  function handleGeneralNotesChange(value: string) {
+    setGeneralNotes(value);
+    if (notesTimerRef.current) {
+      clearTimeout(notesTimerRef.current);
+    }
+    notesTimerRef.current = setTimeout(() => {
+      void saveGeneralNotes(value);
+    }, 400);
+  }
+
   function isListAtTop() {
     return (listRef.current?.scrollTop ?? 0) <= 8;
   }
@@ -229,12 +258,12 @@ export default function AreaDetailPage() {
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
     pullDistanceRef.current = delta;
-    setPullArmed(delta >= 70);
+    setPullArmed(delta >= 45);
   }
 
   function handlePullEnd() {
     pullStartYRef.current = null;
-    if (pullDistanceRef.current >= 70 && !syncing) {
+    if (pullDistanceRef.current >= 45 && !syncing) {
       void handleSync();
     }
     pullDistanceRef.current = 0;
@@ -355,13 +384,37 @@ export default function AreaDetailPage() {
       {/* Inspection Items */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] space-y-2"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)]"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
         onTouchCancelCapture={handlePullEnd}
       >
+        <div className="min-h-[calc(100%+1px)] space-y-2">
         {area.locations.map((location) => {
+          if (location.name.trim().toLowerCase() === 'other') {
+            return (
+              <div
+                key={location.id}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+              >
+                <textarea
+                  value={generalNotes}
+                  onChange={(e) => handleGeneralNotesChange(e.target.value)}
+                  onBlur={(e) => {
+                    if (notesTimerRef.current) {
+                      clearTimeout(notesTimerRef.current);
+                    }
+                    void saveGeneralNotes(e.target.value);
+                  }}
+                  placeholder="General Notes"
+                  rows={4}
+                  className="w-full resize-none bg-transparent text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
+                />
+              </div>
+            );
+          }
+
           const locationStats = getLocationStats(location);
           const locationPhotoCount = location.items.reduce(
             (itemSum, item) =>
@@ -603,6 +656,7 @@ export default function AreaDetailPage() {
             </div>
           );
         })}
+        </div>
       </main>
 
       {/* Edit Checkpoint Modal */}

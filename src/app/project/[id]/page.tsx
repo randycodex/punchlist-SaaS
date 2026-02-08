@@ -267,12 +267,12 @@ export default function ProjectDetailPage() {
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
     pullDistanceRef.current = delta;
-    setPullArmed(delta >= 70);
+    setPullArmed(delta >= 45);
   }
 
   function handlePullEnd() {
     pullStartYRef.current = null;
-    if (pullDistanceRef.current >= 70 && !syncing) {
+    if (pullDistanceRef.current >= 45 && !syncing) {
       void handleSync();
     }
     pullDistanceRef.current = 0;
@@ -418,7 +418,7 @@ export default function ProjectDetailPage() {
       {/* Areas List */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
@@ -437,7 +437,7 @@ export default function ProjectDetailPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="min-h-[calc(100%+1px)] space-y-2">
             {sortedAreas.map((area) => {
               const metric = areaMetrics.get(area.id);
               const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
