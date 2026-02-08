@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "thread:new": "bash ./scripts/new-thread.sh",
+    "thread:list": "git worktree list"
   },
   "dependencies": {
     "@azure/msal-browser": "^3.28.0",
