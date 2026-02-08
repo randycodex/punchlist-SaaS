@@ -70,16 +70,16 @@ function addProjectPageHeader(
   pdf: jsPDF,
   projectName: string,
   logo: LogoAssets,
+  coverPage: number,
   startPage: number,
   endPage: number
 ) {
-  const pageWidth = pdf.internal.pageSize.getWidth();
   const margin = 15;
-  const headerLineY = 12;
   const logoHeight = 5;
   const logoWidth = logo.height > 0 ? (logo.width / logo.height) * logoHeight : logoHeight;
 
   for (let page = startPage; page <= endPage; page++) {
+    if (page === coverPage) continue;
     pdf.setPage(page);
     let textX = margin;
 
@@ -96,18 +96,17 @@ function addProjectPageHeader(
     pdf.setFontSize(9);
     pdf.setTextColor(55, 65, 81);
     pdf.text(projectName, textX, 8.5);
-
-    pdf.setDrawColor(220, 220, 220);
-    pdf.line(margin, headerLineY, pageWidth - margin, headerLineY);
     pdf.setTextColor(0, 0, 0);
   }
 }
 
 function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
-  const startPage = pdf.getNumberOfPages();
+  const coverPage = pdf.getNumberOfPages();
+  const startPage = coverPage;
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
+  const contentTopMargin = 24;
   const contentWidth = pageWidth - margin * 2;
   const columnGap = 6;
   const columnCount = 3;
@@ -200,7 +199,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     }
 
     pdf.addPage();
-    let yPos = margin;
+    let yPos = contentTopMargin;
 
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
@@ -261,7 +260,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
 
       if (yPos + issueHeight > pageHeight - margin) {
         pdf.addPage();
-        yPos = drawAreaIssueHeader(margin, true);
+        yPos = drawAreaIssueHeader(contentTopMargin, true);
       }
 
       let rowY = yPos;
@@ -387,7 +386,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   // Each area starts on a new page
   for (const area of project.areas) {
     pdf.addPage();
-    const columnYs = Array.from({ length: columnCount }, () => margin);
+    const columnYs = Array.from({ length: columnCount }, () => contentTopMargin);
     let currentColumn = 0;
 
     function getColumnX(col: number): number {
@@ -418,7 +417,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         }
         pdf.addPage();
         for (let i = 0; i < columnCount; i++) {
-          columnYs[i] = margin;
+          columnYs[i] = contentTopMargin;
         }
         currentColumn = 0;
         return true;
@@ -582,7 +581,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     renderAreaIssuesSummary(area.name, areaIssues, area.notes ?? '');
   }
 
-  addProjectPageHeader(pdf, project.projectName, logo, startPage, pdf.getNumberOfPages());
+  addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages());
 
 }
 
