@@ -395,20 +395,20 @@ export default function ProjectDetailPage() {
             {project.inspector}
           </p>
         )}
-        <div className="flex items-start gap-8 w-full max-w-lg">
-          <div className="min-w-[4rem] text-left">
+        <div className="grid grid-cols-4 gap-2 w-full">
+          <div className="text-center">
             <div className="text-xl leading-6 font-semibold text-purple-600">{stats.areas}</div>
             <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Areas</div>
           </div>
-          <div className="min-w-[4rem] text-left">
+          <div className="text-center">
             <div className="text-xl leading-6 font-semibold text-blue-600">{remainingCount}</div>
             <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Total</div>
           </div>
-          <div className="min-w-[4rem] text-left">
+          <div className="text-center">
             <div className="text-xl leading-6 font-semibold text-orange-500">{stats.issues}</div>
             <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Issues</div>
           </div>
-          <div className="min-w-[4rem] text-left">
+          <div className="text-center">
             <div className="text-xl leading-6 font-semibold text-green-600">{stats.ok}</div>
             <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">OK</div>
           </div>
