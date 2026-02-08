@@ -194,11 +194,9 @@ export default function ProjectDetailPage() {
         setShowSortMenu(false);
       }
     };
-    document.addEventListener('touchstart', onDocInteract, true);
-    document.addEventListener('mousedown', onDocInteract, true);
+    document.addEventListener('pointerdown', onDocInteract, true);
     return () => {
-      document.removeEventListener('touchstart', onDocInteract, true);
-      document.removeEventListener('mousedown', onDocInteract, true);
+      document.removeEventListener('pointerdown', onDocInteract, true);
     };
   }, [showSortMenu]);
 
