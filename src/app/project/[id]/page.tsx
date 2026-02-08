@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
+import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
@@ -36,6 +36,108 @@ type AreaMetrics = {
   commentCount: number;
 };
 
+type AreaCardProps = {
+  projectId: string;
+  area: Project['areas'][number];
+  metric?: AreaMetrics;
+  deleteMode: boolean;
+  isSelected: boolean;
+  onToggleSelection: (areaId: string) => void;
+};
+
+const AreaCard = memo(function AreaCard({
+  projectId,
+  area,
+  metric,
+  deleteMode,
+  isSelected,
+  onToggleSelection,
+}: AreaCardProps) {
+  const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
+  const pending = metric?.pending ?? 0;
+  const areaPhotoCount = metric?.photoCount ?? 0;
+  const areaCommentCount = metric?.commentCount ?? 0;
+  const progress = metric?.progress ?? 0;
+
+  return (
+    <div
+      onClick={() => {
+        if (deleteMode) {
+          onToggleSelection(area.id);
+        }
+      }}
+      className={`block rounded-lg border p-4 transition-colors ${
+        isSelected
+          ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
+          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+      } ${deleteMode ? 'cursor-pointer' : ''}`}
+    >
+      <div className="flex items-start gap-3">
+        <Link
+          href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
+          onClick={(event) => {
+            if (deleteMode) event.preventDefault();
+          }}
+          className="flex-1"
+        >
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">{areaStats.total} items</span>
+            {area.isComplete && <CheckCircle className="w-4 h-4 text-green-500" />}
+          </div>
+          <div className="flex items-center gap-4 mt-2 text-sm">
+            {pending > 0 && (
+              <span className="text-gray-400 flex items-center gap-1">
+                <Circle className="w-3 h-3" />
+                {pending}
+              </span>
+            )}
+            {areaStats.issues > 0 && (
+              <span className="text-orange-500 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                {areaStats.issues}
+              </span>
+            )}
+            {areaStats.ok > 0 && (
+              <span className="text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                {areaStats.ok}
+              </span>
+            )}
+            {areaPhotoCount > 0 && (
+              <span className="text-amber-500 flex items-center gap-1">
+                <ImageIcon className="w-3 h-3" />
+                {areaPhotoCount}
+              </span>
+            )}
+            {areaCommentCount > 0 && (
+              <span className="text-sky-600 flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" />
+                {areaCommentCount}
+              </span>
+            )}
+          </div>
+          {areaStats.total > 0 && (
+            <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </Link>
+        <Link
+          href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
+          onClick={(event) => {
+            if (deleteMode) event.preventDefault();
+          }}
+          className="p-1 text-gray-400 hover:text-blue-500"
+          aria-label={`Open ${area.name}`}
+        >
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+      </div>
+    </div>
+  );
+});
+
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -55,6 +157,8 @@ export default function ProjectDetailPage() {
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backgroundSyncInFlightRef = useRef(false);
+  const backgroundSyncQueuedRef = useRef(false);
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
   const listRef = useRef<HTMLElement | null>(null);
@@ -103,6 +207,8 @@ export default function ProjectDetailPage() {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
       }
+      backgroundSyncInFlightRef.current = false;
+      backgroundSyncQueuedRef.current = false;
     };
   }, []);
 
@@ -188,14 +294,14 @@ export default function ProjectDetailPage() {
     loadProject();
   }
 
-  function toggleAreaSelection(areaId: string) {
+  const toggleAreaSelection = useCallback((areaId: string) => {
     setSelectedAreaIds((prev) => {
       const next = new Set(prev);
       if (next.has(areaId)) next.delete(areaId);
       else next.add(areaId);
       return next;
     });
-  }
+  }, []);
 
   async function handleDeleteSelectedAreas() {
     if (!project) return;
@@ -232,18 +338,34 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function runBackgroundSync() {
+    if (backgroundSyncInFlightRef.current) {
+      backgroundSyncQueuedRef.current = true;
+      return;
+    }
+
+    backgroundSyncInFlightRef.current = true;
+    try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) return;
+      await syncProjectsWithOneDrive(token);
+    } catch (error) {
+      console.error('Background sync failed:', error);
+    } finally {
+      backgroundSyncInFlightRef.current = false;
+      if (backgroundSyncQueuedRef.current) {
+        backgroundSyncQueuedRef.current = false;
+        scheduleSync();
+      }
+    }
+  }
+
   function scheduleSync() {
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
-    syncTimerRef.current = setTimeout(async () => {
-      const token = accessToken ?? (await ensureAccessToken());
-      if (!token) return;
-      try {
-        await syncProjectsWithOneDrive(token);
-      } catch (error) {
-        console.error('Background sync failed:', error);
-      }
+    syncTimerRef.current = setTimeout(() => {
+      void runBackgroundSync();
     }, 800);
   }
 
@@ -447,96 +569,17 @@ export default function ProjectDetailPage() {
           <div className="min-h-[calc(100%+1px)] space-y-2">
             {sortedAreas.map((area) => {
               const metric = areaMetrics.get(area.id);
-              const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
-              const pending = metric?.pending ?? 0;
-              const areaPhotoCount = metric?.photoCount ?? 0;
-              const areaCommentCount = metric?.commentCount ?? 0;
-              const progress = metric?.progress ?? 0;
               const isSelected = selectedAreaIds.has(area.id);
               return (
-                <div
+                <AreaCard
                   key={area.id}
-                  onClick={() => {
-                    if (deleteMode) {
-                      toggleAreaSelection(area.id);
-                    }
-                  }}
-                  className={`block rounded-lg border p-4 transition-colors ${
-                    isSelected
-                      ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  } ${deleteMode ? 'cursor-pointer' : ''}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Link
-                      href={deleteMode ? '#' : `/project/${project.id}/area/${area.id}`}
-                      onClick={(e) => {
-                        if (deleteMode) e.preventDefault();
-                      }}
-                      className="flex-1"
-                    >
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
-                        <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
-                          {areaStats.total} items
-                        </span>
-                        {area.isComplete && (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
-                            <Circle className="w-3 h-3" />
-                            {pending}
-                          </span>
-                        )}
-                        {areaStats.issues > 0 && (
-                          <span className="text-orange-500 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            {areaStats.issues}
-                          </span>
-                        )}
-                        {areaStats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            {areaStats.ok}
-                          </span>
-                        )}
-                        {areaPhotoCount > 0 && (
-                          <span className="text-amber-500 flex items-center gap-1">
-                            <ImageIcon className="w-3 h-3" />
-                            {areaPhotoCount}
-                          </span>
-                        )}
-                        {areaCommentCount > 0 && (
-                          <span className="text-sky-600 flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            {areaCommentCount}
-                          </span>
-                        )}
-                      </div>
-                      {areaStats.total > 0 && (
-                        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      )}
-                    </Link>
-                    <Link
-                      href={deleteMode ? '#' : `/project/${project.id}/area/${area.id}`}
-                      onClick={(e) => {
-                        if (deleteMode) e.preventDefault();
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-500"
-                      aria-label={`Open ${area.name}`}
-                    >
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
-                    </Link>
-                  </div>
-                </div>
+                  projectId={project.id}
+                  area={area}
+                  metric={metric}
+                  deleteMode={deleteMode}
+                  isSelected={isSelected}
+                  onToggleSelection={toggleAreaSelection}
+                />
               );
             })}
           </div>

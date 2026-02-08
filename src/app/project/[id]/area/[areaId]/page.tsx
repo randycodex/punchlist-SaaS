@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, type TouchEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
+import { Project, Area, Checkpoint } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
 import { syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
@@ -21,6 +21,26 @@ import {
   Image as ImageIcon,
   Paperclip,
 } from 'lucide-react';
+
+type StatusMetrics = {
+  total: number;
+  ok: number;
+  issues: number;
+};
+
+type ItemMetrics = {
+  stats: StatusMetrics;
+  pending: number;
+  photoCount: number;
+  commentCount: number;
+};
+
+type LocationMetrics = {
+  stats: StatusMetrics;
+  pending: number;
+  photoCount: number;
+  commentCount: number;
+};
 
 export default function AreaDetailPage() {
   const params = useParams<{ id: string; areaId: string }>();
@@ -43,6 +63,8 @@ export default function AreaDetailPage() {
   const [pullArmed, setPullArmed] = useState(false);
   const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backgroundSyncInFlightRef = useRef(false);
+  const backgroundSyncQueuedRef = useRef(false);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesDraftRef = useRef('');
   const pullStartYRef = useRef<number | null>(null);
@@ -63,6 +85,8 @@ export default function AreaDetailPage() {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
       }
+      backgroundSyncInFlightRef.current = false;
+      backgroundSyncQueuedRef.current = false;
       if (notesTimerRef.current) {
         clearTimeout(notesTimerRef.current);
         void persistGeneralNotes(notesDraftRef.current);
@@ -105,6 +129,76 @@ export default function AreaDetailPage() {
       setLoading(false);
     }
   }
+
+  const areaDerived = useMemo(() => {
+    if (!area) return null;
+
+    const locationMetrics = new Map<string, LocationMetrics>();
+    const itemMetrics = new Map<string, ItemMetrics>();
+
+    let total = 0;
+    let ok = 0;
+    let issues = 0;
+
+    for (const location of area.locations) {
+      let locationTotal = 0;
+      let locationOk = 0;
+      let locationIssues = 0;
+      let locationPhotoCount = 0;
+      let locationCommentCount = 0;
+
+      for (const item of location.items) {
+        let itemTotal = 0;
+        let itemOk = 0;
+        let itemIssues = 0;
+        let itemPhotoCount = 0;
+        let itemCommentCount = 0;
+
+        for (const checkpoint of item.checkpoints) {
+          itemTotal += 1;
+          if (checkpoint.status === 'ok') itemOk += 1;
+          else if (checkpoint.status === 'needsReview') itemIssues += 1;
+          itemPhotoCount += checkpoint.photos.length;
+          if (checkpoint.comments.trim()) itemCommentCount += 1;
+        }
+
+        const itemPending = itemTotal - itemOk - itemIssues;
+        itemMetrics.set(item.id, {
+          stats: { total: itemTotal, ok: itemOk, issues: itemIssues },
+          pending: itemPending,
+          photoCount: itemPhotoCount,
+          commentCount: itemCommentCount,
+        });
+
+        locationTotal += itemTotal;
+        locationOk += itemOk;
+        locationIssues += itemIssues;
+        locationPhotoCount += itemPhotoCount;
+        locationCommentCount += itemCommentCount;
+      }
+
+      const locationPending = locationTotal - locationOk - locationIssues;
+      locationMetrics.set(location.id, {
+        stats: { total: locationTotal, ok: locationOk, issues: locationIssues },
+        pending: locationPending,
+        photoCount: locationPhotoCount,
+        commentCount: locationCommentCount,
+      });
+
+      total += locationTotal;
+      ok += locationOk;
+      issues += locationIssues;
+    }
+
+    const pending = total - ok - issues;
+    return {
+      stats: { total, ok, issues },
+      pending,
+      progress: total > 0 ? (ok / total) * 100 : 0,
+      locationMetrics,
+      itemMetrics,
+    };
+  }, [area]);
 
   function findCheckpoint(locationId: string, itemId: string, checkpointId: string): Checkpoint | null {
     if (!area) return null;
@@ -287,18 +381,34 @@ export default function AreaDetailPage() {
     setPullArmed(false);
   }
 
+  async function runBackgroundSync() {
+    if (backgroundSyncInFlightRef.current) {
+      backgroundSyncQueuedRef.current = true;
+      return;
+    }
+
+    backgroundSyncInFlightRef.current = true;
+    try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) return;
+      await syncProjectsWithOneDrive(token);
+    } catch (error) {
+      console.error('Background sync failed:', error);
+    } finally {
+      backgroundSyncInFlightRef.current = false;
+      if (backgroundSyncQueuedRef.current) {
+        backgroundSyncQueuedRef.current = false;
+        scheduleSync();
+      }
+    }
+  }
+
   function scheduleSync() {
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
-    syncTimerRef.current = setTimeout(async () => {
-      const token = accessToken ?? (await ensureAccessToken());
-      if (!token) return;
-      try {
-        await syncProjectsWithOneDrive(token);
-      } catch (error) {
-        console.error('Background sync failed:', error);
-      }
+    syncTimerRef.current = setTimeout(() => {
+      void runBackgroundSync();
     }, 800);
   }
 
@@ -336,9 +446,9 @@ export default function AreaDetailPage() {
     return null;
   }
 
-  const stats = getAreaStats(area);
-  const remainingCount = stats.total - stats.ok - stats.issues;
-  const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+  const stats = areaDerived?.stats ?? { total: 0, ok: 0, issues: 0 };
+  const remainingCount = areaDerived?.pending ?? 0;
+  const progress = areaDerived?.progress ?? 0;
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
@@ -433,21 +543,11 @@ export default function AreaDetailPage() {
             );
           }
 
-          const locationStats = getLocationStats(location);
-          const locationPhotoCount = location.items.reduce(
-            (itemSum, item) =>
-              itemSum + item.checkpoints.reduce((cpSum, checkpoint) => cpSum + checkpoint.photos.length, 0),
-            0
-          );
-          const locationCommentCount = location.items.reduce(
-            (itemSum, item) =>
-              itemSum +
-              item.checkpoints.reduce(
-                (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
-                0
-              ),
-            0
-          );
+          const locationMetrics = areaDerived?.locationMetrics.get(location.id);
+          const locationStats = locationMetrics?.stats ?? { total: 0, ok: 0, issues: 0 };
+          const locationPending = locationMetrics?.pending ?? 0;
+          const locationPhotoCount = locationMetrics?.photoCount ?? 0;
+          const locationCommentCount = locationMetrics?.commentCount ?? 0;
           const isExpanded = expandedLocations.has(location.id);
 
           return (
@@ -476,10 +576,10 @@ export default function AreaDetailPage() {
                       {locationStats.issues}
                     </span>
                   )}
-                  {(locationStats.total - locationStats.ok - locationStats.issues) > 0 && (
+                  {locationPending > 0 && (
                     <span className="text-gray-400 flex items-center gap-1 text-sm">
                       <Circle className="w-3 h-3" />
-                      {locationStats.total - locationStats.ok - locationStats.issues}
+                      {locationPending}
                     </span>
                   )}
                   {locationPhotoCount > 0 && (
@@ -506,15 +606,11 @@ export default function AreaDetailPage() {
               {isExpanded && (
                 <div className="border-t border-gray-100 dark:border-gray-700">
                   {location.items.map((item) => {
-                    const itemStats = getItemStats(item);
-                    const itemPhotoCount = item.checkpoints.reduce(
-                      (cpSum, checkpoint) => cpSum + checkpoint.photos.length,
-                      0
-                    );
-                    const itemCommentCount = item.checkpoints.reduce(
-                      (cpSum, checkpoint) => cpSum + (checkpoint.comments.trim() ? 1 : 0),
-                      0
-                    );
+                    const itemMetrics = areaDerived?.itemMetrics.get(item.id);
+                    const itemStats = itemMetrics?.stats ?? { total: 0, ok: 0, issues: 0 };
+                    const itemPending = itemMetrics?.pending ?? 0;
+                    const itemPhotoCount = itemMetrics?.photoCount ?? 0;
+                    const itemCommentCount = itemMetrics?.commentCount ?? 0;
                     const isItemExpanded = expandedItems.has(item.id);
 
                     return (
@@ -541,10 +637,10 @@ export default function AreaDetailPage() {
                                 {itemStats.issues}
                               </span>
                             )}
-                            {(itemStats.total - itemStats.ok - itemStats.issues) > 0 && (
+                            {itemPending > 0 && (
                               <span className="text-gray-400 flex items-center gap-1 text-xs">
                                 <Circle className="w-3 h-3" />
-                                {itemStats.total - itemStats.ok - itemStats.issues}
+                                {itemPending}
                               </span>
                             )}
                             {itemPhotoCount > 0 && (
