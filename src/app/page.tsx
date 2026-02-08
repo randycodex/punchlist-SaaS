@@ -343,8 +343,8 @@ export default function ProjectsPage() {
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
-        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
+      <header className="header-stable shrink-0 border-b z-20">
+        <div className="header-row">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative">
               <button
@@ -473,7 +473,7 @@ export default function ProjectsPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="list-stack">
             {sortedProjects.map((project) => {
               const metric = projectMetrics.get(project.id);
               const stats = metric?.stats ?? { total: 0, ok: 0, issues: 0, areas: project.areas.length };
@@ -491,7 +491,7 @@ export default function ProjectsPage() {
                       toggleProjectSelection(project.id);
                     }
                   }}
-                  className={`rounded-lg border p-4 transition-colors ${
+                  className={`list-card border transition-colors ${
                     isSelected
                       ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
                       : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
@@ -519,33 +519,33 @@ export default function ProjectsPage() {
                           {project.address}
                         </p>
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-sm">
+                      <div className="stat-row">
                         {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
+                          <span className="stat-chip text-gray-400">
                             <Circle className="w-3 h-3" />
                             {pending}
                           </span>
                         )}
                         {stats.issues > 0 && (
-                          <span className="text-orange-500 flex items-center gap-1">
+                          <span className="stat-chip text-orange-500">
                             <AlertTriangle className="w-3 h-3" />
                             {stats.issues}
                           </span>
                         )}
                         {stats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
+                          <span className="stat-chip text-green-600">
                             <CheckCircle className="w-3 h-3" />
                             {stats.ok}
                           </span>
                         )}
                         {photoCount > 0 && (
-                          <span className="text-amber-500 flex items-center gap-1">
+                          <span className="stat-chip text-amber-500">
                             <ImageIcon className="w-3 h-3" />
                             {photoCount}
                           </span>
                         )}
                         {commentCount > 0 && (
-                          <span className="text-sky-600 flex items-center gap-1">
+                          <span className="stat-chip text-sky-600">
                             <MessageSquare className="w-3 h-3" />
                             {commentCount}
                           </span>

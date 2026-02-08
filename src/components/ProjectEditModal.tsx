@@ -40,7 +40,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+        <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Project</h2>
           <button onClick={onClose} className="p-1 text-gray-500 dark:text-gray-400">
             <X className="w-5 h-5" />
@@ -121,7 +121,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 flex gap-3">
+        <div className="sticky sticky-surface bottom-0 border-t p-4 flex gap-3">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"

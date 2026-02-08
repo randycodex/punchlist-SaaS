@@ -69,7 +69,9 @@ html:not(.dark) {
   color-scheme: light;
 }
 
-.persistent-top-bar {
+.persistent-top-bar,
+.pinned-surface,
+.sticky-surface {
   background-color: var(--surface);
   border-color: var(--surface-border);
 }
@@ -82,11 +84,88 @@ html:not(.dark) {
   will-change: transform;
 }
 
+.header-row {
+  height: 3rem;
+  padding-left: 0.5rem;
+  padding-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.list-card {
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+}
+
+.stat-row {
+  margin-top: 0.625rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-stat-grid {
+  width: 100%;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.summary-stat-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-stat-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-stat-cell {
+  text-align: center;
+  min-width: 0;
+}
+
+.summary-stat-value {
+  font-size: 1.25rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-stat-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+@media (min-width: 640px) {
+  .list-card {
+    padding: 1rem;
+  }
+}
+
 /* In dark mode, force pinned top surfaces to match the page background tone. */
 .dark .safe-top-shim,
 .dark .persistent-top-bar,
 .dark .header-stable,
-.dark .pinned-surface {
+.dark .pinned-surface,
+.dark .sticky-surface {
   background-color: var(--surface) !important;
   border-color: var(--surface-border) !important;
 }
@@ -95,7 +174,8 @@ html:not(.dark) {
 html:not(.dark) .safe-top-shim,
 html:not(.dark) .persistent-top-bar,
 html:not(.dark) .header-stable,
-html:not(.dark) .pinned-surface {
+html:not(.dark) .pinned-surface,
+html:not(.dark) .sticky-surface {
   background-color: #ffffff !important;
   border-color: #e5e7eb !important;
 }

@@ -304,8 +304,8 @@ export default function ProjectDetailPage() {
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
-        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
+      <header className="header-stable shrink-0 border-b z-20">
+        <div className="header-row">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
               <ArrowLeft className="w-5 h-5" />
@@ -389,7 +389,7 @@ export default function ProjectDetailPage() {
       )}
 
       {/* Project Info */}
-      <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="pinned-surface shrink-0 border-b px-4 py-3">
         {project.address && (
           <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
             <MapPin className="w-4 h-4" />
@@ -402,22 +402,22 @@ export default function ProjectDetailPage() {
             {project.inspector}
           </p>
         )}
-        <div className="grid grid-cols-4 gap-2 w-full">
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-purple-600">{stats.areas}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Areas</div>
+        <div className="summary-stat-grid summary-stat-grid-4">
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-purple-600">{stats.areas}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Areas</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-blue-600">{remainingCount}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Total</div>
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-blue-600">{remainingCount}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-orange-500">{stats.issues}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Issues</div>
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-orange-500">{stats.issues}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">OK</div>
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-green-600">{stats.ok}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
           </div>
         </div>
       </div>
@@ -444,7 +444,7 @@ export default function ProjectDetailPage() {
             </button>
           </div>
         ) : (
-          <div className="min-h-[calc(100%+1px)] space-y-2">
+          <div className="min-h-[calc(100%+1px)] list-stack">
             {sortedAreas.map((area) => {
               const metric = areaMetrics.get(area.id);
               const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
@@ -461,7 +461,7 @@ export default function ProjectDetailPage() {
                       toggleAreaSelection(area.id);
                     }
                   }}
-                  className={`block rounded-lg border p-4 transition-colors ${
+                  className={`list-card block border transition-colors ${
                     isSelected
                       ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
                       : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
@@ -484,33 +484,33 @@ export default function ProjectDetailPage() {
                           <CheckCircle className="w-4 h-4 text-green-500" />
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
+                      <div className="stat-row">
                         {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
+                          <span className="stat-chip text-gray-400">
                             <Circle className="w-3 h-3" />
                             {pending}
                           </span>
                         )}
                         {areaStats.issues > 0 && (
-                          <span className="text-orange-500 flex items-center gap-1">
+                          <span className="stat-chip text-orange-500">
                             <AlertTriangle className="w-3 h-3" />
                             {areaStats.issues}
                           </span>
                         )}
                         {areaStats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
+                          <span className="stat-chip text-green-600">
                             <CheckCircle className="w-3 h-3" />
                             {areaStats.ok}
                           </span>
                         )}
                         {areaPhotoCount > 0 && (
-                          <span className="text-amber-500 flex items-center gap-1">
+                          <span className="stat-chip text-amber-500">
                             <ImageIcon className="w-3 h-3" />
                             {areaPhotoCount}
                           </span>
                         )}
                         {areaCommentCount > 0 && (
-                          <span className="text-sky-600 flex items-center gap-1">
+                          <span className="stat-chip text-sky-600">
                             <MessageSquare className="w-3 h-3" />
                             {areaCommentCount}
                           </span>
