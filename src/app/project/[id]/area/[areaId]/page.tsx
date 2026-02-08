@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint, getAreaStats, getLocationStats, getItemStats } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
@@ -38,7 +38,13 @@ export default function AreaDetailPage() {
     checkpointId: string;
   } | null>(null);
   const [commentText, setCommentText] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [pullArmed, setPullArmed] = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
+  const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
@@ -182,6 +188,59 @@ export default function AreaDetailPage() {
     setArea({ ...area });
   }
 
+  async function handleSync() {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const token = accessToken ?? (await ensureAccessToken());
+      if (!token) {
+        setSyncError('Please sign in to sync.');
+        return;
+      }
+      await syncProjectsWithOneDrive(token);
+      await loadData();
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncError('Sync failed. Please try again.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  function isListAtTop() {
+    return (listRef.current?.scrollTop ?? 0) <= 8;
+  }
+
+  function handlePullStart(e: TouchEvent<HTMLElement>) {
+    const atTop = isListAtTop();
+    if (!atTop || syncing) {
+      pullStartYRef.current = null;
+      pullDistanceRef.current = 0;
+      return;
+    }
+    pullStartYRef.current = e.touches[0]?.clientY ?? null;
+    pullDistanceRef.current = 0;
+  }
+
+  function handlePullMove(e: TouchEvent<HTMLElement>) {
+    const atTop = isListAtTop();
+    if (pullStartYRef.current === null || !atTop || syncing) return;
+    const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
+    const delta = currentY - pullStartYRef.current;
+    pullDistanceRef.current = delta;
+    setPullArmed(delta >= 70);
+  }
+
+  function handlePullEnd() {
+    pullStartYRef.current = null;
+    if (pullDistanceRef.current >= 70 && !syncing) {
+      void handleSync();
+    }
+    pullDistanceRef.current = 0;
+    setPullArmed(false);
+  }
+
   function scheduleSync() {
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
@@ -258,6 +317,12 @@ export default function AreaDetailPage() {
         </div>
       </header>
 
+      {syncError && (
+        <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+          {syncError}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center gap-8">
@@ -288,7 +353,14 @@ export default function AreaDetailPage() {
       </div>
 
       {/* Inspection Items */}
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] space-y-2">
+      <main
+        ref={listRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] space-y-2"
+        onTouchStartCapture={handlePullStart}
+        onTouchMoveCapture={handlePullMove}
+        onTouchEndCapture={handlePullEnd}
+        onTouchCancelCapture={handlePullEnd}
+      >
         {area.locations.map((location) => {
           const locationStats = getLocationStats(location);
           const locationPhotoCount = location.items.reduce(

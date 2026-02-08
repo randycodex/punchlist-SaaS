@@ -246,8 +246,12 @@ export default function ProjectDetailPage() {
     setSelectedAreaIds(new Set());
   }
 
+  function isListAtTop() {
+    return (listRef.current?.scrollTop ?? 0) <= 8;
+  }
+
   function handlePullStart(e: TouchEvent<HTMLElement>) {
-    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    const atTop = isListAtTop();
     if (!atTop || syncing) {
       pullStartYRef.current = null;
       pullDistanceRef.current = 0;
@@ -258,7 +262,7 @@ export default function ProjectDetailPage() {
   }
 
   function handlePullMove(e: TouchEvent<HTMLElement>) {
-    const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
+    const atTop = isListAtTop();
     if (pullStartYRef.current === null || !atTop || syncing) return;
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
@@ -415,10 +419,10 @@ export default function ProjectDetailPage() {
       <main
         ref={listRef}
         className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]"
-        onTouchStart={handlePullStart}
-        onTouchMove={handlePullMove}
-        onTouchEnd={handlePullEnd}
-        onTouchCancel={handlePullEnd}
+        onTouchStartCapture={handlePullStart}
+        onTouchMoveCapture={handlePullMove}
+        onTouchEndCapture={handlePullEnd}
+        onTouchCancelCapture={handlePullEnd}
       >
         {project.areas.length === 0 ? (
           <div className="text-center py-12">
