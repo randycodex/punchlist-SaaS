@@ -77,6 +77,8 @@ function addProjectPageHeader(
   const margin = 15;
   const logoHeight = 5;
   const logoWidth = logo.height > 0 ? (logo.width / logo.height) * logoHeight : logoHeight;
+  const logoY = 6;
+  const textY = 10.5;
 
   for (let page = startPage; page <= endPage; page++) {
     if (page === coverPage) continue;
@@ -85,7 +87,7 @@ function addProjectPageHeader(
 
     if (logo.base64) {
       try {
-        pdf.addImage(logo.base64, 'PNG', margin, 4, logoWidth, logoHeight);
+        pdf.addImage(logo.base64, 'PNG', margin, logoY, logoWidth, logoHeight);
         textX = margin + logoWidth + 3;
       } catch {
         textX = margin;
@@ -95,7 +97,7 @@ function addProjectPageHeader(
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(9);
     pdf.setTextColor(55, 65, 81);
-    pdf.text(projectName, textX, 8.5);
+    pdf.text(projectName, textX, textY);
     pdf.setTextColor(0, 0, 0);
   }
 }
@@ -106,7 +108,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
-  const contentTopMargin = 24;
+  const contentTopMargin = 21;
   const contentWidth = pageWidth - margin * 2;
   const columnGap = 6;
   const columnCount = 3;
