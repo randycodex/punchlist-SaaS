@@ -101,6 +101,16 @@ function mergeDeletions(
   return merged;
 }
 
+function deletionMapsEqual(left: Record<string, string>, right: Record<string, string>) {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+  if (leftEntries.length !== rightEntries.length) return false;
+  for (const [id, value] of leftEntries) {
+    if (right[id] !== value) return false;
+  }
+  return true;
+}
+
 export function markProjectDeleted(projectId: string, deletedAt = new Date()) {
   const deletions = getLocalDeletions();
   deletions[projectId] = deletedAt.toISOString();
@@ -161,7 +171,9 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   const localDeletions = getLocalDeletions();
   const mergedDeletions = mergeDeletions(localDeletions, remoteDeletions);
   setLocalDeletions(mergedDeletions);
-  await uploadDeletionLog(token, mergedDeletions);
+  if (!deletionMapsEqual(mergedDeletions, remoteDeletions)) {
+    await uploadDeletionLog(token, mergedDeletions);
+  }
 
   const remoteById = new Map(
     remoteFiles

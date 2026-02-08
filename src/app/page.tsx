@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
+import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { Project, getProjectStats } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
@@ -38,6 +38,147 @@ type ProjectMetrics = {
   photoCount: number;
   commentCount: number;
 };
+
+type ProjectCardProps = {
+  project: Project;
+  metric?: ProjectMetrics;
+  selectionMode: boolean;
+  isSelected: boolean;
+  menuOpen: boolean;
+  onToggleSelection: (id: string) => void;
+  onToggleMenu: (id: string) => void;
+  onCloseMenu: () => void;
+  onEditProject: (project: Project) => void;
+};
+
+const ProjectCard = memo(function ProjectCard({
+  project,
+  metric,
+  selectionMode,
+  isSelected,
+  menuOpen,
+  onToggleSelection,
+  onToggleMenu,
+  onCloseMenu,
+  onEditProject,
+}: ProjectCardProps) {
+  const stats = metric?.stats ?? { total: 0, ok: 0, issues: 0, areas: project.areas.length };
+  const pending = metric?.pending ?? 0;
+  const progress = metric?.progress ?? 0;
+  const photoCount = metric?.photoCount ?? 0;
+  const commentCount = metric?.commentCount ?? 0;
+
+  return (
+    <div
+      onClick={() => {
+        if (selectionMode) {
+          onToggleSelection(project.id);
+        }
+      }}
+      className={`rounded-lg border p-4 transition-colors ${
+        isSelected
+          ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
+          : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+      } ${selectionMode ? 'cursor-pointer' : ''}`}
+    >
+      <div className="flex items-start gap-3">
+        <Link
+          href={selectionMode ? '#' : `/project/${project.id}`}
+          onClick={(event) => {
+            if (selectionMode) event.preventDefault();
+          }}
+          className="flex-1 min-w-0"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-medium text-gray-900 dark:text-white truncate">{project.projectName}</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">{stats.areas} areas</span>
+          </div>
+          {project.address && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+              <MapPin className="w-3 h-3" />
+              {project.address}
+            </p>
+          )}
+          <div className="flex items-center gap-4 mt-2 text-sm">
+            {pending > 0 && (
+              <span className="text-gray-400 flex items-center gap-1">
+                <Circle className="w-3 h-3" />
+                {pending}
+              </span>
+            )}
+            {stats.issues > 0 && (
+              <span className="text-orange-500 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                {stats.issues}
+              </span>
+            )}
+            {stats.ok > 0 && (
+              <span className="text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                {stats.ok}
+              </span>
+            )}
+            {photoCount > 0 && (
+              <span className="text-amber-500 flex items-center gap-1">
+                <ImageIcon className="w-3 h-3" />
+                {photoCount}
+              </span>
+            )}
+            {commentCount > 0 && (
+              <span className="text-sky-600 flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" />
+                {commentCount}
+              </span>
+            )}
+          </div>
+          {stats.total > 0 && (
+            <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </Link>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => onToggleMenu(project.id)}
+              className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+              aria-label={`Project actions for ${project.projectName}`}
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={onCloseMenu} />
+                <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                  <button
+                    onClick={() => {
+                      onCloseMenu();
+                      onEditProject(project);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit Project
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <Link
+            href={selectionMode ? '#' : `/project/${project.id}`}
+            onClick={(event) => {
+              if (selectionMode) event.preventDefault();
+            }}
+            className="p-1 text-gray-400 hover:text-blue-500"
+            aria-label={`Open ${project.projectName}`}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -198,7 +339,7 @@ export default function ProjectsPage() {
     await loadProjects();
   }
 
-  function toggleProjectSelection(id: string) {
+  const toggleProjectSelection = useCallback((id: string) => {
     setSelectedProjectIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -208,7 +349,19 @@ export default function ProjectsPage() {
       }
       return next;
     });
-  }
+  }, []);
+
+  const handleToggleProjectMenu = useCallback((id: string) => {
+    setShowProjectMenuId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const handleCloseProjectMenu = useCallback(() => {
+    setShowProjectMenuId(null);
+  }, []);
+
+  const handleOpenProjectEditor = useCallback((project: Project) => {
+    setEditingProject(project);
+  }, []);
 
   async function handleDeleteSelectedProjects() {
     if (selectedProjectIds.size === 0) return;
@@ -476,135 +629,20 @@ export default function ProjectsPage() {
           <div className="space-y-2">
             {sortedProjects.map((project) => {
               const metric = projectMetrics.get(project.id);
-              const stats = metric?.stats ?? { total: 0, ok: 0, issues: 0, areas: project.areas.length };
-              const pending = metric?.pending ?? 0;
-              const progress = metric?.progress ?? 0;
-              const photoCount = metric?.photoCount ?? 0;
-              const commentCount = metric?.commentCount ?? 0;
-              const isSelectionMode = selectionMode;
               const isSelected = selectedProjectIds.has(project.id);
               return (
-                <div
+                <ProjectCard
                   key={project.id}
-                  onClick={() => {
-                    if (isSelectionMode) {
-                      toggleProjectSelection(project.id);
-                    }
-                  }}
-                  className={`rounded-lg border p-4 transition-colors ${
-                    isSelected
-                      ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
-                      : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  } ${isSelectionMode ? 'cursor-pointer' : ''}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Link
-                      href={isSelectionMode ? '#' : `/project/${project.id}`}
-                      onClick={(e) => {
-                        if (isSelectionMode) e.preventDefault();
-                      }}
-                      className="flex-1 min-w-0"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <h3 className="font-medium text-gray-900 dark:text-white truncate">
-                          {project.projectName}
-                        </h3>
-                        <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
-                          {stats.areas} areas
-                        </span>
-                      </div>
-                      {project.address && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          {project.address}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        {pending > 0 && (
-                          <span className="text-gray-400 flex items-center gap-1">
-                            <Circle className="w-3 h-3" />
-                            {pending}
-                          </span>
-                        )}
-                        {stats.issues > 0 && (
-                          <span className="text-orange-500 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            {stats.issues}
-                          </span>
-                        )}
-                        {stats.ok > 0 && (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            {stats.ok}
-                          </span>
-                        )}
-                        {photoCount > 0 && (
-                          <span className="text-amber-500 flex items-center gap-1">
-                            <ImageIcon className="w-3 h-3" />
-                            {photoCount}
-                          </span>
-                        )}
-                        {commentCount > 0 && (
-                          <span className="text-sky-600 flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            {commentCount}
-                          </span>
-                        )}
-                      </div>
-                      {stats.total > 0 && (
-                        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      )}
-                    </Link>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setShowProjectMenuId((prev) => (prev === project.id ? null : project.id))
-                          }
-                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-                          aria-label={`Project actions for ${project.projectName}`}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {showProjectMenuId === project.id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setShowProjectMenuId(null)}
-                            />
-                            <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
-                              <button
-                                onClick={() => {
-                                  setShowProjectMenuId(null);
-                                  setEditingProject(project);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                              >
-                                <Pencil className="w-4 h-4" />
-                                Edit Project
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <Link
-                        href={isSelectionMode ? '#' : `/project/${project.id}`}
-                        onClick={(e) => {
-                          if (isSelectionMode) e.preventDefault();
-                        }}
-                        className="p-1 text-gray-400 hover:text-blue-500"
-                        aria-label={`Open ${project.projectName}`}
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                  project={project}
+                  metric={metric}
+                  selectionMode={selectionMode}
+                  isSelected={isSelected}
+                  menuOpen={showProjectMenuId === project.id}
+                  onToggleSelection={toggleProjectSelection}
+                  onToggleMenu={handleToggleProjectMenu}
+                  onCloseMenu={handleCloseProjectMenu}
+                  onEditProject={handleOpenProjectEditor}
+                />
               );
             })}
           </div>
