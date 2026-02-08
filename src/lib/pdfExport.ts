@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { Project, getProjectStats, getAreaStats, getLocationStats } from '@/types';
+import { Project, getProjectStats, getLocationStats } from '@/types';
 
 // Load logo as base64 for PDF
 async function loadLogoBase64(): Promise<string | null> {
@@ -66,7 +66,45 @@ function addFooter(pdf: jsPDF, margin: number) {
   }
 }
 
+function addProjectPageHeader(
+  pdf: jsPDF,
+  projectName: string,
+  logo: LogoAssets,
+  startPage: number,
+  endPage: number
+) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 15;
+  const headerLineY = 12;
+  const logoHeight = 5;
+  const logoWidth = logo.height > 0 ? (logo.width / logo.height) * logoHeight : logoHeight;
+
+  for (let page = startPage; page <= endPage; page++) {
+    pdf.setPage(page);
+    let textX = margin;
+
+    if (logo.base64) {
+      try {
+        pdf.addImage(logo.base64, 'PNG', margin, 4, logoWidth, logoHeight);
+        textX = margin + logoWidth + 3;
+      } catch {
+        textX = margin;
+      }
+    }
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.setTextColor(55, 65, 81);
+    pdf.text(projectName, textX, 8.5);
+
+    pdf.setDrawColor(220, 220, 220);
+    pdf.line(margin, headerLineY, pageWidth - margin, headerLineY);
+    pdf.setTextColor(0, 0, 0);
+  }
+}
+
 function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
+  const startPage = pdf.getNumberOfPages();
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
@@ -324,9 +362,22 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     coverY += 8;
   }
 
+  const inspectedAreaNames = project.areas
+    .map((area) => area.name.trim())
+    .filter((name) => name.length > 0);
+  if (inspectedAreaNames.length > 0) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Areas Inspected:', pageWidth / 2, coverY, { align: 'center' });
+    coverY += 6;
+    pdf.setFont('helvetica', 'normal');
+    const areaLines = pdf.splitTextToSize(inspectedAreaNames.join(', '), contentWidth - 10) as string[];
+    pdf.text(areaLines, pageWidth / 2, coverY, { align: 'center' });
+    coverY += areaLines.length * 5 + 3;
+  }
+
   // Stats
   const stats = getProjectStats(project);
-  coverY += 15;
+  coverY += 8;
   pdf.setFont('helvetica', 'bold');
   pdf.text('Summary', pageWidth / 2, coverY, { align: 'center' });
   coverY += 8;
@@ -530,6 +581,8 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     const areaIssues = areaIssuesById.get(area.id) ?? [];
     renderAreaIssuesSummary(area.name, areaIssues, area.notes ?? '');
   }
+
+  addProjectPageHeader(pdf, project.projectName, logo, startPage, pdf.getNumberOfPages());
 
 }
 
