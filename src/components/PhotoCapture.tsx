@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, RotateCcw, X, Paperclip } from 'lucide-react';
+import { Camera, RotateCcw, X, Paperclip } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -235,23 +235,33 @@ export default function PhotoCapture({
 
       {cameraOpen && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-          <div className="flex items-center justify-between p-3 border-b border-white/15">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 p-3 border-b border-white/15">
             <button
               onClick={() => closeCamera(true)}
-              className="text-white/90 text-sm px-2 py-1 rounded border border-white/30"
+              className="justify-self-start text-white/90 text-sm px-2 py-1 rounded border border-white/30"
             >
               Cancel
             </button>
             <span className="text-white text-sm">
               {capturedBatch.length} photo{capturedBatch.length === 1 ? '' : 's'}
             </span>
-            <button
-              onClick={addCapturedBatch}
-              disabled={capturedBatch.length === 0}
-              className="text-white text-sm px-2 py-1 rounded border border-green-400 disabled:opacity-40"
-            >
-              Add All
-            </button>
+            <div className="justify-self-end flex items-center gap-2">
+              <button
+                onClick={() => setCapturedBatch([])}
+                disabled={capturedBatch.length === 0}
+                className="px-2 py-1 rounded border border-white/35 text-white text-sm disabled:opacity-40 flex items-center gap-1"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Clear
+              </button>
+              <button
+                onClick={addCapturedBatch}
+                disabled={capturedBatch.length === 0}
+                className="text-white text-sm px-2 py-1 rounded border border-green-400 disabled:opacity-40"
+              >
+                Add All
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 flex items-center justify-center p-2">
@@ -278,30 +288,12 @@ export default function PhotoCapture({
           )}
 
           <div className="p-3 border-t border-white/15">
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center">
               <button
                 onClick={captureFromVideo}
-                className="w-14 h-14 rounded-full border-4 border-white flex items-center justify-center text-white"
+                className="w-16 h-16 rounded-full bg-white border-4 border-white/90 shadow-[0_0_0_2px_rgba(255,255,255,0.25)]"
                 aria-label="Capture photo"
-              >
-                <Camera className="w-6 h-6" />
-              </button>
-              <button
-                onClick={() => setCapturedBatch([])}
-                disabled={capturedBatch.length === 0}
-                className="px-3 py-2 rounded border border-white/35 text-white text-xs disabled:opacity-40 flex items-center gap-1"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Clear
-              </button>
-              <button
-                onClick={addCapturedBatch}
-                disabled={capturedBatch.length === 0}
-                className="px-3 py-2 rounded border border-green-400 text-green-300 text-xs disabled:opacity-40 flex items-center gap-1"
-              >
-                <Check className="w-3.5 h-3.5" />
-                Done
-              </button>
+              />
             </div>
           </div>
         </div>
