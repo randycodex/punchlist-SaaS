@@ -86,8 +86,14 @@ export default function PersistentTopBar() {
           </div>
         )}
         {!showAuth && projectTitle && (
-          <div className="max-w-[45vw] truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">
-            {projectTitle}
+          <div className="max-w-[60vw] flex items-center justify-end gap-2">
+            <span
+              aria-hidden="true"
+              className="sync-indicator h-2.5 w-2.5 rounded-full bg-green-500 dark:bg-green-400 shrink-0"
+            />
+            <div className="truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">
+              {projectTitle}
+            </div>
           </div>
         )}
       </div>

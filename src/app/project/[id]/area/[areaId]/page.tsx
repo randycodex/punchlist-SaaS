@@ -69,6 +69,13 @@ export default function AreaDetailPage() {
   }, []);
 
   useEffect(() => {
+    document.body.classList.toggle('sync-active', syncing);
+    return () => {
+      document.body.classList.remove('sync-active');
+    };
+  }, [syncing]);
+
+  useEffect(() => {
     setGeneralNotes(area?.notes ?? '');
   }, [area?.id, area?.notes]);
 

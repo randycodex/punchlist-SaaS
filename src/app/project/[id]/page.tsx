@@ -106,6 +106,13 @@ export default function ProjectDetailPage() {
     };
   }, []);
 
+  useEffect(() => {
+    document.body.classList.toggle('sync-active', syncing);
+    return () => {
+      document.body.classList.remove('sync-active');
+    };
+  }, [syncing]);
+
   function handleSortChange(option: SortOption) {
     setSortOption(option);
     localStorage.setItem(SORT_STORAGE_KEY, option);
