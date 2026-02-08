@@ -494,8 +494,8 @@ export default function ProjectsPage() {
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
-        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
+      <header className="header-stable shrink-0 border-b z-20">
+        <div className="header-row">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative">
               <button
@@ -624,7 +624,7 @@ export default function ProjectsPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="list-stack">
             {sortedProjects.map((project) => {
               const metric = projectMetrics.get(project.id);
               const isSelected = selectedProjectIds.has(project.id);

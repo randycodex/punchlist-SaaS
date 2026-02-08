@@ -456,8 +456,8 @@ export default function AreaDetailPage() {
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
-      <header className="header-stable shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
-        <div className="pl-2 pr-3 h-12 flex items-center gap-2">
+      <header className="header-stable shrink-0 border-b z-20">
+        <div className="header-row">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
             <Link
               href={`/project/${project.id}`}
@@ -480,19 +480,19 @@ export default function AreaDetailPage() {
       )}
 
       {/* Stats */}
-      <div className="pinned-surface shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="grid grid-cols-3 gap-2 w-full mb-3">
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-blue-600">{remainingCount}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Total</div>
+      <div className="pinned-surface shrink-0 border-b px-4 py-3">
+        <div className="summary-stat-grid summary-stat-grid-3 mb-3">
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-blue-600">{remainingCount}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-orange-500">{stats.issues}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">Issues</div>
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-orange-500">{stats.issues}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
           </div>
-          <div className="text-center">
-            <div className="text-xl leading-6 font-semibold text-green-600">{stats.ok}</div>
-            <div className="text-xs leading-4 text-gray-500 dark:text-gray-400">OK</div>
+          <div className="summary-stat-cell">
+            <div className="summary-stat-value text-green-600">{stats.ok}</div>
+            <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
           </div>
         </div>
         <div className="w-full">
@@ -502,7 +502,7 @@ export default function AreaDetailPage() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
+          <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1 tabular-nums">
             {Math.round(progress)}%
           </div>
         </div>
@@ -517,13 +517,13 @@ export default function AreaDetailPage() {
         onTouchEndCapture={handlePullEnd}
         onTouchCancelCapture={handlePullEnd}
       >
-        <div className="min-h-[calc(100%+1px)] space-y-2">
+        <div className="min-h-[calc(100%+1px)] list-stack">
         {area.locations.map((location) => {
           if (location.name.trim().toLowerCase() === 'other') {
             return (
               <div
                 key={location.id}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+                className="list-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
               >
                 <textarea
                   value={generalNotes}
@@ -553,7 +553,7 @@ export default function AreaDetailPage() {
           return (
             <div
               key={location.id}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
             >
               {/* Location Header */}
               <button
@@ -563,33 +563,33 @@ export default function AreaDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 dark:text-white">{location.name}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   {locationStats.ok > 0 && (
-                    <span className="text-green-600 flex items-center gap-1 text-sm">
+                    <span className="stat-chip text-green-600 text-sm">
                       <CheckCircle className="w-3 h-3" />
                       {locationStats.ok}
                     </span>
                   )}
                   {locationStats.issues > 0 && (
-                    <span className="text-orange-500 flex items-center gap-1 text-sm">
+                    <span className="stat-chip text-orange-500 text-sm">
                       <AlertTriangle className="w-3 h-3" />
                       {locationStats.issues}
                     </span>
                   )}
                   {locationPending > 0 && (
-                    <span className="text-gray-400 flex items-center gap-1 text-sm">
+                    <span className="stat-chip text-gray-400 text-sm">
                       <Circle className="w-3 h-3" />
                       {locationPending}
                     </span>
                   )}
                   {locationPhotoCount > 0 && (
-                    <span className="text-amber-500 flex items-center gap-1 text-sm">
+                    <span className="stat-chip text-amber-500 text-sm">
                       <ImageIcon className="w-3 h-3" />
                       {locationPhotoCount}
                     </span>
                   )}
                   {locationCommentCount > 0 && (
-                    <span className="text-sky-600 flex items-center gap-1 text-sm">
+                    <span className="stat-chip text-sky-600 text-sm">
                       <MessageSquare className="w-3 h-3" />
                       {locationCommentCount}
                     </span>
@@ -624,33 +624,33 @@ export default function AreaDetailPage() {
                             <Wrench className="w-3 h-3 text-orange-500" />
                             <span className="text-sm text-gray-900 dark:text-white">{item.name}</span>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 sm:gap-3">
                             {itemStats.ok > 0 && (
-                              <span className="text-green-600 flex items-center gap-1 text-xs">
+                              <span className="stat-chip text-green-600 text-xs">
                                 <CheckCircle className="w-3 h-3" />
                                 {itemStats.ok}
                               </span>
                             )}
                             {itemStats.issues > 0 && (
-                              <span className="text-orange-500 flex items-center gap-1 text-xs">
+                              <span className="stat-chip text-orange-500 text-xs">
                                 <AlertTriangle className="w-3 h-3" />
                                 {itemStats.issues}
                               </span>
                             )}
                             {itemPending > 0 && (
-                              <span className="text-gray-400 flex items-center gap-1 text-xs">
+                              <span className="stat-chip text-gray-400 text-xs">
                                 <Circle className="w-3 h-3" />
                                 {itemPending}
                               </span>
                             )}
                             {itemPhotoCount > 0 && (
-                              <span className="text-amber-500 flex items-center gap-1 text-xs">
+                              <span className="stat-chip text-amber-500 text-xs">
                                 <ImageIcon className="w-3 h-3" />
                                 {itemPhotoCount}
                               </span>
                             )}
                             {itemCommentCount > 0 && (
-                              <span className="text-sky-600 flex items-center gap-1 text-xs">
+                              <span className="stat-chip text-sky-600 text-xs">
                                 <MessageSquare className="w-3 h-3" />
                                 {itemCommentCount}
                               </span>
@@ -777,7 +777,7 @@ export default function AreaDetailPage() {
       {editingCheckpoint && editingCheckpointData && (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-t-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+            <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-white">{editingCheckpointData.name}</h3>
               <button
                 onClick={() => {
@@ -841,7 +841,7 @@ export default function AreaDetailPage() {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="sticky sticky-surface bottom-0 border-t p-4">
               <button
                 onClick={saveCheckpointChanges}
                 className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
