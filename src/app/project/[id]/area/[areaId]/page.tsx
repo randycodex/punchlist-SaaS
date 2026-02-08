@@ -44,6 +44,7 @@ export default function AreaDetailPage() {
   const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesDraftRef = useRef('');
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
   const listRef = useRef<HTMLElement | null>(null);
@@ -64,6 +65,7 @@ export default function AreaDetailPage() {
       }
       if (notesTimerRef.current) {
         clearTimeout(notesTimerRef.current);
+        void persistGeneralNotes(notesDraftRef.current);
       }
     };
   }, []);
@@ -76,7 +78,9 @@ export default function AreaDetailPage() {
   }, [syncing]);
 
   useEffect(() => {
-    setGeneralNotes(area?.notes ?? '');
+    const value = area?.notes ?? '';
+    setGeneralNotes(value);
+    notesDraftRef.current = value;
   }, [area?.id, area?.notes]);
 
   async function loadData() {
@@ -224,23 +228,29 @@ export default function AreaDetailPage() {
     }
   }
 
-  async function saveGeneralNotes(value: string) {
-    if (!project || !area) return;
-    if ((area.notes ?? '') === value) return;
-    area.notes = value;
-    area.updatedAt = new Date();
-    await saveProject(project);
+  async function persistGeneralNotes(value: string) {
+    if (!id || !areaId) return;
+    const latestProject = await getProject(id);
+    if (!latestProject) return;
+    const latestArea = latestProject.areas.find((entry) => entry.id === areaId);
+    if (!latestArea) return;
+    if ((latestArea.notes ?? '') === value) return;
+    latestArea.notes = value;
+    latestArea.updatedAt = new Date();
+    await saveProject(latestProject);
     scheduleSync();
-    setArea({ ...area });
+    setProject(latestProject);
+    setArea({ ...latestArea });
   }
 
   function handleGeneralNotesChange(value: string) {
     setGeneralNotes(value);
+    notesDraftRef.current = value;
     if (notesTimerRef.current) {
       clearTimeout(notesTimerRef.current);
     }
     notesTimerRef.current = setTimeout(() => {
-      void saveGeneralNotes(value);
+      void persistGeneralNotes(value);
     }, 400);
   }
 
@@ -412,7 +422,8 @@ export default function AreaDetailPage() {
                     if (notesTimerRef.current) {
                       clearTimeout(notesTimerRef.current);
                     }
-                    void saveGeneralNotes(e.target.value);
+                    notesDraftRef.current = e.target.value;
+                    void persistGeneralNotes(e.target.value);
                   }}
                   placeholder="General Notes"
                   rows={4}

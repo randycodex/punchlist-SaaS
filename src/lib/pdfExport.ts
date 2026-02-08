@@ -115,7 +115,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.setFillColor(0, 0, 0);
   }
 
-  function renderAreaIssuesSummary(areaName: string, issues: AreaIssue[]) {
+  function renderAreaIssuesSummary(areaName: string, issues: AreaIssue[], generalNotes: string) {
     if (issues.length === 0) return;
 
     const photoSize = 18;
@@ -136,6 +136,24 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
 
     pdf.addPage();
     let yPos = drawAreaIssueHeader(margin, false);
+
+    const trimmedNotes = generalNotes.trim();
+    if (trimmedNotes) {
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('General Notes', margin + 1, yPos);
+      yPos += 4.5;
+
+      pdf.setFontSize(8.5);
+      pdf.setFont('helvetica', 'normal');
+      const noteLines = pdf.splitTextToSize(trimmedNotes, contentWidth - 4) as string[];
+      pdf.text(noteLines, margin + 2, yPos);
+      yPos += noteLines.length * 3.6 + 2.5;
+
+      pdf.setDrawColor(232, 232, 232);
+      pdf.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 4;
+    }
 
     for (let i = 0; i < issues.length; i++) {
       const issue = issues[i];
@@ -467,7 +485,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     }
 
     const areaIssues = areaIssuesById.get(area.id) ?? [];
-    renderAreaIssuesSummary(area.name, areaIssues);
+    renderAreaIssuesSummary(area.name, areaIssues, area.notes ?? '');
   }
 
 }
