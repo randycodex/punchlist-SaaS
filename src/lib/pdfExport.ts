@@ -94,6 +94,32 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const fileRefsByCheckpoint = new Map<string, number[]>();
   let fileRefCounter = 1;
 
+  function isGeneralNotesLocation(location: { name: string; items: { name: string; checkpoints: { name: string }[] }[] }) {
+    const locationName = location.name.trim().toLowerCase();
+    if (locationName !== 'other') return false;
+    if (location.items.length !== 1) return false;
+    const item = location.items[0];
+    if (item.name.trim().toLowerCase() !== 'general notes') return false;
+    return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
+  }
+
+  function getAreaStatsWithoutGeneralNotes(area: Project['areas'][number]) {
+    let total = 0;
+    let ok = 0;
+    let issues = 0;
+    for (const location of area.locations) {
+      if (isGeneralNotesLocation(location)) continue;
+      for (const item of location.items) {
+        for (const checkpoint of item.checkpoints) {
+          total += 1;
+          if (checkpoint.status === 'ok') ok += 1;
+          else if (checkpoint.status === 'needsReview') issues += 1;
+        }
+      }
+    }
+    return { total, ok, issues };
+  }
+
   function drawStatusIcon(status: 'pending' | 'ok' | 'needsReview', x: number, y: number) {
     const centerY = y - 1.5;
     pdf.setLineWidth(0.35);
@@ -116,7 +142,8 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   }
 
   function renderAreaIssuesSummary(areaName: string, issues: AreaIssue[], generalNotes: string) {
-    if (issues.length === 0) return;
+    const trimmedNotes = generalNotes.trim();
+    if (issues.length === 0 && !trimmedNotes) return;
 
     const photoSize = 18;
     const photosPerRow = 4;
@@ -127,7 +154,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     function drawAreaIssueHeader(y: number, continuation: boolean) {
       pdf.setFontSize(14);
       pdf.setFont('helvetica', 'bold');
-      const headerText = continuation ? `Issues Summary - ${areaName} (cont.)` : `Issues Summary - ${areaName}`;
+      const headerText = continuation ? `Issues Summary (cont.)` : `Issues Summary`;
       pdf.text(headerText, margin, y);
       pdf.setDrawColor(220, 220, 220);
       pdf.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
@@ -135,24 +162,39 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     }
 
     pdf.addPage();
-    let yPos = drawAreaIssueHeader(margin, false);
+    let yPos = margin;
 
-    const trimmedNotes = generalNotes.trim();
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(areaName, margin, yPos);
+    yPos += 7;
+
     if (trimmedNotes) {
-      pdf.setFontSize(10);
+      pdf.setFontSize(14);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('General Notes', margin + 1, yPos);
-      yPos += 4.5;
+      pdf.text('General Notes', margin, yPos);
+      yPos += 1.5;
 
-      pdf.setFontSize(8.5);
+      pdf.setDrawColor(220, 220, 220);
+      pdf.line(margin, yPos + 1.5, pageWidth - margin, yPos + 1.5);
+      yPos += 6;
+
+      pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       const noteLines = pdf.splitTextToSize(trimmedNotes, contentWidth - 4) as string[];
-      pdf.text(noteLines, margin + 2, yPos);
-      yPos += noteLines.length * 3.6 + 2.5;
+      pdf.text(noteLines, margin + 1, yPos);
+      yPos += noteLines.length * 4 + 4;
+    }
 
-      pdf.setDrawColor(232, 232, 232);
-      pdf.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 4;
+    yPos = drawAreaIssueHeader(yPos, false);
+
+    if (issues.length === 0) {
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(90, 90, 90);
+      pdf.text('No issues found.', margin + 1, yPos);
+      pdf.setTextColor(0, 0, 0);
+      return;
     }
 
     for (let i = 0; i < issues.length; i++) {
@@ -344,7 +386,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.setTextColor(255, 255, 255);
     pdf.text(area.name, margin + 3, y + 2);
 
-    const areaStats = getAreaStats(area);
+    const areaStats = getAreaStatsWithoutGeneralNotes(area);
     pdf.setFontSize(10);
     const areaStatsText = `OK: ${areaStats.ok}  |  Issues: ${areaStats.issues}  |  Total: ${areaStats.total}`;
     pdf.text(areaStatsText, pageWidth - margin - pdf.getTextWidth(areaStatsText) - 3, y + 2);
@@ -355,7 +397,8 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     }
 
     // Process locations within this area
-    for (const location of area.locations) {
+    const printableLocations = area.locations.filter((location) => !isGeneralNotesLocation(location));
+    for (const location of printableLocations) {
       let estimatedHeight = 10;
       for (const item of location.items) {
         estimatedHeight += 6;
