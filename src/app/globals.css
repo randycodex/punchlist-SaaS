@@ -180,6 +180,18 @@ html:not(.dark) .sticky-surface {
   border-color: #e5e7eb !important;
 }
 
+/* Avoid a white flash in system-dark mode before JS/theme class is fully applied. */
+@media (prefers-color-scheme: dark) {
+  html:not(.dark) .safe-top-shim,
+  html:not(.dark) .persistent-top-bar,
+  html:not(.dark) .header-stable,
+  html:not(.dark) .pinned-surface,
+  html:not(.dark) .sticky-surface {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+  }
+}
+
 .sync-indicator {
   opacity: 0;
   transition: opacity 160ms ease;
