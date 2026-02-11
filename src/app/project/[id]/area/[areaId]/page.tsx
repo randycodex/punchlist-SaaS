@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
-import { syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
+import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
@@ -60,15 +60,16 @@ export default function AreaDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [pullArmed, setPullArmed] = useState(false);
   const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
+  const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesDraftRef = useRef('');
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
+  const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
@@ -223,7 +224,7 @@ export default function AreaDetailPage() {
     checkpoint.status = newStatus;
     checkpoint.updatedAt = new Date();
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setArea({ ...area });
   }
 
@@ -240,7 +241,7 @@ export default function AreaDetailPage() {
     checkpoint.comments = commentText;
     checkpoint.updatedAt = new Date();
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setEditingCheckpoint(null);
     setCommentText('');
     setArea({ ...area });
@@ -262,7 +263,27 @@ export default function AreaDetailPage() {
     checkpoint.photos.push(photo);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
+    setArea({ ...area });
+  }
+
+  async function handleAddPhotos(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    photos: Array<{ imageData: string; thumbnail: string }>
+  ) {
+    if (!project || !area || photos.length === 0) return;
+
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
+
+    for (const photoInput of photos) {
+      checkpoint.photos.push(createPhotoAttachment(checkpointId, photoInput.imageData, photoInput.thumbnail));
+    }
+    checkpoint.updatedAt = new Date();
+    await saveProject(project);
+    scheduleSync(project.id);
     setArea({ ...area });
   }
 
@@ -280,7 +301,7 @@ export default function AreaDetailPage() {
     checkpoint.photos = checkpoint.photos.filter((p) => p.id !== photoId);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setArea({ ...area });
   }
 
@@ -298,7 +319,7 @@ export default function AreaDetailPage() {
     checkpoint.files = (checkpoint.files ?? []).filter((f) => f.id !== fileId);
     checkpoint.updatedAt = new Date();
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setArea({ ...area });
   }
 
@@ -323,18 +344,16 @@ export default function AreaDetailPage() {
   }
 
   async function persistGeneralNotes(value: string) {
-    if (!id || !areaId) return;
-    const latestProject = await getProject(id);
-    if (!latestProject) return;
-    const latestArea = latestProject.areas.find((entry) => entry.id === areaId);
-    if (!latestArea) return;
-    if ((latestArea.notes ?? '') === value) return;
-    latestArea.notes = value;
-    latestArea.updatedAt = new Date();
-    await saveProject(latestProject);
-    scheduleSync();
-    setProject(latestProject);
-    setArea({ ...latestArea });
+    if (!project || !area) return;
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+    if ((targetArea.notes ?? '') === value) return;
+    targetArea.notes = value;
+    targetArea.updatedAt = new Date();
+    await saveProject(project);
+    scheduleSync(project.id);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
   }
 
   function handleGeneralNotesChange(value: string) {
@@ -369,7 +388,10 @@ export default function AreaDetailPage() {
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
     pullDistanceRef.current = delta;
-    setPullArmed(delta >= 45);
+    const armed = delta >= 45;
+    if (armed !== pullArmedRef.current) {
+      pullArmedRef.current = armed;
+    }
   }
 
   function handlePullEnd() {
@@ -378,7 +400,7 @@ export default function AreaDetailPage() {
       void handleSync();
     }
     pullDistanceRef.current = 0;
-    setPullArmed(false);
+    pullArmedRef.current = false;
   }
 
   async function runBackgroundSync() {
@@ -386,12 +408,15 @@ export default function AreaDetailPage() {
       backgroundSyncQueuedRef.current = true;
       return;
     }
+    if (dirtyProjectIdsRef.current.size === 0) return;
 
     backgroundSyncInFlightRef.current = true;
+    const dirtyProjectIds = [...dirtyProjectIdsRef.current];
+    dirtyProjectIdsRef.current.clear();
     try {
       const token = accessToken ?? (await ensureAccessToken());
       if (!token) return;
-      await syncProjectsWithOneDrive(token);
+      await pushProjectsToOneDrive(token, dirtyProjectIds);
     } catch (error) {
       console.error('Background sync failed:', error);
     } finally {
@@ -403,7 +428,10 @@ export default function AreaDetailPage() {
     }
   }
 
-  function scheduleSync() {
+  function scheduleSync(projectId?: string) {
+    if (projectId) {
+      dirtyProjectIdsRef.current.add(projectId);
+    }
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -806,6 +834,14 @@ export default function AreaDetailPage() {
                       editingCheckpoint.checkpointId,
                       imageData,
                       thumbnail
+                    )
+                  }
+                  onAddPhotos={(photos) =>
+                    handleAddPhotos(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photos
                     )
                   }
                   onDeletePhoto={(photoId) =>

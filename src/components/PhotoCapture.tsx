@@ -8,6 +8,7 @@ interface PhotoCaptureProps {
   photos: PhotoAttachment[];
   files: FileAttachment[];
   onAddPhoto: (imageData: string, thumbnail: string) => void;
+  onAddPhotos?: (photos: Array<{ imageData: string; thumbnail: string }>) => void;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
 }
@@ -16,6 +17,7 @@ export default function PhotoCapture({
   photos,
   files,
   onAddPhoto,
+  onAddPhotos,
   onDeletePhoto,
   onDeleteFile,
 }: PhotoCaptureProps) {
@@ -108,7 +110,11 @@ export default function PhotoCapture({
 
   function addCapturedBatch() {
     if (capturedBatch.length === 0) return;
-    capturedBatch.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+    if (onAddPhotos) {
+      onAddPhotos(capturedBatch);
+    } else {
+      capturedBatch.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+    }
     closeCamera(true);
   }
 
@@ -116,11 +122,8 @@ export default function PhotoCapture({
     setCapturedBatch((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files ?? []);
-    if (selected.length === 0) return;
-
-    selected.forEach((file) => {
+  function fileToPhotoPayload(file: File): Promise<{ imageData: string; thumbnail: string } | null> {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const sourceData = event.target?.result as string;
@@ -129,12 +132,29 @@ export default function PhotoCapture({
         img.onload = () => {
           const imageData = createScaledImageData(img, maxImageSize, 0.8);
           const thumbnail = createThumbnailData(img, 150, 0.6);
-          onAddPhoto(imageData, thumbnail);
+          resolve({ imageData, thumbnail });
         };
+        img.onerror = () => resolve(null);
         img.src = sourceData;
       };
+      reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     });
+  }
+
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    const processed = await Promise.all(selected.map((file) => fileToPhotoPayload(file)));
+    const readyPhotos = processed.filter((photo): photo is { imageData: string; thumbnail: string } => photo !== null);
+    if (readyPhotos.length > 0) {
+      if (onAddPhotos) {
+        onAddPhotos(readyPhotos);
+      } else {
+        readyPhotos.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+      }
+    }
 
     // Reset inputs
     if (cameraInputRef.current) {

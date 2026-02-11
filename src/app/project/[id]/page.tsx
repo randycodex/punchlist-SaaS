@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { applyTemplateToArea } from '@/lib/template';
-import { syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
+import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import Link from 'next/link';
 import {
@@ -153,14 +153,15 @@ export default function ProjectDetailPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [pullArmed, setPullArmed] = useState(false);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
+  const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
+  const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
 
@@ -286,7 +287,7 @@ export default function ProjectDetailPage() {
     applyTemplateToArea(area);
     project.areas.push(area);
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setNewAreaName('');
     setShowAddArea(false);
     loadProject();
@@ -309,7 +310,7 @@ export default function ProjectDetailPage() {
     }
     project.areas = project.areas.filter((area) => !selectedAreaIds.has(area.id));
     await saveProject(project);
-    scheduleSync();
+    scheduleSync(project.id);
     setSelectedAreaIds(new Set());
     setDeleteMode(false);
     setActionSheet(null);
@@ -341,12 +342,15 @@ export default function ProjectDetailPage() {
       backgroundSyncQueuedRef.current = true;
       return;
     }
+    if (dirtyProjectIdsRef.current.size === 0) return;
 
     backgroundSyncInFlightRef.current = true;
+    const dirtyProjectIds = [...dirtyProjectIdsRef.current];
+    dirtyProjectIdsRef.current.clear();
     try {
       const token = accessToken ?? (await ensureAccessToken());
       if (!token) return;
-      await syncProjectsWithOneDrive(token);
+      await pushProjectsToOneDrive(token, dirtyProjectIds);
     } catch (error) {
       console.error('Background sync failed:', error);
     } finally {
@@ -358,7 +362,10 @@ export default function ProjectDetailPage() {
     }
   }
 
-  function scheduleSync() {
+  function scheduleSync(projectId?: string) {
+    if (projectId) {
+      dirtyProjectIdsRef.current.add(projectId);
+    }
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -394,7 +401,10 @@ export default function ProjectDetailPage() {
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
     pullDistanceRef.current = delta;
-    setPullArmed(delta >= 45);
+    const armed = delta >= 45;
+    if (armed !== pullArmedRef.current) {
+      pullArmedRef.current = armed;
+    }
   }
 
   function handlePullEnd() {
@@ -403,7 +413,7 @@ export default function ProjectDetailPage() {
       void handleSync();
     }
     pullDistanceRef.current = 0;
-    setPullArmed(false);
+    pullArmedRef.current = false;
   }
 
   if (loading) {

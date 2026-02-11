@@ -1,11 +1,13 @@
 import { Project } from '@/types';
 import {
   getAllProjects,
+  getProject,
   saveProjectPreserveTimestamps,
   deleteProject as deleteProjectFromDb,
 } from '@/lib/db';
 import {
   ensurePunchListFolders,
+  getProjectFileMetadata,
   listProjectFiles,
   downloadProjectFile,
   uploadProjectFile,
@@ -59,6 +61,10 @@ async function runWithConcurrency<T>(
 
 function projectFilename(projectId: string) {
   return `${projectId}.json`;
+}
+
+function isConflictError(error: unknown) {
+  return error instanceof Error && error.message.includes('Precondition Failed');
 }
 
 function getLocalDeletions(): Record<string, string> {
@@ -267,7 +273,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         remote?.eTag
       );
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Precondition Failed')) {
+      if (isConflictError(error)) {
         addConflict(project.id, project.projectName);
       } else {
         throw error;
@@ -279,4 +285,37 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   setLastSyncTime(syncedAt);
 
   return { conflicts: [...conflictsById.values()], syncedAt: syncedAt.toISOString() };
+}
+
+export async function pushProjectsToOneDrive(token: string, projectIds: string[]): Promise<void> {
+  if (projectIds.length === 0) return;
+
+  await ensurePunchListFolders(token);
+  const deletionMap = getLocalDeletions();
+  const uniqueProjectIds = [...new Set(projectIds)];
+
+  await runWithConcurrency(uniqueProjectIds, 2, async (projectId) => {
+    if (deletionMap[projectId]) return;
+
+    const localProject = await getProject(projectId);
+    if (!localProject) return;
+
+    const filename = projectFilename(projectId);
+    const remote = await getProjectFileMetadata(token, filename);
+    const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
+    const localUpdatedAt = localProject.updatedAt.getTime();
+
+    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+      return;
+    }
+
+    try {
+      await uploadProjectFile(token, filename, JSON.stringify(localProject), remote?.eTag);
+    } catch (error) {
+      // Background push should not interrupt the editing flow; full sync can resolve conflicts.
+      if (!isConflictError(error)) {
+        throw error;
+      }
+    }
+  });
 }

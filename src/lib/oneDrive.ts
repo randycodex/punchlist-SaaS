@@ -82,6 +82,10 @@ export async function listProjectFiles(token: string) {
   return result.value ?? [];
 }
 
+export async function getProjectFileMetadata(token: string, filename: string): Promise<DriveItem | null> {
+  return getItemByPath(token, `PunchList/projects/${filename}`);
+}
+
 export async function downloadProjectFile(token: string, id: string): Promise<string> {
   const response = await fetch(`${GRAPH_API}/me/drive/items/${id}/content`, {
     headers: {

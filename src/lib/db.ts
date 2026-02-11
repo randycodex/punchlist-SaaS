@@ -28,10 +28,7 @@ function getDB() {
 // Project operations
 export async function getAllProjects(): Promise<Project[]> {
   const db = await getDB();
-  const projects = await db.getAll('projects');
-  return projects.sort((a, b) =>
-    a.projectName.localeCompare(b.projectName)
-  );
+  return db.getAll('projects');
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {

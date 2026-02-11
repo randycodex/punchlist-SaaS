@@ -201,8 +201,8 @@ export default function ProjectsPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [pullArmed, setPullArmed] = useState(false);
   const pullStartYRef = useRef<number | null>(null);
+  const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
@@ -472,15 +472,18 @@ export default function ProjectsPage() {
     if (pullStartYRef.current === null || !atTop || syncing) return;
     const currentY = e.touches[0]?.clientY ?? pullStartYRef.current;
     const delta = currentY - pullStartYRef.current;
-    setPullArmed(delta >= 90);
+    const armed = delta >= 90;
+    if (armed !== pullArmedRef.current) {
+      pullArmedRef.current = armed;
+    }
   }
 
   function handlePullEnd() {
     pullStartYRef.current = null;
-    if (pullArmed && !syncing) {
+    if (pullArmedRef.current && !syncing) {
       void handleSync();
     }
-    setPullArmed(false);
+    pullArmedRef.current = false;
   }
 
   if (loading) {
