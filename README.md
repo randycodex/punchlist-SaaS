@@ -22,15 +22,27 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Microsoft OneDrive Sync
 
-To enable Microsoft sign-in and OneDrive sync, set:
+This app uses each signed-in user's own OneDrive account. Projects stay local in the browser until
+the user signs in, then sync is done against that user's `PunchList` folder in OneDrive.
+
+For multi-user use on phones or desktops inside UAI, configure one Microsoft Entra app for the
+UAI tenant, then set:
 
 ```
 NEXT_PUBLIC_MS_CLIENT_ID=your_microsoft_app_client_id
-NEXT_PUBLIC_MS_TENANT_ID=your_microsoft_tenant_id
+NEXT_PUBLIC_MS_TENANT_ID=your_uai_tenant_id
 NEXT_PUBLIC_MS_REDIRECT_URI=https://punchlist-pwa.vercel.app/
 ```
 
-After updating env vars, restart the dev server.
+Notes:
+
+- `NEXT_PUBLIC_MS_TENANT_ID` should be your UAI tenant ID when only UAI work accounts should sign
+  in.
+- The app registration should stay single-tenant and include every production and development
+  redirect URI you plan to use.
+- Users will sync to their own OneDrive files. This is per-user storage, not a shared team drive.
+
+After updating env vars, restart the dev server or redeploy.
 
 ## Self-hosted Inter font
 
