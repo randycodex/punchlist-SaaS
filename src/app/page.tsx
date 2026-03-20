@@ -6,6 +6,7 @@ import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
+import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
@@ -279,7 +280,7 @@ export default function ProjectsPage() {
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
-      setSyncError('Sync failed. Please try again.');
+      setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
     } finally {
       setSyncing(false);
     }

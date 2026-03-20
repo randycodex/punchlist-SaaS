@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { PublicClientApplication, type AccountInfo, type AuthenticationResult } from '@azure/msal-browser';
+import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 
 type MicrosoftAuthContextValue = {
   accessToken: string | null;
@@ -89,7 +90,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
       await pca.loginRedirect({ scopes: SCOPES });
     } catch (error) {
       console.error('Microsoft sign-in failed:', error);
-      alert('Microsoft sign-in failed. Please try again.');
+      alert(getMicrosoftErrorMessage(error, 'Microsoft sign-in failed.'));
     }
   }
 

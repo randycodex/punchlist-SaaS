@@ -4,6 +4,7 @@ import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEven
 import { useRouter, useParams } from 'next/navigation';
 import { Project, getProjectStats, getAreaStats } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
+import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
@@ -331,7 +332,7 @@ export default function ProjectDetailPage() {
       await loadProject();
     } catch (error) {
       console.error('Sync failed:', error);
-      setSyncError('Sync failed. Please try again.');
+      setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
     } finally {
       setSyncing(false);
     }

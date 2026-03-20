@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
+import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -337,7 +338,7 @@ export default function AreaDetailPage() {
       await loadData();
     } catch (error) {
       console.error('Sync failed:', error);
-      setSyncError('Sync failed. Please try again.');
+      setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
     } finally {
       setSyncing(false);
     }
