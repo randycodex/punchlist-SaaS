@@ -23,6 +23,8 @@ export function getMicrosoftErrorMessage(error: unknown, fallback: string): stri
   }
 
   if (
+    message === 'the resource could not be found.' ||
+    message === 'resource not found' ||
     message.includes("unable to retrieve user's mysite url") ||
     message.includes('resource not found for the segment') ||
     message.includes('/me/drive') ||
