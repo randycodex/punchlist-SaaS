@@ -19,6 +19,19 @@ const SCOPES = ['User.Read', 'Files.ReadWrite'];
 const DEFAULT_MS_CLIENT_ID = '376ef496-5fa7-447d-9559-2e128a6b74a4';
 const DEFAULT_MS_TENANT_ID = 'organizations';
 
+function getResolvedAccount(pca: PublicClientApplication): AccountInfo | null {
+  const activeAccount = pca.getActiveAccount();
+  if (activeAccount) return activeAccount;
+
+  const accounts = pca.getAllAccounts();
+  if (accounts.length === 1) {
+    pca.setActiveAccount(accounts[0]);
+    return accounts[0];
+  }
+
+  return null;
+}
+
 export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
   const clientId = process.env.NEXT_PUBLIC_MS_CLIENT_ID ?? DEFAULT_MS_CLIENT_ID;
   const tenantId = process.env.NEXT_PUBLIC_MS_TENANT_ID?.trim() || DEFAULT_MS_TENANT_ID;
@@ -59,7 +72,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
         if (result?.account) {
           pca.setActiveAccount(result.account);
         }
-        const account = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
+        const account = getResolvedAccount(pca);
         if (!account) {
           setIsReady(true);
           return;
@@ -87,7 +100,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       await pca.initialize();
-      await pca.loginRedirect({ scopes: SCOPES });
+      await pca.loginRedirect({ scopes: SCOPES, prompt: 'select_account' });
     } catch (error) {
       console.error('Microsoft sign-in failed:', error);
       alert(getMicrosoftErrorMessage(error, 'Microsoft sign-in failed.'));
@@ -105,7 +118,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
   async function ensureAccessToken() {
     if (!pca) return null;
     await pca.initialize();
-    const account: AccountInfo | undefined = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
+    const account = getResolvedAccount(pca);
     if (!account) return null;
     try {
       const tokenResult = await pca.acquireTokenSilent({ scopes: SCOPES, account });
