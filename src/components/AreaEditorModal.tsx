@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import {
   APARTMENT_UNIT_TYPES,
   AREA_TYPE_DEFINITIONS,
-  buildAreaName,
   getAreaTypeDefinition,
   type AreaFormValue,
   type AreaTypeKey,
@@ -53,7 +52,6 @@ export default function AreaEditorModal({
   if (!open) return null;
 
   const selectedDefinition = getAreaTypeDefinition(value.areaTypeKey);
-  const previewName = buildAreaName(value);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -149,12 +147,6 @@ export default function AreaEditorModal({
             />
           </div>
 
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Preview</div>
-            <div className="text-sm font-medium text-gray-900 dark:text-white">
-              {previewName || 'Select an area'}
-            </div>
-          </div>
         </div>
 
         <div className="flex gap-3 mt-6">
