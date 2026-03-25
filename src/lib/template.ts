@@ -57,6 +57,10 @@ const apartmentTemplate: TemplateLocation[] = [
     items: bathroomItems,
   },
   {
+    name: 'Half Bathroom',
+    items: bathroomItems.filter((item) => item.name !== 'Tub / Shower'),
+  },
+  {
     name: 'Kitchen',
     items: [
       { name: 'Floor Transition', checkpoints: ['Level'] },
@@ -95,13 +99,6 @@ const apartmentTemplate: TemplateLocation[] = [
   },
 ];
 
-const halfBathroomTemplate: TemplateLocation[] = [
-  {
-    name: 'Half Bathroom',
-    items: bathroomItems.filter((item) => item.name !== 'Tub / Shower'),
-  },
-];
-
 function createNotesLocation(area: Area, sortOrder: number): Location {
   return createLocation(area.id, 'Other', sortOrder);
 }
@@ -133,11 +130,6 @@ export function applyTemplateToArea(area: Area): void {
 
   if (definition.templateKey === 'apartment') {
     populateArea(area, apartmentTemplate);
-    return;
-  }
-
-  if (definition.templateKey === 'halfBathroom') {
-    populateArea(area, halfBathroomTemplate);
     return;
   }
 

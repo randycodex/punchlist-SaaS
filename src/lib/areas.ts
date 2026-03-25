@@ -13,7 +13,6 @@ export type AreaTypeKey =
   | 'electrical_closet'
   | 'electrical_room'
   | 'fire_pump'
-  | 'half_bathroom'
   | 'hot_water'
   | 'it_closet'
   | 'it_room'
@@ -66,7 +65,6 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'electrical_room', label: 'Electrical Room', templateKey: 'notesOnly' },
   { key: 'elevator_control_room', label: 'Elevator Control Room', templateKey: 'notesOnly' },
   { key: 'fire_pump', label: 'Fire Pump', templateKey: 'notesOnly' },
-  { key: 'half_bathroom', label: 'Half Bathroom', templateKey: 'halfBathroom' },
   { key: 'hot_water', label: 'Hot Water', templateKey: 'notesOnly' },
   { key: 'it_closet', label: 'IT Closet', templateKey: 'notesOnly' },
   { key: 'it_room', label: 'IT Room', templateKey: 'notesOnly' },

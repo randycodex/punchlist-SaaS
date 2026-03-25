@@ -33,7 +33,7 @@ export default function AreaEditorModal({
   submitLabel,
 }: AreaEditorModalProps) {
   const orderedAreaTypes = useMemo(() => {
-    const preferredOrder: AreaTypeKey[] = ['apartment_unit', 'half_bathroom', 'custom'];
+    const preferredOrder: AreaTypeKey[] = ['apartment_unit', 'custom'];
     const recentSet = new Set(recentAreaTypeKeys);
     const preferred = preferredOrder
       .filter((key) => !recentSet.has(key))
