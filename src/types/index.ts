@@ -57,6 +57,9 @@ export interface Area {
   id: string;
   projectId: string;
   name: string;
+  areaTypeKey?: string;
+  unitType?: string;
+  areaNumber?: string;
   sortOrder: number;
   isComplete: boolean;
   notes: string;
@@ -98,6 +101,22 @@ export function getAreaStats(area: Area) {
     total,
     ok,
     issues,
+  };
+}
+
+export function getReviewMetrics(total: number, ok: number, issues: number) {
+  const pending = Math.max(total - ok - issues, 0);
+  const reviewed = ok + issues;
+  const reviewedPercent = total > 0 ? (reviewed / total) * 100 : 0;
+  const okPercent = reviewed > 0 ? (ok / reviewed) * 100 : 0;
+  const issuePercent = reviewed > 0 ? (issues / reviewed) * 100 : 0;
+
+  return {
+    pending,
+    reviewed,
+    reviewedPercent,
+    okPercent,
+    issuePercent,
   };
 }
 

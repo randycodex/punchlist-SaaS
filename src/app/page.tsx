@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
-import { Project, getProjectStats } from '@/types';
+import { Project, getProjectStats, getReviewMetrics } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
 import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
@@ -36,6 +36,8 @@ type ProjectMetrics = {
   stats: ReturnType<typeof getProjectStats>;
   pending: number;
   progress: number;
+  okPercent: number;
+  issuePercent: number;
   photoCount: number;
   commentCount: number;
 };
@@ -303,9 +305,16 @@ export default function ProjectsPage() {
       }
 
       const stats = getProjectStats(project);
-      const pending = stats.total - stats.ok - stats.issues;
-      const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
-      metrics.set(project.id, { stats, pending, progress, photoCount, commentCount });
+      const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
+      metrics.set(project.id, {
+        stats,
+        pending: reviewMetrics.pending,
+        progress: reviewMetrics.reviewedPercent,
+        okPercent: reviewMetrics.okPercent,
+        issuePercent: reviewMetrics.issuePercent,
+        photoCount,
+        commentCount,
+      });
     }
     return metrics;
   }, [projects]);

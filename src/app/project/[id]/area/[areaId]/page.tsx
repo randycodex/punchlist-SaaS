@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, Area, Checkpoint } from '@/types';
+import { Project, Area, Checkpoint, getReviewMetrics } from '@/types';
 import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
+import AreaEditorModal from '@/components/AreaEditorModal';
+import {
+  areaHasRecordedActivity,
+  buildAreaName,
+  getAreaFormValue,
+  type AreaTypeKey,
+} from '@/lib/areas';
+import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -18,10 +26,14 @@ import {
   Circle,
   Wrench,
   MessageSquare,
+  Pencil,
   X,
   Image as ImageIcon,
   Paperclip,
 } from 'lucide-react';
+
+const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
+const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
 
 type StatusMetrics = {
   total: number;
@@ -59,6 +71,10 @@ export default function AreaDetailPage() {
     checkpointId: string;
   } | null>(null);
   const [commentText, setCommentText] = useState('');
+  const [recentComments, setRecentComments] = useState<string[]>([]);
+  const [showEditArea, setShowEditArea] = useState(false);
+  const [areaForm, setAreaForm] = useState(getAreaFormValue());
+  const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -78,6 +94,22 @@ export default function AreaDetailPage() {
     if (!id || !areaId) {
       router.push('/');
       return;
+    }
+    const savedRecentComments = localStorage.getItem(RECENT_COMMENTS_STORAGE_KEY);
+    if (savedRecentComments) {
+      try {
+        setRecentComments(JSON.parse(savedRecentComments) as string[]);
+      } catch (error) {
+        console.error('Failed to parse recent comments:', error);
+      }
+    }
+    const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
+    if (savedRecentAreaTypes) {
+      try {
+        setRecentAreaTypeKeys(JSON.parse(savedRecentAreaTypes) as AreaTypeKey[]);
+      } catch (error) {
+        console.error('Failed to parse recent area types:', error);
+      }
     }
     loadData();
   }, [id, areaId]);
@@ -108,6 +140,10 @@ export default function AreaDetailPage() {
     setGeneralNotes(value);
     notesDraftRef.current = value;
   }, [area?.id, area?.notes]);
+
+  useEffect(() => {
+    setAreaForm(getAreaFormValue(area));
+  }, [area]);
 
   async function loadData() {
     if (!id || !areaId) return;
@@ -192,11 +228,13 @@ export default function AreaDetailPage() {
       issues += locationIssues;
     }
 
-    const pending = total - ok - issues;
+    const reviewMetrics = getReviewMetrics(total, ok, issues);
     return {
       stats: { total, ok, issues },
-      pending,
-      progress: total > 0 ? (ok / total) * 100 : 0,
+      pending: reviewMetrics.pending,
+      reviewedPercent: reviewMetrics.reviewedPercent,
+      okPercent: reviewMetrics.okPercent,
+      issuePercent: reviewMetrics.issuePercent,
       locationMetrics,
       itemMetrics,
     };
@@ -243,9 +281,52 @@ export default function AreaDetailPage() {
     checkpoint.updatedAt = new Date();
     await saveProject(project);
     scheduleSync(project.id);
+    const trimmedComment = commentText.trim();
+    if (trimmedComment) {
+      const nextRecentComments = [
+        trimmedComment,
+        ...recentComments.filter((comment) => comment !== trimmedComment),
+      ].slice(0, 12);
+      setRecentComments(nextRecentComments);
+      localStorage.setItem(RECENT_COMMENTS_STORAGE_KEY, JSON.stringify(nextRecentComments));
+    }
     setEditingCheckpoint(null);
     setCommentText('');
     setArea({ ...area });
+  }
+
+  async function saveAreaChanges() {
+    if (!project || !area) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+
+    const originalTypeKey = targetArea.areaTypeKey;
+    const nextName = buildAreaName(areaForm);
+    targetArea.name = nextName;
+    targetArea.areaTypeKey = areaForm.areaTypeKey;
+    targetArea.unitType = areaForm.unitType || undefined;
+    targetArea.areaNumber = areaForm.areaNumber.trim() || undefined;
+
+    const templateChanged = originalTypeKey !== areaForm.areaTypeKey;
+    if (templateChanged && !areaHasRecordedActivity(targetArea)) {
+      applyTemplateToArea(targetArea);
+    }
+
+    targetArea.updatedAt = new Date();
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    const nextRecentAreaTypeKeys = [
+      areaForm.areaTypeKey,
+      ...recentAreaTypeKeys.filter((key) => key !== areaForm.areaTypeKey),
+    ].slice(0, 8);
+    setRecentAreaTypeKeys(nextRecentAreaTypeKeys);
+    localStorage.setItem(RECENT_AREA_TYPES_STORAGE_KEY, JSON.stringify(nextRecentAreaTypeKeys));
+
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+    setShowEditArea(false);
   }
 
   async function handleAddPhoto(
@@ -476,8 +557,10 @@ export default function AreaDetailPage() {
   }
 
   const stats = areaDerived?.stats ?? { total: 0, ok: 0, issues: 0 };
-  const remainingCount = areaDerived?.pending ?? 0;
-  const progress = areaDerived?.progress ?? 0;
+  const pendingCount = areaDerived?.pending ?? 0;
+  const reviewedPercent = areaDerived?.reviewedPercent ?? 0;
+  const okPercent = areaDerived?.okPercent ?? 0;
+  const issuePercent = areaDerived?.issuePercent ?? 0;
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
@@ -498,7 +581,13 @@ export default function AreaDetailPage() {
               {area.name}
             </span>
           </div>
-          <div className="ml-auto" />
+          <button
+            onClick={() => setShowEditArea(true)}
+            className="ml-auto p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
+            aria-label="Edit area"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
@@ -512,27 +601,29 @@ export default function AreaDetailPage() {
       <div className="pinned-surface shrink-0 border-b px-4 py-3">
         <div className="summary-stat-grid summary-stat-grid-3 mb-3">
           <div className="summary-stat-cell">
-            <div className="summary-stat-value text-blue-600">{remainingCount}</div>
+            <div className="summary-stat-value text-blue-600">{stats.total}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-orange-500">{stats.issues}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
+            <div className="summary-stat-meta text-orange-500">{Math.round(issuePercent)}%</div>
           </div>
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-green-600">{stats.ok}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
+            <div className="summary-stat-meta text-green-600">{Math.round(okPercent)}%</div>
           </div>
         </div>
         <div className="w-full">
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-green-500 transition-all"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${reviewedPercent}%` }}
             />
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1 tabular-nums">
-            {Math.round(progress)}%
+            Reviewed {Math.round(reviewedPercent)}% • {pendingCount} pending
           </div>
         </div>
       </div>
@@ -875,6 +966,24 @@ export default function AreaDetailPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter your comment..."
                 />
+                {recentComments.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Recent comments
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {recentComments.map((comment) => (
+                        <button
+                          key={comment}
+                          onClick={() => setCommentText(comment)}
+                          className="px-2.5 py-1.5 text-left text-xs rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600"
+                        >
+                          {comment}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -889,6 +998,20 @@ export default function AreaDetailPage() {
           </div>
         </div>
       )}
+
+      <AreaEditorModal
+        open={showEditArea}
+        title="Edit Area"
+        value={areaForm}
+        recentAreaTypeKeys={recentAreaTypeKeys}
+        onChange={setAreaForm}
+        onClose={() => {
+          setAreaForm(getAreaFormValue(area));
+          setShowEditArea(false);
+        }}
+        onSubmit={() => void saveAreaChanges()}
+        submitLabel="Save"
+      />
     </div>
   );
 }
