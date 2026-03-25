@@ -1,5 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Project, Area, Location, Item, Checkpoint, PhotoAttachment, FileAttachment } from '@/types';
+import type { AreaTypeKey, ApartmentUnitType } from '@/lib/areas';
 import { v4 as uuidv4 } from 'uuid';
 
 interface PunchListDB extends DBSchema {
@@ -73,12 +74,26 @@ export function createProject(name: string, address: string = '', inspector: str
   };
 }
 
-export function createArea(projectId: string, name: string, sortOrder: number): Area {
+export function createArea(
+  projectId: string,
+  name: string,
+  sortOrder: number,
+  options?: {
+    areaTypeKey?: AreaTypeKey;
+    unitType?: ApartmentUnitType | '';
+    customAreaName?: string;
+    areaNumber?: string;
+  }
+): Area {
   const now = new Date();
   return {
     id: uuidv4(),
     projectId,
     name,
+    areaTypeKey: options?.areaTypeKey,
+    unitType: options?.unitType || undefined,
+    customAreaName: options?.customAreaName?.trim() || undefined,
+    areaNumber: options?.areaNumber?.trim() || undefined,
     sortOrder,
     isComplete: false,
     notes: '',

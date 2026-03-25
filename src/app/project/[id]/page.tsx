@@ -2,9 +2,11 @@
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, getProjectStats, getAreaStats } from '@/types';
+import { Project, getProjectStats, getAreaStats, getReviewMetrics } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
+import AreaEditorModal from '@/components/AreaEditorModal';
+import { buildAreaName, getDefaultAreaFormValue, type AreaTypeKey } from '@/lib/areas';
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
@@ -28,11 +30,14 @@ import {
 type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
+const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
 
 type AreaMetrics = {
   stats: ReturnType<typeof getAreaStats>;
   pending: number;
   progress: number;
+  okPercent: number;
+  issuePercent: number;
   photoCount: number;
   commentCount: number;
 };
@@ -148,7 +153,8 @@ export default function ProjectDetailPage() {
   const [showAddArea, setShowAddArea] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedAreaIds, setSelectedAreaIds] = useState<Set<string>>(new Set());
-  const [newAreaName, setNewAreaName] = useState('');
+  const [newAreaForm, setNewAreaForm] = useState(getDefaultAreaFormValue());
+  const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
@@ -181,6 +187,14 @@ export default function ProjectDetailPage() {
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
     if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
       setSortOption(savedSort);
+    }
+    const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
+    if (savedRecentAreaTypes) {
+      try {
+        setRecentAreaTypeKeys(JSON.parse(savedRecentAreaTypes) as AreaTypeKey[]);
+      } catch (error) {
+        console.error('Failed to parse recent area types:', error);
+      }
     }
     loadProject();
   }, [id]);
@@ -258,9 +272,16 @@ export default function ProjectDetailPage() {
         }
       }
       const stats = getAreaStats(area);
-      const pending = stats.total - stats.ok - stats.issues;
-      const progress = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
-      metrics.set(area.id, { stats, pending, progress, photoCount, commentCount });
+      const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
+      metrics.set(area.id, {
+        stats,
+        pending: reviewMetrics.pending,
+        progress: reviewMetrics.reviewedPercent,
+        okPercent: reviewMetrics.okPercent,
+        issuePercent: reviewMetrics.issuePercent,
+        photoCount,
+        commentCount,
+      });
     }
 
     return metrics;
@@ -282,14 +303,32 @@ export default function ProjectDetailPage() {
   }, [project, sortOption, areaMetrics]);
 
   async function handleAddArea() {
-    if (!project || !newAreaName.trim()) return;
+    if (!project) return;
 
-    const area = createArea(project.id, newAreaName.trim(), project.areas.length);
+    const areaName = buildAreaName(newAreaForm);
+    if (!areaName) return;
+
+    const area = createArea(project.id, areaName, project.areas.length, {
+      areaTypeKey: newAreaForm.areaTypeKey,
+      unitType: newAreaForm.unitType,
+      customAreaName: newAreaForm.customAreaName,
+      areaNumber: newAreaForm.areaNumber,
+    });
+    area.areaTypeKey = newAreaForm.areaTypeKey;
+    area.unitType = newAreaForm.unitType || undefined;
+    area.customAreaName = newAreaForm.customAreaName.trim() || undefined;
+    area.areaNumber = newAreaForm.areaNumber.trim() || undefined;
     applyTemplateToArea(area);
     project.areas.push(area);
     await saveProject(project);
     scheduleSync(project.id);
-    setNewAreaName('');
+    const nextRecentAreaTypeKeys = [
+      newAreaForm.areaTypeKey,
+      ...recentAreaTypeKeys.filter((key) => key !== newAreaForm.areaTypeKey),
+    ].slice(0, 8);
+    setRecentAreaTypeKeys(nextRecentAreaTypeKeys);
+    localStorage.setItem(RECENT_AREA_TYPES_STORAGE_KEY, JSON.stringify(nextRecentAreaTypeKeys));
+    setNewAreaForm(getDefaultAreaFormValue());
     setShowAddArea(false);
     loadProject();
   }
@@ -430,7 +469,7 @@ export default function ProjectDetailPage() {
   }
 
   const stats = getProjectStats(project);
-  const remainingCount = stats.total - stats.ok - stats.issues;
+  const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
 
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
@@ -539,18 +578,30 @@ export default function ProjectDetailPage() {
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Areas</div>
           </div>
           <div className="summary-stat-cell">
-            <div className="summary-stat-value text-blue-600">{remainingCount}</div>
+            <div className="summary-stat-value text-blue-600">{stats.total}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
           </div>
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-orange-500">{stats.issues}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
+            <div className="summary-stat-meta text-orange-500">{Math.round(reviewMetrics.issuePercent)}%</div>
           </div>
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-green-600">{stats.ok}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
+            <div className="summary-stat-meta text-green-600">{Math.round(reviewMetrics.okPercent)}%</div>
           </div>
         </div>
+        {stats.total > 0 && (
+          <div className="mt-3">
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1 tabular-nums">
+              Reviewed {Math.round(reviewMetrics.reviewedPercent)}% • {reviewMetrics.pending} pending
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Areas List */}
@@ -595,45 +646,19 @@ export default function ProjectDetailPage() {
         )}
       </main>
 
-      {/* Add Area Modal */}
-      {showAddArea && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Area</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Area Name *
-              </label>
-              <input
-                type="text"
-                value={newAreaName}
-                onChange={(e) => setNewAreaName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="e.g., Apt 101, Unit A"
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddArea(false);
-                  setNewAreaName('');
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddArea}
-                disabled={!newAreaName.trim()}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AreaEditorModal
+        open={showAddArea}
+        title="Add Area"
+        value={newAreaForm}
+        recentAreaTypeKeys={recentAreaTypeKeys}
+        onChange={setNewAreaForm}
+        onClose={() => {
+          setShowAddArea(false);
+          setNewAreaForm(getDefaultAreaFormValue());
+        }}
+        onSubmit={() => void handleAddArea()}
+        submitLabel="Add"
+      />
 
       {actionSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
