@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { Project, getProjectStats, getLocationStats } from '@/types';
+import { Project } from '@/types';
 
 // Load logo as base64 for PDF
 async function loadLogoBase64(): Promise<string | null> {
@@ -110,28 +110,11 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const margin = 15;
   const contentTopMargin = 21;
   const contentWidth = pageWidth - margin * 2;
-  const columnGap = 6;
-  const columnCount = 3;
-  const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
   const statusIconRadius = 1.6;
-
-  type AreaIssue = {
-    location: string;
-    item: string;
-    checkpoint: string;
-    comment: string;
-    photoRefs: number[];
-    fileRefs: number[];
-    photoData: string[];
-    fileNames: string[];
-  };
-
-  const areaIssuesById = new Map<string, AreaIssue[]>();
-  const photoRefsByCheckpoint = new Map<string, number[]>();
-  let photoRefCounter = 1;
-
-  const fileRefsByCheckpoint = new Map<string, number[]>();
-  let fileRefCounter = 1;
+  const photoGap = 4;
+  const photosPerRow = 3;
+  const photoWidth = (contentWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
+  const photoHeight = photoWidth;
 
   function isGeneralNotesLocation(location: { name: string; items: { name: string; checkpoints: { name: string }[] }[] }) {
     const locationName = location.name.trim().toLowerCase();
@@ -180,144 +163,38 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.setFillColor(0, 0, 0);
   }
 
-  function renderAreaIssuesSummary(areaName: string, issues: AreaIssue[], generalNotes: string) {
-    const trimmedNotes = generalNotes.trim();
-    if (issues.length === 0 && !trimmedNotes) return;
-
-    const photoSize = 18;
-    const photosPerRow = 4;
-    const photoGap = 3;
-    const photoRowHeight = photoSize + 2;
-    const photoStartX = margin + 4;
-
-    function drawAreaIssueHeader(y: number, continuation: boolean) {
-      pdf.setFontSize(14);
-      pdf.setFont('helvetica', 'bold');
-      const headerText = continuation ? `Issues Summary (cont.)` : `Issues Summary`;
-      pdf.text(headerText, margin, y);
-      pdf.setDrawColor(220, 220, 220);
-      pdf.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
-      return y + 8;
-    }
-
-    pdf.addPage();
-    let yPos = contentTopMargin;
-
-    pdf.setFontSize(11);
+  function drawAreaHeader(areaName: string, y: number) {
+    pdf.setFillColor(59, 130, 246);
+    pdf.rect(margin, y - 4, contentWidth, 10, 'F');
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(areaName, margin, yPos);
-    yPos += 7;
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(areaName, margin + 3, y + 2);
+    pdf.setTextColor(0, 0, 0);
+    return y + 12;
+  }
 
-    if (trimmedNotes) {
-      pdf.setFontSize(14);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('General Notes', margin, yPos);
-      yPos += 1.5;
+  function estimatePhotoBlockHeight(photoCount: number) {
+    if (photoCount === 0) return 0;
+    const rows = Math.ceil(photoCount / photosPerRow);
+    return 3 + rows * (photoHeight + 3);
+  }
 
-      pdf.setDrawColor(220, 220, 220);
-      pdf.line(margin, yPos + 1.5, pageWidth - margin, yPos + 1.5);
-      yPos += 6;
-
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      const noteLines = pdf.splitTextToSize(trimmedNotes, contentWidth - 4) as string[];
-      pdf.text(noteLines, margin + 1, yPos);
-      yPos += noteLines.length * 4 + 4;
+  function renderPhotos(photos: string[], startY: number) {
+    let currentY = startY + 1.5;
+    for (let index = 0; index < photos.length; index++) {
+      const col = index % photosPerRow;
+      const row = Math.floor(index / photosPerRow);
+      const x = margin + col * (photoWidth + photoGap);
+      const y = currentY + row * (photoHeight + 3);
+      try {
+        pdf.addImage(photos[index], 'JPEG', x, y, photoWidth, photoHeight);
+      } catch {
+        pdf.setFillColor(225, 225, 225);
+        pdf.rect(x, y, photoWidth, photoHeight, 'F');
+      }
     }
-
-    yPos = drawAreaIssueHeader(yPos, false);
-
-    if (issues.length === 0) {
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(90, 90, 90);
-      pdf.text('No issues found.', margin + 1, yPos);
-      pdf.setTextColor(0, 0, 0);
-      return;
-    }
-
-    for (let i = 0; i < issues.length; i++) {
-      const issue = issues[i];
-      const refParts: string[] = [];
-      if (issue.photoRefs.length > 0) refParts.push(`Photo ${issue.photoRefs.join(', ')}`);
-      if (issue.fileRefs.length > 0) refParts.push(`File ${issue.fileRefs.join(', ')}`);
-      const refsText = refParts.length > 0 ? ` [${refParts.join(' | ')}]` : '';
-
-      const title = `${i + 1}. ${issue.location} > ${issue.item}`;
-      const titleLines = pdf.splitTextToSize(title, contentWidth - 4).slice(0, 1) as string[];
-      const checkpointLine = `${issue.checkpoint}${refsText}`;
-      const checkpointLines = pdf.splitTextToSize(checkpointLine, contentWidth - 8).slice(0, 1) as string[];
-      const commentLines = issue.comment
-        ? (pdf.splitTextToSize(`"${issue.comment}"`, contentWidth - 10).slice(0, 2) as string[])
-        : [];
-      const fileLine = issue.fileNames.length > 0 ? `Files: ${issue.fileNames.join(', ')}` : '';
-      const fileLines = fileLine ? (pdf.splitTextToSize(fileLine, contentWidth - 10).slice(0, 1) as string[]) : [];
-
-      const previewPhotos = issue.photoData.slice(0, 8);
-      const photoRows = Math.ceil(previewPhotos.length / photosPerRow);
-      const photoSectionHeight = photoRows > 0 ? 3 + photoRows * photoRowHeight : 0;
-      const textHeight = 4 + titleLines.length * 4 + checkpointLines.length * 3.5 + commentLines.length * 3.2 + fileLines.length * 3.2;
-      const extraMorePhotosHeight = issue.photoData.length > 8 ? 3 : 0;
-      const issueHeight = textHeight + photoSectionHeight + extraMorePhotosHeight + 2;
-
-      if (yPos + issueHeight > pageHeight - margin) {
-        pdf.addPage();
-        yPos = drawAreaIssueHeader(contentTopMargin, true);
-      }
-
-      let rowY = yPos;
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(titleLines, margin + 2, rowY);
-      rowY += 4.2;
-
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(checkpointLines, margin + 4, rowY);
-      rowY += 3.8;
-
-      if (commentLines.length > 0) {
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(commentLines, margin + 4, rowY);
-        rowY += commentLines.length * 3.2;
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      if (fileLines.length > 0) {
-        pdf.setTextColor(80, 80, 80);
-        pdf.text(fileLines, margin + 4, rowY);
-        rowY += 3.2;
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      if (previewPhotos.length > 0) {
-        rowY += 1.5;
-        for (let j = 0; j < previewPhotos.length; j++) {
-          const col = j % photosPerRow;
-          const row = Math.floor(j / photosPerRow);
-          const x = photoStartX + col * (photoSize + photoGap);
-          const y = rowY + row * photoRowHeight;
-          try {
-            pdf.addImage(previewPhotos[j], 'JPEG', x, y, photoSize, photoSize);
-          } catch {
-            pdf.setFillColor(225, 225, 225);
-            pdf.rect(x, y, photoSize, photoSize, 'F');
-          }
-        }
-        rowY += photoRows * photoRowHeight;
-      }
-
-      if (issue.photoData.length > 8) {
-        pdf.setFontSize(7);
-        pdf.setTextColor(90, 90, 90);
-        pdf.text(`+${issue.photoData.length - 8} more photos`, margin + 4, rowY + 1.5);
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      pdf.setDrawColor(232, 232, 232);
-      pdf.line(margin, yPos + issueHeight, pageWidth - margin, yPos + issueHeight);
-      yPos += issueHeight + 3;
-    }
+    return currentY + Math.ceil(photos.length / photosPerRow) * (photoHeight + 3);
   }
 
   // Cover page
@@ -376,211 +253,120 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     coverY += areaLines.length * 5 + 3;
   }
 
-  // Stats
-  const stats = getProjectStats(project);
-  coverY += 8;
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('Summary', pageWidth / 2, coverY, { align: 'center' });
-  coverY += 8;
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(`Areas: ${stats.areas}  |  Total: ${stats.total}  |  OK: ${stats.ok}  |  Issues: ${stats.issues}`, pageWidth / 2, coverY, { align: 'center' });
-
-  // Each area starts on a new page
+  // Each area with issues starts on a new page
   for (const area of project.areas) {
+    const printableLocations = area.locations
+      .filter((location) => !isGeneralNotesLocation(location))
+      .map((location) => ({
+        ...location,
+        items: location.items
+          .map((item) => ({
+            ...item,
+            checkpoints: item.checkpoints.filter((checkpoint) => checkpoint.status === 'needsReview'),
+          }))
+          .filter((item) => item.checkpoints.length > 0),
+      }))
+      .filter((location) => location.items.length > 0);
+
+    if (printableLocations.length === 0) {
+      continue;
+    }
+
     pdf.addPage();
-    const columnYs = Array.from({ length: columnCount }, () => contentTopMargin);
-    let currentColumn = 0;
+    let y = drawAreaHeader(area.name, contentTopMargin);
 
-    function getColumnX(col: number): number {
-      return margin + col * (columnWidth + columnGap);
-    }
-
-    function getCurrentY(): number {
-      return columnYs[currentColumn];
-    }
-
-    function setCurrentY(y: number) {
-      columnYs[currentColumn] = y;
-    }
-
-    function switchColumn() {
-      currentColumn = (currentColumn + 1) % columnCount;
-    }
-
-    function needsNewPage(neededHeight: number): boolean {
-      const currentY = getCurrentY();
-      if (currentY + neededHeight > pageHeight - margin) {
-        for (let i = 0; i < columnCount; i++) {
-          if (i === currentColumn) continue;
-          if (columnYs[i] + neededHeight <= pageHeight - margin) {
-            currentColumn = i;
-            return false;
-          }
-        }
-        pdf.addPage();
-        for (let i = 0; i < columnCount; i++) {
-          columnYs[i] = contentTopMargin;
-        }
-        currentColumn = 0;
-        return true;
-      }
-      return false;
-    }
-
-    // Area header with background
-    const columnX = getColumnX(currentColumn);
-    let y = getCurrentY();
-
-    pdf.setFillColor(59, 130, 246);
-    pdf.rect(margin, y - 4, contentWidth, 10, 'F');
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(area.name, margin + 3, y + 2);
-
-    const areaStats = getAreaStatsWithoutGeneralNotes(area);
-    pdf.setFontSize(10);
-    const areaStatsText = `OK: ${areaStats.ok}  |  Issues: ${areaStats.issues}  |  Total: ${areaStats.total}`;
-    pdf.text(areaStatsText, pageWidth - margin - pdf.getTextWidth(areaStatsText) - 3, y + 2);
-    pdf.setTextColor(0, 0, 0);
-
-    for (let i = 0; i < columnCount; i++) {
-      columnYs[i] = y + 12;
-    }
-
-    // Process locations within this area
-    const printableLocations = area.locations.filter((location) => !isGeneralNotesLocation(location));
     for (const location of printableLocations) {
-      let estimatedHeight = 10;
+      let locationHeight = 8;
       for (const item of location.items) {
-        estimatedHeight += 6;
+        locationHeight += 6;
         for (const checkpoint of item.checkpoints) {
-          estimatedHeight += 5;
-          if (checkpoint.comments) estimatedHeight += 4;
+          locationHeight += 6;
+          if (checkpoint.comments) {
+            const commentLines = pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[];
+            locationHeight += commentLines.length * 4;
+          }
+          const checkpointFiles = checkpoint.files ?? [];
+          if (checkpointFiles.length > 0) {
+            const fileLines = pdf.splitTextToSize(`Files: ${checkpointFiles.map((file) => file.name).join(', ')}`, contentWidth - 18) as string[];
+            locationHeight += fileLines.length * 4;
+          }
+          locationHeight += estimatePhotoBlockHeight(checkpoint.photos.length);
+          locationHeight += 2;
         }
       }
 
-      needsNewPage(Math.min(estimatedHeight, 50));
+      if (y + locationHeight > pageHeight - margin) {
+        pdf.addPage();
+        y = drawAreaHeader(area.name, contentTopMargin);
+      }
 
-      const locColumnX = getColumnX(currentColumn);
-      let locY = getCurrentY();
-
-      // Location header
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
       pdf.setFillColor(240, 240, 240);
-      pdf.rect(locColumnX, locY - 3, columnWidth, 6, 'F');
-      pdf.text(location.name, locColumnX + 2, locY);
+      pdf.rect(margin, y - 3, contentWidth, 6, 'F');
+      pdf.text(location.name, margin + 2, y);
+      y += 7;
 
-      const locStats = getLocationStats(location);
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'normal');
-      const locStatsText = `OK:${locStats.ok} X:${locStats.issues}`;
-      pdf.text(locStatsText, locColumnX + columnWidth - pdf.getTextWidth(locStatsText) - 2, locY);
-      locY += 6;
-
-      // Items
       for (const item of location.items) {
-        if (locY > pageHeight - margin - 20) {
-          setCurrentY(locY);
-          needsNewPage(20);
-          locY = getCurrentY();
-        }
-
-        const itemColumnX = getColumnX(currentColumn);
-        pdf.setFontSize(8);
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'bold');
-        const itemText = item.name.length > 30 ? item.name.substring(0, 27) + '...' : item.name;
-        pdf.text(`• ${itemText}`, itemColumnX + 2, locY);
-        locY += 4;
+        pdf.text(`• ${item.name}`, margin + 2, y);
+        y += 5;
 
-        // Checkpoints
         for (const checkpoint of item.checkpoints) {
-          if (locY > pageHeight - margin - 15) {
-            setCurrentY(locY);
-            needsNewPage(15);
-            locY = getCurrentY();
-          }
-
-          const cpColumnX = getColumnX(currentColumn);
-          pdf.setFontSize(7);
-          pdf.setFont('helvetica', 'normal');
-
-          drawStatusIcon(checkpoint.status, cpColumnX + 6, locY);
-
-          const cpText = checkpoint.name.length > 22 ? checkpoint.name.substring(0, 19) + '...' : checkpoint.name;
-          pdf.text(cpText, cpColumnX + 12, locY);
-
-          // Add photo references if photos exist
-          let photoRefs: number[] = [];
-          if (checkpoint.photos.length > 0) {
-            for (const photo of checkpoint.photos) {
-              photoRefs.push(photoRefCounter);
-              const existingRefs = photoRefsByCheckpoint.get(checkpoint.id) ?? [];
-              existingRefs.push(photoRefCounter);
-              photoRefsByCheckpoint.set(checkpoint.id, existingRefs);
-              photoRefCounter++;
-            }
-          }
-
-          let fileRefs: number[] = [];
+          const checkpointPhotos = checkpoint.photos.map((photo) => photo.imageData || photo.thumbnail);
           const checkpointFiles = checkpoint.files ?? [];
-          if (checkpointFiles.length > 0) {
-            for (const file of checkpointFiles) {
-              fileRefs.push(fileRefCounter);
-              const existingRefs = fileRefsByCheckpoint.get(checkpoint.id) ?? [];
-              existingRefs.push(fileRefCounter);
-              fileRefsByCheckpoint.set(checkpoint.id, existingRefs);
-              fileRefCounter++;
-            }
+          const commentLines = checkpoint.comments
+            ? (pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[])
+            : [];
+          const fileLines = checkpointFiles.length > 0
+            ? (pdf.splitTextToSize(`Files: ${checkpointFiles.map((file) => file.name).join(', ')}`, contentWidth - 18) as string[])
+            : [];
+
+          const estimatedHeight =
+            5 +
+            commentLines.length * 4 +
+            fileLines.length * 4 +
+            estimatePhotoBlockHeight(checkpointPhotos.length) +
+            2;
+
+          if (y + estimatedHeight > pageHeight - margin) {
+            pdf.addPage();
+            y = drawAreaHeader(area.name, contentTopMargin);
           }
 
-          if (photoRefs.length > 0 || fileRefs.length > 0) {
-            pdf.setFontSize(6);
-            pdf.setTextColor(59, 130, 246);
-            const refParts: string[] = [];
-            if (photoRefs.length > 0) refParts.push(`Photo ${photoRefs.join(', ')}`);
-            if (fileRefs.length > 0) refParts.push(`File ${fileRefs.join(', ')}`);
-            const refText = `[${refParts.join(' | ')}]`;
-            pdf.text(refText, cpColumnX + columnWidth - pdf.getTextWidth(refText) - 2, locY);
-            pdf.setTextColor(0, 0, 0);
-          }
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'normal');
+          drawStatusIcon('needsReview', margin + 6, y);
+          pdf.text(checkpoint.name, margin + 12, y);
+          y += 4;
 
-          if (checkpoint.status === 'needsReview') {
-            const areaIssues = areaIssuesById.get(area.id) ?? [];
-            areaIssues.push({
-              location: location.name,
-              item: item.name,
-              checkpoint: checkpoint.name,
-              comment: checkpoint.comments,
-              photoRefs,
-              fileRefs,
-              photoData: checkpoint.photos.map((photo) => photo.imageData || photo.thumbnail),
-              fileNames: checkpointFiles.map((file) => file.name),
-            });
-            areaIssuesById.set(area.id, areaIssues);
-          }
-
-          locY += 3.5;
-
-          if (checkpoint.comments) {
-            pdf.setFontSize(6);
+          if (commentLines.length > 0) {
             pdf.setTextColor(100, 100, 100);
-            const comment = checkpoint.comments.length > 40 ? checkpoint.comments.substring(0, 37) + '...' : checkpoint.comments;
-            pdf.text(`"${comment}"`, cpColumnX + 12, locY);
-            locY += 3;
+            pdf.text(commentLines, margin + 12, y);
+            y += commentLines.length * 4;
             pdf.setTextColor(0, 0, 0);
           }
-        }
-        locY += 2;
-      }
-      locY += 3;
-      setCurrentY(locY);
-      switchColumn();
-    }
 
-    const areaIssues = areaIssuesById.get(area.id) ?? [];
-    renderAreaIssuesSummary(area.name, areaIssues, area.notes ?? '');
+          if (fileLines.length > 0) {
+            pdf.setTextColor(80, 80, 80);
+            pdf.text(fileLines, margin + 12, y);
+            y += fileLines.length * 4;
+            pdf.setTextColor(0, 0, 0);
+          }
+
+          if (checkpointPhotos.length > 0) {
+            y = renderPhotos(checkpointPhotos, y);
+          }
+
+          y += 3;
+        }
+
+        y += 1;
+      }
+
+      y += 2;
+    }
   }
 
   addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages());
