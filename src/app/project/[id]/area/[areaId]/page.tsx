@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Project, Area, Checkpoint, getReviewMetrics } from '@/types';
-import { getProject, saveProject, createPhotoAttachment } from '@/lib/db';
+import { getProject, saveProject, createPhotoAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
 import {
   areaHasRecordedActivity,
   buildAreaName,
   getAreaFormValue,
+  isApartmentArea,
   type AreaTypeKey,
 } from '@/lib/areas';
 import { applyTemplateToArea } from '@/lib/template';
@@ -34,6 +35,8 @@ import {
 
 const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
+const CUSTOM_ITEMS_LOCATION_NAME = 'Custom Items';
+const OTHER_LOCATION_NAME = 'Other';
 
 type StatusMetrics = {
   total: number;
@@ -75,6 +78,7 @@ export default function AreaDetailPage() {
   const [showEditArea, setShowEditArea] = useState(false);
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
+  const [customItemName, setCustomItemName] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -306,6 +310,7 @@ export default function AreaDetailPage() {
     targetArea.name = nextName;
     targetArea.areaTypeKey = areaForm.areaTypeKey;
     targetArea.unitType = areaForm.unitType || undefined;
+    targetArea.customAreaName = areaForm.customAreaName.trim() || undefined;
     targetArea.areaNumber = areaForm.areaNumber.trim() || undefined;
 
     const templateChanged = originalTypeKey !== areaForm.areaTypeKey;
@@ -327,6 +332,44 @@ export default function AreaDetailPage() {
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
     setShowEditArea(false);
+  }
+
+  async function handleAddCustomItem() {
+    if (!project || !area || !customItemName.trim() || isApartmentArea(area)) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+
+    const trimmedName = customItemName.trim();
+    let customItemsLocation = targetArea.locations.find((location) => location.name === CUSTOM_ITEMS_LOCATION_NAME);
+
+    if (!customItemsLocation) {
+      customItemsLocation = createLocation(targetArea.id, CUSTOM_ITEMS_LOCATION_NAME, targetArea.locations.length);
+      const otherIndex = targetArea.locations.findIndex((location) => location.name === OTHER_LOCATION_NAME);
+      if (otherIndex >= 0) {
+        targetArea.locations.splice(otherIndex, 0, customItemsLocation);
+      } else {
+        targetArea.locations.push(customItemsLocation);
+      }
+      targetArea.locations.forEach((location, index) => {
+        location.sortOrder = index;
+      });
+    }
+
+    const item = createItem(customItemsLocation.id, trimmedName, customItemsLocation.items.length);
+    const checkpoint = createCheckpoint(item.id, 'Notes', 0);
+    item.checkpoints.push(checkpoint);
+    customItemsLocation.items.push(item);
+    targetArea.updatedAt = new Date();
+
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    setCustomItemName('');
+    setExpandedLocations(new Set([customItemsLocation.id]));
+    setExpandedItems(new Set([item.id]));
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
   }
 
   async function handleAddPhoto(
@@ -564,6 +607,7 @@ export default function AreaDetailPage() {
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
+  const supportsCustomItems = !isApartmentArea(area);
 
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
@@ -638,8 +682,35 @@ export default function AreaDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         <div className="min-h-[calc(100%+1px)] list-stack">
+        {supportsCustomItems && (
+          <div className="list-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="text-sm font-medium text-gray-900 dark:text-white mb-3">Custom Items</div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={customItemName}
+                onChange={(e) => setCustomItemName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleAddCustomItem();
+                  }
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Add custom item"
+              />
+              <button
+                onClick={() => void handleAddCustomItem()}
+                disabled={!customItemName.trim()}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
         {area.locations.map((location) => {
-          if (location.name.trim().toLowerCase() === 'other') {
+          if (location.name.trim().toLowerCase() === OTHER_LOCATION_NAME.toLowerCase()) {
             return (
               <div
                 key={location.id}

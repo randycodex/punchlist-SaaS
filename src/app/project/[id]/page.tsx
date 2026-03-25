@@ -311,8 +311,13 @@ export default function ProjectDetailPage() {
     const area = createArea(project.id, areaName, project.areas.length, {
       areaTypeKey: newAreaForm.areaTypeKey,
       unitType: newAreaForm.unitType,
+      customAreaName: newAreaForm.customAreaName,
       areaNumber: newAreaForm.areaNumber,
     });
+    area.areaTypeKey = newAreaForm.areaTypeKey;
+    area.unitType = newAreaForm.unitType || undefined;
+    area.customAreaName = newAreaForm.customAreaName.trim() || undefined;
+    area.areaNumber = newAreaForm.areaNumber.trim() || undefined;
     applyTemplateToArea(area);
     project.areas.push(area);
     await saveProject(project);

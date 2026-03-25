@@ -59,6 +59,7 @@ export interface Area {
   name: string;
   areaTypeKey?: string;
   unitType?: string;
+  customAreaName?: string;
   areaNumber?: string;
   sortOrder: number;
   isComplete: boolean;

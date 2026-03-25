@@ -1,6 +1,6 @@
 import { Area, Location } from '@/types';
 import { createLocation, createItem, createCheckpoint } from './db';
-import { getAreaTypeDefinition } from './areas';
+import { getAreaTypeDefinition, resolveAreaTypeKey } from './areas';
 
 interface TemplateItem {
   name: string;
@@ -129,7 +129,7 @@ function populateArea(area: Area, templateLocations: TemplateLocation[]): void {
 
 export function applyTemplateToArea(area: Area): void {
   area.locations = [];
-  const definition = getAreaTypeDefinition(area.areaTypeKey);
+  const definition = getAreaTypeDefinition(resolveAreaTypeKey(area));
 
   if (definition.templateKey === 'apartment') {
     populateArea(area, apartmentTemplate);

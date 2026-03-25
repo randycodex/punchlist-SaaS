@@ -81,6 +81,7 @@ export function createArea(
   options?: {
     areaTypeKey?: AreaTypeKey;
     unitType?: ApartmentUnitType | '';
+    customAreaName?: string;
     areaNumber?: string;
   }
 ): Area {
@@ -91,6 +92,7 @@ export function createArea(
     name,
     areaTypeKey: options?.areaTypeKey,
     unitType: options?.unitType || undefined,
+    customAreaName: options?.customAreaName?.trim() || undefined,
     areaNumber: options?.areaNumber?.trim() || undefined,
     sortOrder,
     isComplete: false,

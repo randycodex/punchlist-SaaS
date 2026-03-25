@@ -7,6 +7,7 @@ export type AreaTypeKey =
   | 'ats'
   | 'bike_storage'
   | 'corridor'
+  | 'custom'
   | 'elevator_control_room'
   | 'egress'
   | 'electrical_closet'
@@ -41,11 +42,13 @@ export type AreaTypeDefinition = {
   label: string;
   templateKey: AreaTemplateKey;
   requiresUnitType?: boolean;
+  requiresCustomName?: boolean;
 };
 
 export type AreaFormValue = {
   areaTypeKey: AreaTypeKey;
   unitType: ApartmentUnitType | '';
+  customAreaName: string;
   areaNumber: string;
 };
 
@@ -57,6 +60,7 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'ats', label: 'ATS', templateKey: 'notesOnly' },
   { key: 'bike_storage', label: 'Bike Storage', templateKey: 'notesOnly' },
   { key: 'corridor', label: 'Corridor', templateKey: 'notesOnly' },
+  { key: 'custom', label: 'Custom', templateKey: 'notesOnly', requiresCustomName: true },
   { key: 'egress', label: 'Egress', templateKey: 'notesOnly' },
   { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'notesOnly' },
   { key: 'electrical_room', label: 'Electrical Room', templateKey: 'notesOnly' },
@@ -91,9 +95,48 @@ export function getAreaTypeDefinition(areaTypeKey?: string): AreaTypeDefinition 
   return (areaTypeKey ? definitionByKey.get(areaTypeKey) : undefined) ?? definitionByKey.get('apartment_unit')!;
 }
 
+function normalizeAreaText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/['/]/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+export function inferAreaTypeKeyFromName(name?: string): AreaTypeKey | undefined {
+  const normalizedName = normalizeAreaText(name ?? '');
+  if (!normalizedName) return undefined;
+
+  if (
+    normalizedName.startsWith('apartment ') ||
+    normalizedName.startsWith('unit ') ||
+    normalizedName.startsWith('apt ') ||
+    normalizedName === 'apt'
+  ) {
+    return 'apartment_unit';
+  }
+
+  const matchedDefinition = AREA_TYPE_DEFINITIONS.find((definition) => {
+    const normalizedLabel = normalizeAreaText(definition.label);
+    return normalizedName === normalizedLabel || normalizedName.startsWith(`${normalizedLabel} `);
+  });
+
+  return matchedDefinition?.key;
+}
+
+export function resolveAreaTypeKey(area?: Pick<Area, 'areaTypeKey' | 'name'> | null): AreaTypeKey {
+  return area?.areaTypeKey && definitionByKey.has(area.areaTypeKey)
+    ? (area.areaTypeKey as AreaTypeKey)
+    : inferAreaTypeKeyFromName(area?.name) ?? 'apartment_unit';
+}
+
+export function isApartmentArea(area?: Pick<Area, 'areaTypeKey' | 'name'> | null): boolean {
+  return resolveAreaTypeKey(area) === 'apartment_unit';
+}
+
 export function buildAreaName(form: AreaFormValue): string {
   const definition = getAreaTypeDefinition(form.areaTypeKey);
-  const parts = [definition.label];
+  const parts = [definition.requiresCustomName ? form.customAreaName.trim() : definition.label];
 
   if (form.areaTypeKey === 'apartment_unit' && form.unitType) {
     parts.push(form.unitType);
@@ -111,12 +154,13 @@ export function getDefaultAreaFormValue(): AreaFormValue {
   return {
     areaTypeKey: 'apartment_unit',
     unitType: '',
+    customAreaName: '',
     areaNumber: '',
   };
 }
 
 export function getAreaFormValue(area?: Area | null): AreaFormValue {
-  const areaTypeKey = getAreaTypeDefinition(area?.areaTypeKey).key;
+  const areaTypeKey = resolveAreaTypeKey(area);
   const unitType = APARTMENT_UNIT_TYPES.includes(area?.unitType as ApartmentUnitType)
     ? (area?.unitType as ApartmentUnitType)
     : '';
@@ -124,6 +168,7 @@ export function getAreaFormValue(area?: Area | null): AreaFormValue {
   return {
     areaTypeKey,
     unitType,
+    customAreaName: areaTypeKey === 'custom' ? area?.name ?? '' : '',
     areaNumber: area?.areaNumber ?? '',
   };
 }
