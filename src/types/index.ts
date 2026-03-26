@@ -5,7 +5,7 @@ export interface PhotoAttachment {
   id: string;
   checkpointId: string;
   imageData: string; // Base64 encoded
-  thumbnail: string; // Base64 encoded thumbnail
+  thumbnail?: string; // Legacy optional thumbnail
   createdAt: Date;
 }
 

@@ -7,8 +7,8 @@ import { PhotoAttachment, FileAttachment } from '@/types';
 interface PhotoCaptureProps {
   photos: PhotoAttachment[];
   files: FileAttachment[];
-  onAddPhoto: (imageData: string, thumbnail: string) => void;
-  onAddPhotos?: (photos: Array<{ imageData: string; thumbnail: string }>) => void;
+  onAddPhoto: (imageData: string, thumbnail?: string) => void;
+  onAddPhotos?: (photos: Array<{ imageData: string; thumbnail?: string }>) => void;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
 }
@@ -23,12 +23,12 @@ export default function PhotoCapture({
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail: string }>>([]);
+  const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const maxImageSize = 1600;
+  const maxImageSize = 1280;
 
   function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
     const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
@@ -40,19 +40,6 @@ export default function PhotoCapture({
     const ctx = canvas.getContext('2d');
     if (!ctx) return img.src;
     ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', quality);
-  }
-
-  function createThumbnailData(img: HTMLImageElement, size: number, quality: number) {
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return img.src;
-    const cropSize = Math.min(img.width, img.height);
-    const sx = Math.round((img.width - cropSize) / 2);
-    const sy = Math.round((img.height - cropSize) / 2);
-    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, size, size);
     return canvas.toDataURL('image/jpeg', quality);
   }
 
@@ -101,9 +88,8 @@ export default function PhotoCapture({
     const frameData = canvas.toDataURL('image/jpeg', 0.92);
     const img = new window.Image();
     img.onload = () => {
-      const imageData = createScaledImageData(img, maxImageSize, 0.8);
-      const thumbnail = createThumbnailData(img, 150, 0.6);
-      setCapturedBatch((prev) => [...prev, { imageData, thumbnail }]);
+      const imageData = createScaledImageData(img, maxImageSize, 0.72);
+      setCapturedBatch((prev) => [...prev, { imageData }]);
     };
     img.src = frameData;
   }
@@ -122,7 +108,7 @@ export default function PhotoCapture({
     setCapturedBatch((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function fileToPhotoPayload(file: File): Promise<{ imageData: string; thumbnail: string } | null> {
+  function fileToPhotoPayload(file: File): Promise<{ imageData: string; thumbnail?: string } | null> {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -130,9 +116,8 @@ export default function PhotoCapture({
 
         const img = new window.Image();
         img.onload = () => {
-          const imageData = createScaledImageData(img, maxImageSize, 0.8);
-          const thumbnail = createThumbnailData(img, 150, 0.6);
-          resolve({ imageData, thumbnail });
+          const imageData = createScaledImageData(img, maxImageSize, 0.72);
+          resolve({ imageData });
         };
         img.onerror = () => resolve(null);
         img.src = sourceData;
@@ -147,7 +132,7 @@ export default function PhotoCapture({
     if (selected.length === 0) return;
 
     const processed = await Promise.all(selected.map((file) => fileToPhotoPayload(file)));
-    const readyPhotos = processed.filter((photo): photo is { imageData: string; thumbnail: string } => photo !== null);
+    const readyPhotos = processed.filter((photo): photo is { imageData: string; thumbnail?: string } => photo !== null);
     if (readyPhotos.length > 0) {
       if (onAddPhotos) {
         onAddPhotos(readyPhotos);
@@ -188,7 +173,7 @@ export default function PhotoCapture({
               onClick={() => setSelectedPhoto(photo.imageData)}
             >
               <img
-                src={photo.thumbnail}
+                src={photo.thumbnail || photo.imageData}
                 alt="Checkpoint photo"
                 className="w-full h-full object-cover"
               />
@@ -292,8 +277,8 @@ export default function PhotoCapture({
             <div className="px-3 pb-2 overflow-x-auto">
               <div className="flex gap-2">
                 {capturedBatch.map((photo, index) => (
-                  <div key={`${photo.thumbnail}-${index}`} className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden">
-                    <img src={photo.thumbnail} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
+                  <div key={`${photo.imageData.slice(0, 32)}-${index}`} className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden">
+                    <img src={photo.thumbnail || photo.imageData} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
                     <button
                       onClick={() => removeCaptured(index)}
                       className="absolute top-0 right-0 bg-black/70 text-white rounded-bl px-1"

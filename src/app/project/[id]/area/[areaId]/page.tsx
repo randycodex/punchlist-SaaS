@@ -377,7 +377,7 @@ export default function AreaDetailPage() {
     itemId: string,
     checkpointId: string,
     imageData: string,
-    thumbnail: string
+    thumbnail?: string
   ) {
     if (!project || !area) return;
 
@@ -396,7 +396,7 @@ export default function AreaDetailPage() {
     locationId: string,
     itemId: string,
     checkpointId: string,
-    photos: Array<{ imageData: string; thumbnail: string }>
+    photos: Array<{ imageData: string; thumbnail?: string }>
   ) {
     if (!project || !area || photos.length === 0) return;
 
@@ -404,7 +404,9 @@ export default function AreaDetailPage() {
     if (!checkpoint) return;
 
     for (const photoInput of photos) {
-      checkpoint.photos.push(createPhotoAttachment(checkpointId, photoInput.imageData, photoInput.thumbnail));
+      checkpoint.photos.push(
+        createPhotoAttachment(checkpointId, photoInput.imageData, photoInput.thumbnail)
+      );
     }
     checkpoint.updatedAt = new Date();
     await saveProject(project);
@@ -540,9 +542,13 @@ export default function AreaDetailPage() {
     dirtyProjectIdsRef.current.clear();
     try {
       const token = accessToken ?? (await ensureAccessToken());
-      if (!token) return;
+      if (!token) {
+        dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        return;
+      }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
     } catch (error) {
+      dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -934,7 +940,7 @@ export default function AreaDetailPage() {
                                     {checkpoint.photos.map((photo) => (
                                       <img
                                         key={photo.id}
-                                        src={photo.thumbnail}
+                                        src={photo.thumbnail || photo.imageData}
                                         alt=""
                                         className="w-10 h-10 rounded object-cover flex-shrink-0 cursor-pointer"
                                         onClick={() => {
@@ -985,7 +991,7 @@ export default function AreaDetailPage() {
               {/* Photos */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Photos & Files
+                  Attachments
                 </label>
                 <PhotoCapture
                   photos={editingCheckpointData.photos}

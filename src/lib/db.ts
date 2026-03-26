@@ -13,6 +13,21 @@ interface PunchListDB extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<PunchListDB>> | null = null;
 
+function compactProjectMedia(project: Project) {
+  for (const area of project.areas) {
+    for (const location of area.locations) {
+      for (const item of location.items) {
+        for (const checkpoint of item.checkpoints) {
+          for (const photo of checkpoint.photos) {
+            // Do not persist duplicated thumbnail payloads; the UI can render from imageData.
+            delete photo.thumbnail;
+          }
+        }
+      }
+    }
+  }
+}
+
 function getDB() {
   if (!dbPromise) {
     dbPromise = openDB<PunchListDB>('punchlist-db', 1, {
@@ -50,6 +65,7 @@ async function saveProjectInternal(project: Project, options: { touch: boolean }
   if (options.touch) {
     project.updatedAt = new Date();
   }
+  compactProjectMedia(project);
   await db.put('projects', project);
 }
 
@@ -146,12 +162,16 @@ export function createCheckpoint(itemId: string, name: string, sortOrder: number
   };
 }
 
-export function createPhotoAttachment(checkpointId: string, imageData: string, thumbnail: string): PhotoAttachment {
+export function createPhotoAttachment(
+  checkpointId: string,
+  imageData: string,
+  thumbnail?: string
+): PhotoAttachment {
   return {
     id: uuidv4(),
     checkpointId,
     imageData,
-    thumbnail,
+    ...(thumbnail ? { thumbnail } : {}),
     createdAt: new Date(),
   };
 }

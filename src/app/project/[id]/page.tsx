@@ -389,9 +389,13 @@ export default function ProjectDetailPage() {
     dirtyProjectIdsRef.current.clear();
     try {
       const token = accessToken ?? (await ensureAccessToken());
-      if (!token) return;
+      if (!token) {
+        dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        return;
+      }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
     } catch (error) {
+      dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;

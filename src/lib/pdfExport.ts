@@ -314,7 +314,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         y += 5;
 
         for (const checkpoint of item.checkpoints) {
-          const checkpointPhotos = checkpoint.photos.map((photo) => photo.imageData || photo.thumbnail);
+          const checkpointPhotos = checkpoint.photos
+            .map((photo) => photo.imageData || photo.thumbnail)
+            .filter((photo): photo is string => Boolean(photo));
           const checkpointFiles = checkpoint.files ?? [];
           const commentLines = checkpoint.comments
             ? (pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[])
