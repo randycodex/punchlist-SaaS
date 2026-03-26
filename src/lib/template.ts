@@ -12,6 +12,22 @@ interface TemplateLocation {
   items: TemplateItem[];
 }
 
+function createLivingAreaItems(includeIntercom: boolean): TemplateItem[] {
+  return [
+    { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
+    { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+    { name: 'Base', checkpoints: ['Paint', 'Flush', 'Corners', 'Caulk'] },
+    { name: 'PTAC Enclosure', checkpoints: ['Operational', 'Thermostat', 'Cover', 'Edges', 'Clean'] },
+    ...(includeIntercom ? [{ name: 'Intercom', checkpoints: ['Operational', 'Square', 'Clean'] }] : []),
+    { name: 'Light Fixture', checkpoints: ['Operational', 'Bulb', 'Clean'] },
+    { name: 'Outlets', checkpoints: ['TV/Phone/Elec', 'Cover', 'Square', 'Clean', 'CATV/Ant Label'] },
+    { name: 'Window', checkpoints: ['Operational', 'Locks', 'Limiter', 'Caulking', 'Frame'] },
+    { name: 'Window Sill/Jamb/Head', checkpoints: ['Flush', 'Caulk', 'Clean'] },
+    { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
+    { name: 'Clean', checkpoints: ['Yes'] },
+  ];
+}
+
 const bathroomItems: TemplateItem[] = [
   { name: 'Door', checkpoints: ['Finish', 'Hardware operation', 'Stop', 'Frame Paint'] },
   { name: 'Saddle / Threshold', checkpoints: ['Level', '< 1/2" Transition'] },
@@ -30,7 +46,7 @@ const bathroomItems: TemplateItem[] = [
   { name: 'Clean', checkpoints: ['Yes'] },
 ];
 
-const apartmentTemplate: TemplateLocation[] = [
+const apartmentBaseTemplate: TemplateLocation[] = [
   {
     name: 'Entry / Foyer',
     items: [
@@ -57,10 +73,6 @@ const apartmentTemplate: TemplateLocation[] = [
     items: bathroomItems,
   },
   {
-    name: 'Half Bathroom',
-    items: bathroomItems.filter((item) => item.name !== 'Tub / Shower'),
-  },
-  {
     name: 'Kitchen',
     items: [
       { name: 'Floor Transition', checkpoints: ['Level'] },
@@ -80,24 +92,37 @@ const apartmentTemplate: TemplateLocation[] = [
       { name: 'Clean', checkpoints: ['Yes'] },
     ],
   },
-  {
-    name: 'Living/Bedroom',
-    items: [
-      { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
-      { name: 'Wood Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
-      { name: 'Base', checkpoints: ['Paint', 'Flush', 'Corners', 'Caulk'] },
-      { name: 'PTAC Enclosure', checkpoints: ['Operational', 'Thermostat', 'Cover', 'Edges', 'Clean'] },
-      { name: 'Intercom', checkpoints: ['Operational', 'Square', 'Clean'] },
-      { name: 'Light Fixture', checkpoints: ['Operational', 'Bulb', 'Clean'] },
-      { name: 'Outlets', checkpoints: ['TV/Phone/Elec', 'Cover', 'Square', 'Clean', 'CATV/Ant Label'] },
-      { name: 'Window', checkpoints: ['Operational', 'Locks', 'Limiter', 'Caulking', 'Frame'] },
-      { name: 'Exterior Clean', checkpoints: ['Screen', 'Glass', 'Jamb', 'Clean', 'Blinds'] },
-      { name: 'Window Sill', checkpoints: ['Flush', 'Caulk', 'Clean'] },
-      { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
-      { name: 'Clean', checkpoints: ['Yes'] },
-    ],
-  },
 ];
+
+function getApartmentTemplate(unitType?: Area['unitType']): TemplateLocation[] {
+  const template: TemplateLocation[] = [...apartmentBaseTemplate];
+
+  if (unitType === '3BR') {
+    template.push({
+      name: 'Half Bathroom',
+      items: bathroomItems.filter((item) => item.name !== 'Tub / Shower'),
+    });
+  }
+
+  if (unitType === 'EFF') {
+    template.push({
+      name: 'Living/Bedroom',
+      items: createLivingAreaItems(true),
+    });
+    return template;
+  }
+
+  template.push({
+    name: 'Living',
+    items: createLivingAreaItems(true),
+  });
+  template.push({
+    name: 'Bedroom',
+    items: createLivingAreaItems(false),
+  });
+
+  return template;
+}
 
 function createNotesLocation(area: Area, sortOrder: number): Location {
   return createLocation(area.id, 'Other', sortOrder);
@@ -129,7 +154,7 @@ export function applyTemplateToArea(area: Area): void {
   const definition = getAreaTypeDefinition(resolveAreaTypeKey(area));
 
   if (definition.templateKey === 'apartment') {
-    populateArea(area, apartmentTemplate);
+    populateArea(area, getApartmentTemplate(area.unitType));
     return;
   }
 

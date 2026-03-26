@@ -21,7 +21,6 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
   const [address, setAddress] = useState(project.address);
   const [inspector, setInspector] = useState(project.inspector);
   const [gcName, setGcName] = useState(project.gcName);
-  const [gcSignoff, setGcSignoff] = useState(project.gcSignoff);
   const [date, setDate] = useState(toDateInputValue(project.date));
 
   function handleSave() {
@@ -32,7 +31,6 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
       address: address.trim(),
       inspector: inspector.trim(),
       gcName: gcName.trim(),
-      gcSignoff: gcSignoff.trim(),
       date: new Date(date),
     });
   }
@@ -104,18 +102,6 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="text"
               value={gcName}
               onChange={(e) => setGcName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              GC Signoff
-            </label>
-            <input
-              type="text"
-              value={gcSignoff}
-              onChange={(e) => setGcSignoff(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>

@@ -125,23 +125,6 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
   }
 
-  function getAreaStatsWithoutGeneralNotes(area: Project['areas'][number]) {
-    let total = 0;
-    let ok = 0;
-    let issues = 0;
-    for (const location of area.locations) {
-      if (isGeneralNotesLocation(location)) continue;
-      for (const item of location.items) {
-        for (const checkpoint of item.checkpoints) {
-          total += 1;
-          if (checkpoint.status === 'ok') ok += 1;
-          else if (checkpoint.status === 'needsReview') issues += 1;
-        }
-      }
-    }
-    return { total, ok, issues };
-  }
-
   function drawStatusIcon(status: 'pending' | 'ok' | 'needsReview', x: number, y: number) {
     const centerY = y - 1.5;
     pdf.setLineWidth(0.35);
@@ -248,9 +231,14 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     pdf.text('Areas Inspected:', pageWidth / 2, coverY, { align: 'center' });
     coverY += 6;
     pdf.setFont('helvetica', 'normal');
-    const areaLines = pdf.splitTextToSize(inspectedAreaNames.join(', '), contentWidth - 10) as string[];
-    pdf.text(areaLines, pageWidth / 2, coverY, { align: 'center' });
-    coverY += areaLines.length * 5 + 3;
+    pdf.setFontSize(11);
+    inspectedAreaNames.forEach((name, index) => {
+      const line = `${index + 1}. ${name}`;
+      const areaLines = pdf.splitTextToSize(line, contentWidth - 20) as string[];
+      pdf.text(areaLines, margin + 10, coverY);
+      coverY += areaLines.length * 5 + 1;
+    });
+    coverY += 2;
   }
 
   // Each area with issues starts on a new page

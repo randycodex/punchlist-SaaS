@@ -1,62 +1,25 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 const SPLASH_DURATION_MS = 1000;
-const MIN_HIDDEN_TO_SHOW_MS = 1500;
 
 export default function WelcomeSplash({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hiddenAtRef = useRef<number | null>(null);
 
-  const showSplash = useCallback(() => {
-    setVisible(true);
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-    }
+  useEffect(() => {
     hideTimerRef.current = setTimeout(() => {
       setVisible(false);
     }, SPLASH_DURATION_MS);
-  }, []);
-
-  useEffect(() => {
-    showSplash();
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAtRef.current = Date.now();
-        return;
-      }
-
-      const hiddenAt = hiddenAtRef.current;
-      hiddenAtRef.current = null;
-      if (!hiddenAt) return;
-
-      const hiddenDuration = Date.now() - hiddenAt;
-      if (hiddenDuration >= MIN_HIDDEN_TO_SHOW_MS) {
-        showSplash();
-      }
-    };
-
-    const onPageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
-        showSplash();
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('pageshow', onPageShow);
 
     return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('pageshow', onPageShow);
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
       }
     };
-  }, [showSplash]);
+  }, []);
 
   return (
     <>

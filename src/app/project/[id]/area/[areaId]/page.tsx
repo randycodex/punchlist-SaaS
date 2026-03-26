@@ -23,7 +23,6 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
-  CheckCircle,
   AlertTriangle,
   Circle,
   Wrench,
@@ -305,6 +304,7 @@ export default function AreaDetailPage() {
     if (!targetArea) return;
 
     const originalTypeKey = targetArea.areaTypeKey;
+    const originalUnitType = targetArea.unitType;
     const nextName = buildAreaName(areaForm);
     targetArea.name = nextName;
     targetArea.areaTypeKey = areaForm.areaTypeKey;
@@ -312,7 +312,9 @@ export default function AreaDetailPage() {
     targetArea.customAreaName = areaForm.customAreaName.trim() || undefined;
     targetArea.areaNumber = areaForm.areaNumber.trim() || undefined;
 
-    const templateChanged = originalTypeKey !== areaForm.areaTypeKey;
+    const templateChanged =
+      originalTypeKey !== areaForm.areaTypeKey ||
+      originalUnitType !== (areaForm.unitType || undefined);
     if (templateChanged && !areaHasRecordedActivity(targetArea)) {
       applyTemplateToArea(targetArea);
     }
@@ -616,7 +618,6 @@ export default function AreaDetailPage() {
   const stats = areaDerived?.stats ?? { total: 0, ok: 0, issues: 0 };
   const pendingCount = areaDerived?.pending ?? 0;
   const reviewedPercent = areaDerived?.reviewedPercent ?? 0;
-  const okPercent = areaDerived?.okPercent ?? 0;
   const issuePercent = areaDerived?.issuePercent ?? 0;
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
@@ -668,7 +669,7 @@ export default function AreaDetailPage() {
       )}
       {/* Stats */}
       <div className="pinned-surface shrink-0 border-b px-4 py-3">
-        <div className="summary-stat-grid summary-stat-grid-3 mb-3">
+        <div className="summary-stat-grid summary-stat-grid-2 mb-3">
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-blue-600">{stats.total}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
@@ -677,11 +678,6 @@ export default function AreaDetailPage() {
             <div className="summary-stat-value text-orange-500">{stats.issues}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
             <div className="summary-stat-meta text-orange-500">{Math.round(issuePercent)}%</div>
-          </div>
-          <div className="summary-stat-cell">
-            <div className="summary-stat-value text-green-600">{stats.ok}</div>
-            <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
-            <div className="summary-stat-meta text-green-600">{Math.round(okPercent)}%</div>
           </div>
         </div>
         <div className="w-full">
@@ -780,12 +776,6 @@ export default function AreaDetailPage() {
                   <span className="font-medium text-gray-900 dark:text-white">{location.name}</span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {locationStats.ok > 0 && (
-                    <span className="stat-chip text-green-600 text-sm">
-                      <CheckCircle className="w-3 h-3" />
-                      {locationStats.ok}
-                    </span>
-                  )}
                   {locationStats.issues > 0 && (
                     <span className="stat-chip text-orange-500 text-sm">
                       <AlertTriangle className="w-3 h-3" />
@@ -841,12 +831,6 @@ export default function AreaDetailPage() {
                             <span className="text-sm text-gray-900 dark:text-white">{item.name}</span>
                           </div>
                           <div className="flex items-center gap-2 sm:gap-3">
-                            {itemStats.ok > 0 && (
-                              <span className="stat-chip text-green-600 text-xs">
-                                <CheckCircle className="w-3 h-3" />
-                                {itemStats.ok}
-                              </span>
-                            )}
                             {itemStats.issues > 0 && (
                               <span className="stat-chip text-orange-500 text-xs">
                                 <AlertTriangle className="w-3 h-3" />
@@ -917,19 +901,12 @@ export default function AreaDetailPage() {
                                     </button>
                                     <button
                                       onClick={() =>
-                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'ok')
-                                      }
-                                      className={`p-1.5 rounded ${
-                                        checkpoint.status === 'ok'
-                                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
-                                          : 'text-gray-300 dark:text-gray-600 hover:text-green-500'
-                                      }`}
-                                    >
-                                      <CheckCircle className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'needsReview')
+                                        updateCheckpointStatus(
+                                          location.id,
+                                          item.id,
+                                          checkpoint.id,
+                                          checkpoint.status === 'needsReview' ? 'pending' : 'needsReview'
+                                        )
                                       }
                                       className={`p-1.5 rounded ${
                                         checkpoint.status === 'needsReview'
@@ -938,18 +915,6 @@ export default function AreaDetailPage() {
                                       }`}
                                     >
                                       <AlertTriangle className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        updateCheckpointStatus(location.id, item.id, checkpoint.id, 'pending')
-                                      }
-                                      className={`p-1.5 rounded ${
-                                        checkpoint.status === 'pending'
-                                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                                          : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'
-                                      }`}
-                                    >
-                                      <Circle className="w-5 h-5" />
                                     </button>
                                   </div>
                                 </div>

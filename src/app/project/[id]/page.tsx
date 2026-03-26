@@ -105,12 +105,6 @@ const AreaCard = memo(function AreaCard({
                 {areaStats.issues}
               </span>
             )}
-            {areaStats.ok > 0 && (
-              <span className="text-green-600 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
-                {areaStats.ok}
-              </span>
-            )}
             {areaPhotoCount > 0 && (
               <span className="text-amber-500 flex items-center gap-1">
                 <ImageIcon className="w-3 h-3" />
@@ -583,7 +577,7 @@ export default function ProjectDetailPage() {
             {project.inspector}
           </p>
         )}
-        <div className="summary-stat-grid summary-stat-grid-4">
+        <div className="summary-stat-grid summary-stat-grid-3">
           <div className="summary-stat-cell">
             <div className="summary-stat-value text-purple-600">{stats.areas}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Areas</div>
@@ -596,11 +590,6 @@ export default function ProjectDetailPage() {
             <div className="summary-stat-value text-orange-500">{stats.issues}</div>
             <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
             <div className="summary-stat-meta text-orange-500">{Math.round(reviewMetrics.issuePercent)}%</div>
-          </div>
-          <div className="summary-stat-cell">
-            <div className="summary-stat-value text-green-600">{stats.ok}</div>
-            <div className="summary-stat-label text-gray-500 dark:text-gray-400">OK</div>
-            <div className="summary-stat-meta text-green-600">{Math.round(reviewMetrics.okPercent)}%</div>
           </div>
         </div>
         {stats.total > 0 && (
