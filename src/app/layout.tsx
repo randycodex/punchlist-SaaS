@@ -45,6 +45,31 @@ export default function RootLayout({
             })();
           `}
         </Script>
+        <Script id="disable-pwa-cache" strategy="beforeInteractive">
+          {`
+            (function () {
+              if (!('serviceWorker' in navigator)) return;
+
+              window.addEventListener('load', function () {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                  registrations.forEach(function (registration) {
+                    registration.unregister();
+                  });
+                });
+
+                if ('caches' in window) {
+                  caches.keys().then(function (keys) {
+                    return Promise.all(
+                      keys.map(function (key) {
+                        return caches.delete(key);
+                      })
+                    );
+                  });
+                }
+              });
+            })();
+          `}
+        </Script>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="font-sans antialiased">
