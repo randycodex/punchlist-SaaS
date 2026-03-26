@@ -577,28 +577,10 @@ export default function ProjectDetailPage() {
             {project.inspector}
           </p>
         )}
-        <div className="summary-stat-grid summary-stat-grid-3">
-          <div className="summary-stat-cell">
-            <div className="summary-stat-value text-purple-600">{stats.areas}</div>
-            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Areas</div>
-          </div>
-          <div className="summary-stat-cell">
-            <div className="summary-stat-value text-blue-600">{stats.total}</div>
-            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Total</div>
-          </div>
-          <div className="summary-stat-cell">
-            <div className="summary-stat-value text-orange-500">{stats.issues}</div>
-            <div className="summary-stat-label text-gray-500 dark:text-gray-400">Issues</div>
-            <div className="summary-stat-meta text-orange-500">{Math.round(reviewMetrics.issuePercent)}%</div>
-          </div>
-        </div>
         {stats.total > 0 && (
           <div className="mt-3">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div className="h-full bg-green-500 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1 tabular-nums">
-              Reviewed {Math.round(reviewMetrics.reviewedPercent)}% • {reviewMetrics.pending} pending
             </div>
           </div>
         )}
