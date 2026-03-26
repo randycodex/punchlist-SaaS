@@ -43,7 +43,12 @@ async function getItemByPath(token: string, path: string): Promise<DriveItem | n
   } catch (error) {
     if (
       error instanceof Error &&
-      (error.message.includes('itemNotFound') || error.message.includes('404'))
+      (
+        error.message.includes('itemNotFound') ||
+        error.message.includes('404') ||
+        error.message.includes('The resource could not be found') ||
+        error.message.includes('resource could not be found')
+      )
     ) {
       return null;
     }
