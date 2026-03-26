@@ -524,6 +524,31 @@ export default function ProjectsPage() {
     await loadProjects();
   }
 
+  async function handlePermanentDeleteSelectedProjects() {
+    const projectsToDelete = trashedProjects.filter((project) => selectedProjectIds.has(project.id));
+    if (projectsToDelete.length === 0) {
+      toggleTrashView();
+      return;
+    }
+
+    const confirmed = window.confirm(
+      projectsToDelete.length === 1
+        ? `Permanently delete "${projectsToDelete[0].projectName}"? This cannot be undone.`
+        : `Permanently delete ${projectsToDelete.length} projects? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    for (const project of projectsToDelete) {
+      markProjectDeleted(project.id, project.deletedAt ?? new Date());
+      await deleteProject(project.id);
+    }
+
+    scheduleSync(undefined, { fullSync: true });
+    setSelectedProjectIds(new Set());
+    setDeleteMode(false);
+    await loadProjects();
+  }
+
   function handleExportSelectedConfirm() {
     if (exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0) return;
     setActionSheet('export');
@@ -612,7 +637,7 @@ export default function ProjectsPage() {
   function toggleTrashView() {
     setShowTrash((current) => {
       const next = !current;
-      if (next) {
+      if (next || current) {
         cancelSelectionMode();
       }
       return next;
@@ -689,61 +714,79 @@ export default function ProjectsPage() {
                 </div>
               )}
             </div>
-            {!selectionMode && !showTrash ? (
+            {!showTrash ? (
+              !selectionMode ? (
+                <button
+                  onClick={() => {
+                    setDeleteMode(true);
+                    setExportMode(false);
+                    setSelectedProjectIds(new Set());
+                  }}
+                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Select
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={cancelSelectionMode}
+                    className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => void handleExportSelectedConfirm()}
+                    disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-900/20 disabled:opacity-40"
+                    aria-label="Export selected projects"
+                  >
+                    {exportingSelected || exportingSelectedToDrive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileDown className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedProjectIds.size === 0) return;
+                      setActionSheet('delete');
+                    }}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
+                    aria-label="Delete selected projects"
+                    disabled={selectedProjectIds.size === 0}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )
+            ) : !deleteMode ? (
               <button
                 onClick={() => {
                   setDeleteMode(true);
-                  setExportMode(false);
                   setSelectedProjectIds(new Set());
                 }}
                 className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 Select
               </button>
-            ) : !showTrash ? (
-              <>
-                <button
-                  onClick={cancelSelectionMode}
-                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => void handleExportSelectedConfirm()}
-                  disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-900/20 disabled:opacity-40"
-                  aria-label="Export selected projects"
-                >
-                  {exportingSelected || exportingSelectedToDrive ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FileDown className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedProjectIds.size === 0) return;
-                    setActionSheet('delete');
-                  }}
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
-                  aria-label="Delete selected projects"
-                  disabled={selectedProjectIds.size === 0}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
             ) : (
               <button
-                onClick={toggleTrashView}
+                onClick={cancelSelectionMode}
                 className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
-                Projects
+                Cancel
               </button>
             )}
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <button
-              onClick={toggleTrashView}
+              onClick={() => {
+                if (!showTrash) {
+                  toggleTrashView();
+                  return;
+                }
+                void handlePermanentDeleteSelectedProjects();
+              }}
               className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1 ${
                 showTrash
                   ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300'
@@ -818,14 +861,37 @@ export default function ProjectsPage() {
               {trashedProjects.map((project) => {
                 const deletedAt = project.deletedAt ?? new Date();
                 const expiresAt = new Date(deletedAt.getTime() + TRASH_RETENTION_MS);
+                const isSelected = selectedProjectIds.has(project.id);
                 return (
                   <div
                     key={project.id}
-                    className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-4"
+                    onClick={() => {
+                      if (deleteMode) {
+                        toggleProjectSelection(project.id);
+                      }
+                    }}
+                    className={`rounded-lg border p-4 transition-colors ${
+                      isSelected
+                        ? 'border-amber-400 bg-amber-100 dark:bg-amber-900/30 dark:border-amber-500'
+                        : 'border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800'
+                    } ${deleteMode ? 'cursor-pointer' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">{project.projectName}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {deleteMode && (
+                            <span
+                              className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+                                isSelected
+                                  ? 'border-amber-500 bg-amber-500 text-white'
+                                  : 'border-amber-400 text-transparent'
+                              }`}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <div className="font-medium text-gray-900 dark:text-white truncate">{project.projectName}</div>
+                        </div>
                         <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                           Deleted {deletedAt.toLocaleDateString()}
                         </div>
@@ -833,7 +899,8 @@ export default function ProjectsPage() {
                           Permanently removed after {expiresAt.toLocaleDateString()}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      {!deleteMode && (
+                        <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => void handleRestoreProject(project.id)}
                           className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1"
@@ -841,13 +908,8 @@ export default function ProjectsPage() {
                           <RotateCcw className="w-3.5 h-3.5" />
                           Restore
                         </button>
-                        <button
-                          onClick={() => void handlePermanentDelete(project)}
-                          className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 text-sm text-red-700 dark:text-red-300"
-                        >
-                          Delete Now
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
