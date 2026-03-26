@@ -195,6 +195,7 @@ export default function ProjectsPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [exportMode, setExportMode] = useState(false);
@@ -204,7 +205,10 @@ export default function ProjectsPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [pendingDeleteProjects, setPendingDeleteProjects] = useState<Project[]>([]);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeleteProjectsRef = useRef<Project[]>([]);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
   const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
@@ -230,6 +234,9 @@ export default function ProjectsPage() {
     return () => {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
+      }
+      if (deleteTimerRef.current) {
+        clearTimeout(deleteTimerRef.current);
       }
     };
   }, []);
@@ -292,6 +299,7 @@ export default function ProjectsPage() {
       }
       const result = await syncProjectsWithOneDrive(token);
       setSyncConflicts(result.conflicts);
+      setSyncNotice(null);
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -321,22 +329,26 @@ export default function ProjectsPage() {
         if (shouldRunFullSync) {
           fullSyncNeededRef.current = true;
         }
+        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
         return;
       }
 
       if (shouldRunFullSync) {
         const result = await syncProjectsWithOneDrive(token);
         setSyncConflicts(result.conflicts);
+        setSyncNotice(null);
         await loadProjects();
         return;
       }
 
       await pushProjectsToOneDrive(token, dirtyProjectIds);
+      setSyncNotice(null);
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       if (shouldRunFullSync) {
         fullSyncNeededRef.current = true;
       }
+      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -354,12 +366,41 @@ export default function ProjectsPage() {
     if (options?.fullSync) {
       fullSyncNeededRef.current = true;
     }
+    setSyncNotice('Changes are saved on this device. Sync pending.');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
     syncTimerRef.current = setTimeout(() => {
       void runBackgroundSync();
     }, 800);
+  }
+
+  async function finalizePendingDelete() {
+    const projectsToDelete = pendingDeleteProjectsRef.current;
+    if (projectsToDelete.length === 0) return;
+
+    pendingDeleteProjectsRef.current = [];
+    setPendingDeleteProjects([]);
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+
+    for (const project of projectsToDelete) {
+      markProjectDeleted(project.id);
+      await deleteProject(project.id);
+    }
+    scheduleSync(undefined, { fullSync: true });
+  }
+
+  async function undoPendingDelete() {
+    pendingDeleteProjectsRef.current = [];
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+    setPendingDeleteProjects([]);
+    await loadProjects();
   }
 
   const projectMetrics = useMemo(() => {
@@ -448,16 +489,28 @@ export default function ProjectsPage() {
 
   async function handleDeleteSelectedProjects() {
     if (selectedProjectIds.size === 0) return;
-    for (const id of selectedProjectIds) {
-      markProjectDeleted(id);
-      await deleteProject(id);
+    if (pendingDeleteProjectsRef.current.length > 0) {
+      await finalizePendingDelete();
     }
-    scheduleSync(undefined, { fullSync: true });
+
+    const projectsToDelete = projects.filter((project) => selectedProjectIds.has(project.id));
+    if (projectsToDelete.length === 0) return;
+
+    pendingDeleteProjectsRef.current = projectsToDelete;
+    setPendingDeleteProjects(projectsToDelete);
+    setProjects((prev) => prev.filter((project) => !selectedProjectIds.has(project.id)));
+
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+    }
+    deleteTimerRef.current = setTimeout(() => {
+      void finalizePendingDelete();
+    }, 5000);
+
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
     setExportMode(false);
     setActionSheet(null);
-    await loadProjects();
   }
 
   function handleExportSelectedConfirm() {
@@ -676,6 +729,11 @@ export default function ProjectsPage() {
           {syncError}
         </div>
       )}
+      {syncNotice && (
+        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
+          {syncNotice}
+        </div>
+      )}
       {syncConflicts.length > 0 && (
         <div className="shrink-0 px-4 py-2 text-sm border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="text-orange-600">Conflicts detected:</div>
@@ -824,6 +882,26 @@ export default function ProjectsPage() {
           onSave={handleEditProject}
           onClose={() => setEditingProject(null)}
         />
+      )}
+
+      {pendingDeleteProjects.length > 0 && (
+        <div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-50">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-lg">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-amber-900">
+                {pendingDeleteProjects.length === 1
+                  ? 'Project deleted. Undo?'
+                  : `${pendingDeleteProjects.length} projects deleted. Undo?`}
+              </div>
+              <button
+                onClick={() => void undoPendingDelete()}
+                className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-800 border border-amber-300"
+              >
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {actionSheet && (

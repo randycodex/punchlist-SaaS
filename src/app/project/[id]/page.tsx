@@ -160,6 +160,7 @@ export default function ProjectDetailPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -368,6 +369,7 @@ export default function ProjectDetailPage() {
         return;
       }
       await syncProjectsWithOneDrive(token);
+      setSyncNotice(null);
       await loadProject();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -391,11 +393,14 @@ export default function ProjectDetailPage() {
       const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
         return;
       }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
+      setSyncNotice(null);
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -410,6 +415,7 @@ export default function ProjectDetailPage() {
     if (projectId) {
       dirtyProjectIdsRef.current.add(projectId);
     }
+    setSyncNotice('Changes are saved on this device. Sync pending.');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -559,6 +565,11 @@ export default function ProjectDetailPage() {
       {syncError && (
         <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
+        </div>
+      )}
+      {syncNotice && (
+        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
+          {syncNotice}
         </div>
       )}
 

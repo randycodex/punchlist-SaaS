@@ -81,6 +81,7 @@ export default function AreaDetailPage() {
   const [customItemName, setCustomItemName] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
@@ -461,6 +462,7 @@ export default function AreaDetailPage() {
         return;
       }
       await syncProjectsWithOneDrive(token);
+      setSyncNotice(null);
       await loadData();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -544,11 +546,14 @@ export default function AreaDetailPage() {
       const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
         return;
       }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
+      setSyncNotice(null);
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -563,6 +568,7 @@ export default function AreaDetailPage() {
     if (projectId) {
       dirtyProjectIdsRef.current.add(projectId);
     }
+    setSyncNotice('Changes are saved on this device. Sync pending.');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -615,6 +621,18 @@ export default function AreaDetailPage() {
     : null;
   const supportsCustomItems = !isApartmentArea(area);
 
+  function closeCheckpointEditor() {
+    if (
+      editingCheckpointData &&
+      commentText !== editingCheckpointData.comments &&
+      !window.confirm('Discard unsaved comment changes?')
+    ) {
+      return;
+    }
+    setEditingCheckpoint(null);
+    setCommentText('');
+  }
+
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header controls */}
@@ -644,6 +662,11 @@ export default function AreaDetailPage() {
       {syncError && (
         <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
+        </div>
+      )}
+      {syncNotice && (
+        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
+          {syncNotice}
         </div>
       )}
 
@@ -977,10 +1000,7 @@ export default function AreaDetailPage() {
             <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-white">{editingCheckpointData.name}</h3>
               <button
-                onClick={() => {
-                  setEditingCheckpoint(null);
-                  setCommentText('');
-                }}
+                onClick={closeCheckpointEditor}
                 className="p-1 text-gray-500 dark:text-gray-400"
               >
                 <X className="w-5 h-5" />
