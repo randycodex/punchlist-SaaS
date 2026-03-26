@@ -51,20 +51,51 @@ async function getItemByPath(token: string, path: string): Promise<DriveItem | n
   }
 }
 
-async function ensureFolder(token: string, path: string): Promise<DriveItem> {
-  const existing = await getItemByPath(token, path);
-  if (existing?.folder) return existing;
+async function createFolder(
+  token: string,
+  name: string,
+  parentId?: string
+): Promise<DriveItem> {
+  const endpoint = parentId ? `/me/drive/items/${parentId}/children` : '/me/drive/root/children';
 
-  return await graphFetch<DriveItem>(token, `/me/drive/root:/${encodeURI(path)}:/`, {
-    method: 'PUT',
+  return graphFetch<DriveItem>(token, endpoint, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      name,
       folder: {},
       '@microsoft.graph.conflictBehavior': 'fail',
     }),
   });
+}
+
+async function ensureFolder(token: string, path: string): Promise<DriveItem> {
+  const existing = await getItemByPath(token, path);
+  if (existing?.folder) return existing;
+  if (existing) {
+    throw new Error(`Expected folder at ${path}, but found a file instead.`);
+  }
+
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    throw new Error('Folder path cannot be empty.');
+  }
+
+  const folderName = segments[segments.length - 1];
+  const parentPath = segments.slice(0, -1).join('/');
+  const parentFolder = parentPath ? await ensureFolder(token, parentPath) : null;
+
+  try {
+    return await createFolder(token, folderName, parentFolder?.id);
+  } catch (error) {
+    if (error instanceof Error && error.message.toLowerCase().includes('already exists')) {
+      const created = await getItemByPath(token, path);
+      if (created?.folder) return created;
+    }
+    throw error;
+  }
 }
 
 export async function ensurePunchListFolders(token: string) {
