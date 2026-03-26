@@ -502,7 +502,6 @@ export default function ProjectsPage() {
     setDeleteMode(false);
     setExportMode(false);
     setActionSheet(null);
-    setShowTrash(true);
     await loadProjects();
   }
 
