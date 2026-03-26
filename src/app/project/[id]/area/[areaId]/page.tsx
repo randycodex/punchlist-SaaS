@@ -92,7 +92,7 @@ export default function AreaDetailPage() {
   const pullDistanceRef = useRef(0);
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
-  const { accessToken, ensureAccessToken } = useMicrosoftAuth();
+  const { ensureAccessToken } = useMicrosoftAuth();
 
   useEffect(() => {
     if (!id || !areaId) {
@@ -455,7 +455,7 @@ export default function AreaDetailPage() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
         return;
@@ -541,7 +541,7 @@ export default function AreaDetailPage() {
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
     dirtyProjectIdsRef.current.clear();
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
         return;

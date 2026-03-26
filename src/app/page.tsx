@@ -3,7 +3,7 @@
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { Project, getProjectStats, getReviewMetrics } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject } from '@/lib/db';
-import { syncProjectsWithOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
+import { syncProjectsWithOneDrive, pushProjectsToOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
@@ -204,6 +204,11 @@ export default function ProjectsPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backgroundSyncInFlightRef = useRef(false);
+  const backgroundSyncQueuedRef = useRef(false);
+  const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
+  const fullSyncNeededRef = useRef(false);
   const pullStartYRef = useRef<number | null>(null);
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
@@ -219,6 +224,14 @@ export default function ProjectsPage() {
       setSortOption(savedSort);
     }
     loadProjects();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -272,7 +285,7 @@ export default function ProjectsPage() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
         return;
@@ -286,6 +299,67 @@ export default function ProjectsPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  async function runBackgroundSync() {
+    if (backgroundSyncInFlightRef.current) {
+      backgroundSyncQueuedRef.current = true;
+      return;
+    }
+    if (dirtyProjectIdsRef.current.size === 0 && !fullSyncNeededRef.current) return;
+
+    backgroundSyncInFlightRef.current = true;
+    const dirtyProjectIds = [...dirtyProjectIdsRef.current];
+    const shouldRunFullSync = fullSyncNeededRef.current;
+    dirtyProjectIdsRef.current.clear();
+    fullSyncNeededRef.current = false;
+
+    try {
+      const token = await ensureAccessToken();
+      if (!token) {
+        dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        if (shouldRunFullSync) {
+          fullSyncNeededRef.current = true;
+        }
+        return;
+      }
+
+      if (shouldRunFullSync) {
+        const result = await syncProjectsWithOneDrive(token);
+        setSyncConflicts(result.conflicts);
+        await loadProjects();
+        return;
+      }
+
+      await pushProjectsToOneDrive(token, dirtyProjectIds);
+    } catch (error) {
+      dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+      if (shouldRunFullSync) {
+        fullSyncNeededRef.current = true;
+      }
+      console.error('Background sync failed:', error);
+    } finally {
+      backgroundSyncInFlightRef.current = false;
+      if (backgroundSyncQueuedRef.current) {
+        backgroundSyncQueuedRef.current = false;
+        scheduleSync();
+      }
+    }
+  }
+
+  function scheduleSync(projectId?: string, options?: { fullSync?: boolean }) {
+    if (projectId) {
+      dirtyProjectIdsRef.current.add(projectId);
+    }
+    if (options?.fullSync) {
+      fullSyncNeededRef.current = true;
+    }
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+    syncTimerRef.current = setTimeout(() => {
+      void runBackgroundSync();
+    }, 800);
   }
 
   const projectMetrics = useMemo(() => {
@@ -339,6 +413,7 @@ export default function ProjectsPage() {
     const project = createProject(newProjectName.trim(), newProjectAddress.trim(), newProjectInspector.trim());
     project.gcName = newProjectGcName.trim();
     await saveProject(project);
+    scheduleSync(project.id);
     setNewProjectName('');
     setNewProjectAddress('');
     setNewProjectInspector('');
@@ -377,6 +452,7 @@ export default function ProjectsPage() {
       markProjectDeleted(id);
       await deleteProject(id);
     }
+    scheduleSync(undefined, { fullSync: true });
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
     setExportMode(false);
@@ -419,7 +495,7 @@ export default function ProjectsPage() {
     setActionSheet(null);
     setExportingSelectedToDrive(true);
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         signIn();
         return;
@@ -451,6 +527,7 @@ export default function ProjectsPage() {
     if (!editingProject) return;
     Object.assign(editingProject, updates);
     await saveProject(editingProject);
+    scheduleSync(editingProject.id);
     setEditingProject(null);
     await loadProjects();
   }

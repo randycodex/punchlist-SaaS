@@ -170,7 +170,7 @@ export default function ProjectDetailPage() {
   const pullDistanceRef = useRef(0);
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
-  const { accessToken, ensureAccessToken } = useMicrosoftAuth();
+  const { ensureAccessToken } = useMicrosoftAuth();
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -362,7 +362,7 @@ export default function ProjectDetailPage() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
         return;
@@ -388,7 +388,7 @@ export default function ProjectDetailPage() {
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
     dirtyProjectIdsRef.current.clear();
     try {
-      const token = accessToken ?? (await ensureAccessToken());
+      const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
         return;
