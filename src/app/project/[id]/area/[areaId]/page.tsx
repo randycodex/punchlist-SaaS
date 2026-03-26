@@ -16,6 +16,7 @@ import {
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import PhotoCapture from '@/components/PhotoCapture';
 import Link from 'next/link';
 import {
@@ -81,7 +82,6 @@ export default function AreaDetailPage() {
   const [customItemName, setCustomItemName] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
@@ -94,6 +94,7 @@ export default function AreaDetailPage() {
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
+  const { setStatus: setSyncStatus } = useSyncStatus();
 
   useEffect(() => {
     if (!id || !areaId) {
@@ -134,13 +135,6 @@ export default function AreaDetailPage() {
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle('sync-active', syncing);
-    return () => {
-      document.body.classList.remove('sync-active');
-    };
-  }, [syncing]);
-
-  useEffect(() => {
     const value = area?.notes ?? '';
     setGeneralNotes(value);
     notesDraftRef.current = value;
@@ -155,6 +149,10 @@ export default function AreaDetailPage() {
     try {
       const projectData = await getProject(id);
       if (projectData) {
+        if (projectData.deletedAt) {
+          router.push('/');
+          return;
+        }
         setProject(projectData);
         const areaData = projectData.areas.find((a) => a.id === areaId);
         if (areaData) {
@@ -455,18 +453,21 @@ export default function AreaDetailPage() {
     if (syncing) return;
     setSyncing(true);
     setSyncError(null);
+    setSyncStatus('syncing');
     try {
       const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
+        setSyncStatus('needs-auth');
         return;
       }
       await syncProjectsWithOneDrive(token);
-      setSyncNotice(null);
+      setSyncStatus('idle');
       await loadData();
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
+      setSyncStatus('error');
     } finally {
       setSyncing(false);
     }
@@ -540,20 +541,21 @@ export default function AreaDetailPage() {
     if (dirtyProjectIdsRef.current.size === 0) return;
 
     backgroundSyncInFlightRef.current = true;
+    setSyncStatus('syncing');
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
     dirtyProjectIdsRef.current.clear();
     try {
       const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
-        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
+        setSyncStatus('needs-auth');
         return;
       }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
-      setSyncNotice(null);
+      setSyncStatus('idle');
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
-      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
+      setSyncStatus('error');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -568,7 +570,7 @@ export default function AreaDetailPage() {
     if (projectId) {
       dirtyProjectIdsRef.current.add(projectId);
     }
-    setSyncNotice('Changes are saved on this device. Sync pending.');
+    setSyncStatus('pending');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -664,12 +666,6 @@ export default function AreaDetailPage() {
           {syncError}
         </div>
       )}
-      {syncNotice && (
-        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
-          {syncNotice}
-        </div>
-      )}
-
       {/* Stats */}
       <div className="pinned-surface shrink-0 border-b px-4 py-3">
         <div className="summary-stat-grid summary-stat-grid-3 mb-3">

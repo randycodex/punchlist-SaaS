@@ -8,6 +8,7 @@ import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import {
@@ -26,11 +27,13 @@ import {
   Pencil,
   Image as ImageIcon,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 type ProjectMetrics = {
   stats: ReturnType<typeof getProjectStats>;
@@ -195,20 +198,17 @@ export default function ProjectsPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [exportMode, setExportMode] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const [exportingSelectedToDrive, setExportingSelectedToDrive] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [pendingDeleteProjects, setPendingDeleteProjects] = useState<Project[]>([]);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingDeleteProjectsRef = useRef<Project[]>([]);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
   const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
@@ -219,6 +219,7 @@ export default function ProjectsPage() {
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const { accessToken, signIn, ensureAccessToken } = useMicrosoftAuth();
+  const { setStatus: setSyncStatus } = useSyncStatus();
   const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
@@ -235,9 +236,6 @@ export default function ProjectsPage() {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
       }
-      if (deleteTimerRef.current) {
-        clearTimeout(deleteTimerRef.current);
-      }
     };
   }, []);
 
@@ -245,13 +243,6 @@ export default function ProjectsPage() {
     if (!accessToken) return;
     void handleSync();
   }, [accessToken]);
-
-  useEffect(() => {
-    document.body.classList.toggle('sync-active', syncing);
-    return () => {
-      document.body.classList.remove('sync-active');
-    };
-  }, [syncing]);
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -279,7 +270,23 @@ export default function ProjectsPage() {
   async function loadProjects() {
     try {
       const data = await getAllProjects();
-      setProjects(data);
+      const now = Date.now();
+      const expiredProjects = data.filter(
+        (project) =>
+          project.deletedAt &&
+          now - project.deletedAt.getTime() >= TRASH_RETENTION_MS
+      );
+
+      if (expiredProjects.length > 0) {
+        for (const project of expiredProjects) {
+          markProjectDeleted(project.id, project.deletedAt);
+          await deleteProject(project.id);
+        }
+        scheduleSync(undefined, { fullSync: true });
+      }
+
+      const expiredIds = new Set(expiredProjects.map((project) => project.id));
+      setProjects(data.filter((project) => !expiredIds.has(project.id)));
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -291,19 +298,22 @@ export default function ProjectsPage() {
     if (syncing) return;
     setSyncing(true);
     setSyncError(null);
+    setSyncStatus('syncing');
     try {
       const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
+        setSyncStatus('needs-auth');
         return;
       }
       const result = await syncProjectsWithOneDrive(token);
       setSyncConflicts(result.conflicts);
-      setSyncNotice(null);
+      setSyncStatus('idle');
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
+      setSyncStatus('error');
     } finally {
       setSyncing(false);
     }
@@ -317,6 +327,7 @@ export default function ProjectsPage() {
     if (dirtyProjectIdsRef.current.size === 0 && !fullSyncNeededRef.current) return;
 
     backgroundSyncInFlightRef.current = true;
+    setSyncStatus('syncing');
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
     const shouldRunFullSync = fullSyncNeededRef.current;
     dirtyProjectIdsRef.current.clear();
@@ -329,26 +340,26 @@ export default function ProjectsPage() {
         if (shouldRunFullSync) {
           fullSyncNeededRef.current = true;
         }
-        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
+        setSyncStatus('needs-auth');
         return;
       }
 
       if (shouldRunFullSync) {
         const result = await syncProjectsWithOneDrive(token);
         setSyncConflicts(result.conflicts);
-        setSyncNotice(null);
+        setSyncStatus('idle');
         await loadProjects();
         return;
       }
 
       await pushProjectsToOneDrive(token, dirtyProjectIds);
-      setSyncNotice(null);
+      setSyncStatus('idle');
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       if (shouldRunFullSync) {
         fullSyncNeededRef.current = true;
       }
-      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
+      setSyncStatus('error');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -366,41 +377,13 @@ export default function ProjectsPage() {
     if (options?.fullSync) {
       fullSyncNeededRef.current = true;
     }
-    setSyncNotice('Changes are saved on this device. Sync pending.');
+    setSyncStatus('pending');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
     syncTimerRef.current = setTimeout(() => {
       void runBackgroundSync();
     }, 800);
-  }
-
-  async function finalizePendingDelete() {
-    const projectsToDelete = pendingDeleteProjectsRef.current;
-    if (projectsToDelete.length === 0) return;
-
-    pendingDeleteProjectsRef.current = [];
-    setPendingDeleteProjects([]);
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-      deleteTimerRef.current = null;
-    }
-
-    for (const project of projectsToDelete) {
-      markProjectDeleted(project.id);
-      await deleteProject(project.id);
-    }
-    scheduleSync(undefined, { fullSync: true });
-  }
-
-  async function undoPendingDelete() {
-    pendingDeleteProjectsRef.current = [];
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-      deleteTimerRef.current = null;
-    }
-    setPendingDeleteProjects([]);
-    await loadProjects();
   }
 
   const projectMetrics = useMemo(() => {
@@ -434,8 +417,24 @@ export default function ProjectsPage() {
     return metrics;
   }, [projects]);
 
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !project.deletedAt),
+    [projects]
+  );
+
+  const trashedProjects = useMemo(
+    () =>
+      projects
+        .filter((project) => project.deletedAt)
+        .sort(
+          (a, b) =>
+            (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)
+        ),
+    [projects]
+  );
+
   const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => {
+    return [...activeProjects].sort((a, b) => {
       if (sortOption === 'name') {
         return a.projectName.localeCompare(b.projectName);
       }
@@ -446,7 +445,7 @@ export default function ProjectsPage() {
       const progressB = projectMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [projects, sortOption, projectMetrics]);
+  }, [activeProjects, sortOption, projectMetrics]);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -489,28 +488,41 @@ export default function ProjectsPage() {
 
   async function handleDeleteSelectedProjects() {
     if (selectedProjectIds.size === 0) return;
-    if (pendingDeleteProjectsRef.current.length > 0) {
-      await finalizePendingDelete();
+    const projectsToTrash = activeProjects.filter((project) => selectedProjectIds.has(project.id));
+    if (projectsToTrash.length === 0) return;
+
+    for (const project of projectsToTrash) {
+      project.deletedAt = new Date();
+      await saveProject(project);
+      dirtyProjectIdsRef.current.add(project.id);
     }
-
-    const projectsToDelete = projects.filter((project) => selectedProjectIds.has(project.id));
-    if (projectsToDelete.length === 0) return;
-
-    pendingDeleteProjectsRef.current = projectsToDelete;
-    setPendingDeleteProjects(projectsToDelete);
-    setProjects((prev) => prev.filter((project) => !selectedProjectIds.has(project.id)));
-
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-    }
-    deleteTimerRef.current = setTimeout(() => {
-      void finalizePendingDelete();
-    }, 5000);
+    scheduleSync();
 
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
     setExportMode(false);
     setActionSheet(null);
+    setShowTrash(true);
+    await loadProjects();
+  }
+
+  async function handleRestoreProject(projectId: string) {
+    const project = projects.find((entry) => entry.id === projectId);
+    if (!project) return;
+    delete project.deletedAt;
+    await saveProject(project);
+    scheduleSync(project.id);
+    await loadProjects();
+  }
+
+  async function handlePermanentDelete(project: Project) {
+    if (!window.confirm(`Permanently delete "${project.projectName}"? This cannot be undone.`)) {
+      return;
+    }
+    markProjectDeleted(project.id, project.deletedAt ?? new Date());
+    await deleteProject(project.id);
+    scheduleSync(undefined, { fullSync: true });
+    await loadProjects();
   }
 
   function handleExportSelectedConfirm() {
@@ -598,6 +610,16 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set());
   }
 
+  function toggleTrashView() {
+    setShowTrash((current) => {
+      const next = !current;
+      if (next) {
+        cancelSelectionMode();
+      }
+      return next;
+    });
+  }
+
   function handlePullStart(e: TouchEvent<HTMLElement>) {
     const atTop = (listRef.current?.scrollTop ?? 0) <= 0;
     if (!atTop || syncing) {
@@ -668,7 +690,7 @@ export default function ProjectsPage() {
                 </div>
               )}
             </div>
-            {!selectionMode ? (
+            {!selectionMode && !showTrash ? (
               <button
                 onClick={() => {
                   setDeleteMode(true);
@@ -679,7 +701,7 @@ export default function ProjectsPage() {
               >
                 Select
               </button>
-            ) : (
+            ) : !showTrash ? (
               <>
                 <button
                   onClick={cancelSelectionMode}
@@ -711,11 +733,30 @@ export default function ProjectsPage() {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </>
+            ) : (
+              <button
+                onClick={toggleTrashView}
+                className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Projects
+              </button>
             )}
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <button
+              onClick={toggleTrashView}
+              className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1 ${
+                showTrash
+                  ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              <Trash2 className="w-4 h-4" />
+              {trashedProjects.length > 0 ? `Trash (${trashedProjects.length})` : 'Trash'}
+            </button>
+            <button
               onClick={() => setShowNewProject(true)}
+              disabled={showTrash}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
               aria-label="Add project"
             >
@@ -727,11 +768,6 @@ export default function ProjectsPage() {
       {syncError && (
         <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
           {syncError}
-        </div>
-      )}
-      {syncNotice && (
-        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
-          {syncNotice}
         </div>
       )}
       {syncConflicts.length > 0 && (
@@ -759,7 +795,7 @@ export default function ProjectsPage() {
         onTouchEnd={handlePullEnd}
         onTouchCancel={handlePullEnd}
       >
-        {projects.length === 0 ? (
+        {!showTrash && activeProjects.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Projects</h2>
@@ -771,6 +807,54 @@ export default function ProjectsPage() {
               New Project
             </button>
           </div>
+        ) : showTrash ? (
+          trashedProjects.length === 0 ? (
+            <div className="text-center py-12">
+              <Trash2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Trash Is Empty</h2>
+              <p className="text-gray-500 dark:text-gray-400">Deleted projects stay here for 30 days before permanent removal.</p>
+            </div>
+          ) : (
+            <div className="list-stack">
+              {trashedProjects.map((project) => {
+                const deletedAt = project.deletedAt ?? new Date();
+                const expiresAt = new Date(deletedAt.getTime() + TRASH_RETENTION_MS);
+                return (
+                  <div
+                    key={project.id}
+                    className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">{project.projectName}</div>
+                        <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                          Deleted {deletedAt.toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                          Permanently removed after {expiresAt.toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => void handleRestoreProject(project.id)}
+                          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => void handlePermanentDelete(project)}
+                          className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 text-sm text-red-700 dark:text-red-300"
+                        >
+                          Delete Now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : (
           <div className="list-stack">
             {sortedProjects.map((project) => {
@@ -882,26 +966,6 @@ export default function ProjectsPage() {
           onSave={handleEditProject}
           onClose={() => setEditingProject(null)}
         />
-      )}
-
-      {pendingDeleteProjects.length > 0 && (
-        <div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-50">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-lg">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm text-amber-900">
-                {pendingDeleteProjects.length === 1
-                  ? 'Project deleted. Undo?'
-                  : `${pendingDeleteProjects.length} projects deleted. Undo?`}
-              </div>
-              <button
-                onClick={() => void undoPendingDelete()}
-                className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-amber-800 border border-amber-300"
-              >
-                Undo
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {actionSheet && (

@@ -129,6 +129,7 @@ function reviveProjectDates(project: Project): Project {
     date: new Date(project.date),
     createdAt: new Date(project.createdAt),
     updatedAt: new Date(project.updatedAt),
+    deletedAt: project.deletedAt ? new Date(project.deletedAt) : undefined,
     areas: (project.areas ?? []).map((area) => ({
       ...area,
       createdAt: new Date(area.createdAt),

@@ -77,6 +77,7 @@ export interface Project {
   inspector: string;
   gcName: string;
   gcSignoff: string;
+  deletedAt?: Date;
   areas: Area[];
   createdAt: Date;
   updatedAt: Date;

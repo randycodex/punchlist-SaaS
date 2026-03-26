@@ -5,13 +5,31 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { getProject } from '@/lib/db';
 
 export default function PersistentTopBar() {
   const pathname = usePathname();
   const { isReady, isSignedIn, signIn, signOut } = useMicrosoftAuth();
+  const { status } = useSyncStatus();
   const showAuth = pathname === '/';
   const [projectTitle, setProjectTitle] = useState('');
+
+  const indicatorClasses = {
+    idle: 'opacity-0 bg-green-500 dark:bg-green-400',
+    syncing: 'opacity-100 bg-green-500 dark:bg-green-400 animate-pulse',
+    pending: 'opacity-100 bg-amber-500 dark:bg-amber-400',
+    'needs-auth': 'opacity-100 bg-amber-500 dark:bg-amber-400',
+    error: 'opacity-100 bg-red-500 dark:bg-red-400',
+  } as const;
+
+  const indicatorLabel = {
+    idle: 'No sync activity',
+    syncing: 'Syncing now',
+    pending: 'Sync pending',
+    'needs-auth': 'Sign in required to finish syncing',
+    error: 'Sync needs attention',
+  } as const;
 
   useEffect(() => {
     let cancelled = false;
@@ -65,8 +83,8 @@ export default function PersistentTopBar() {
         {showAuth && isReady && (
           <div className="flex items-center gap-2">
             <span
-              aria-hidden="true"
-              className="sync-indicator h-2.5 w-2.5 rounded-full bg-green-500 dark:bg-green-400"
+              aria-label={indicatorLabel[status]}
+              className={`sync-indicator h-2.5 w-2.5 rounded-full ${indicatorClasses[status]}`}
             />
             {!isSignedIn ? (
               <button
@@ -88,8 +106,8 @@ export default function PersistentTopBar() {
         {!showAuth && projectTitle && (
           <div className="max-w-[60vw] flex items-center justify-end gap-2">
             <span
-              aria-hidden="true"
-              className="sync-indicator h-2.5 w-2.5 rounded-full bg-green-500 dark:bg-green-400 shrink-0"
+              aria-label={indicatorLabel[status]}
+              className={`sync-indicator h-2.5 w-2.5 rounded-full shrink-0 ${indicatorClasses[status]}`}
             />
             <div className="truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">
               {projectTitle}

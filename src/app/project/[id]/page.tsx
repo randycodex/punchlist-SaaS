@@ -10,6 +10,7 @@ import { buildAreaName, getDefaultAreaFormValue, type AreaTypeKey } from '@/lib/
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
+import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -160,7 +161,6 @@ export default function ProjectDetailPage() {
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const sortButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +172,7 @@ export default function ProjectDetailPage() {
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
+  const { setStatus: setSyncStatus } = useSyncStatus();
 
   const sortLabels: Record<SortOption, string> = {
     name: 'Name',
@@ -227,13 +228,6 @@ export default function ProjectDetailPage() {
     };
   }, []);
 
-  useEffect(() => {
-    document.body.classList.toggle('sync-active', syncing);
-    return () => {
-      document.body.classList.remove('sync-active');
-    };
-  }, [syncing]);
-
   function handleSortChange(option: SortOption) {
     setSortOption(option);
     localStorage.setItem(SORT_STORAGE_KEY, option);
@@ -245,6 +239,10 @@ export default function ProjectDetailPage() {
     try {
       const data = await getProject(id);
       if (data) {
+        if (data.deletedAt) {
+          router.push('/');
+          return;
+        }
         setProject(data);
       } else {
         router.push('/');
@@ -362,18 +360,21 @@ export default function ProjectDetailPage() {
     if (syncing) return;
     setSyncing(true);
     setSyncError(null);
+    setSyncStatus('syncing');
     try {
       const token = await ensureAccessToken();
       if (!token) {
         setSyncError('Please sign in to sync.');
+        setSyncStatus('needs-auth');
         return;
       }
       await syncProjectsWithOneDrive(token);
-      setSyncNotice(null);
+      setSyncStatus('idle');
       await loadProject();
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncError(getMicrosoftErrorMessage(error, 'Sync failed.'));
+      setSyncStatus('error');
     } finally {
       setSyncing(false);
     }
@@ -387,20 +388,21 @@ export default function ProjectDetailPage() {
     if (dirtyProjectIdsRef.current.size === 0) return;
 
     backgroundSyncInFlightRef.current = true;
+    setSyncStatus('syncing');
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
     dirtyProjectIdsRef.current.clear();
     try {
       const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
-        setSyncNotice('Changes are saved on this device. Sign in to finish syncing.');
+        setSyncStatus('needs-auth');
         return;
       }
       await pushProjectsToOneDrive(token, dirtyProjectIds);
-      setSyncNotice(null);
+      setSyncStatus('idle');
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
-      setSyncNotice('Changes are saved on this device. Background sync failed and will retry.');
+      setSyncStatus('error');
       console.error('Background sync failed:', error);
     } finally {
       backgroundSyncInFlightRef.current = false;
@@ -415,7 +417,7 @@ export default function ProjectDetailPage() {
     if (projectId) {
       dirtyProjectIdsRef.current.add(projectId);
     }
-    setSyncNotice('Changes are saved on this device. Sync pending.');
+    setSyncStatus('pending');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
     }
@@ -567,12 +569,6 @@ export default function ProjectDetailPage() {
           {syncError}
         </div>
       )}
-      {syncNotice && (
-        <div className="shrink-0 px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100">
-          {syncNotice}
-        </div>
-      )}
-
       {/* Project Info */}
       <div className="pinned-surface shrink-0 border-b px-4 py-3">
         {project.address && (
