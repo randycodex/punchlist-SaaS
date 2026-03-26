@@ -279,7 +279,7 @@ export default function ProjectsPage() {
 
       if (expiredProjects.length > 0) {
         for (const project of expiredProjects) {
-          markProjectDeleted(project.id, project.deletedAt);
+          markProjectDeleted(project.id);
           await deleteProject(project.id);
         }
         scheduleSync(undefined, { fullSync: true });
@@ -518,7 +518,7 @@ export default function ProjectsPage() {
     if (!window.confirm(`Permanently delete "${project.projectName}"? This cannot be undone.`)) {
       return;
     }
-    markProjectDeleted(project.id, project.deletedAt ?? new Date());
+    markProjectDeleted(project.id);
     await deleteProject(project.id);
     scheduleSync(undefined, { fullSync: true });
     await loadProjects();
@@ -539,7 +539,7 @@ export default function ProjectsPage() {
     if (!confirmed) return;
 
     for (const project of projectsToDelete) {
-      markProjectDeleted(project.id, project.deletedAt ?? new Date());
+      markProjectDeleted(project.id);
       await deleteProject(project.id);
     }
 
