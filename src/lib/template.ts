@@ -116,10 +116,15 @@ function getApartmentTemplate(unitType?: Area['unitType']): TemplateLocation[] {
     name: 'Living',
     items: createLivingAreaItems(true),
   });
-  template.push({
-    name: 'Bedroom',
-    items: createLivingAreaItems(false),
-  });
+
+  const bedroomCount = unitType === '3BR' ? 3 : unitType === '2BR' ? 2 : 1;
+
+  for (let index = 0; index < bedroomCount; index += 1) {
+    template.push({
+      name: bedroomCount === 1 ? 'Bedroom' : `Bedroom ${index + 1}`,
+      items: createLivingAreaItems(false),
+    });
+  }
 
   return template;
 }
