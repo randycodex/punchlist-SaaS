@@ -627,20 +627,20 @@ export default function ProjectDetailPage() {
                 Add Area
               </button>
             </div>
-            <div className="mt-auto pt-2">
+            <div className="mt-auto pt-2 flex items-end justify-between gap-4">
               {project.address && (
                 <a
                   href={projectAddressMapUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
+                  className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
                 >
                   <MapPin className="w-4 h-4" />
-                  {project.address}
+                  <span className="truncate">{project.address}</span>
                 </a>
               )}
               {project.inspector && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                   <User className="w-4 h-4" />
                   {project.inspector}
                 </p>
@@ -716,23 +716,25 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               )}
-              {project.address && (
-                <a
-                  href={projectAddressMapUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
-                >
-                  <MapPin className="w-4 h-4" />
-                  {project.address}
-                </a>
-              )}
-              {project.inspector && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                  <User className="w-4 h-4" />
-                  {project.inspector}
-                </p>
-              )}
+              <div className="flex items-end justify-between gap-4">
+                {project.address && (
+                  <a
+                    href={projectAddressMapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span className="truncate">{project.address}</span>
+                  </a>
+                )}
+                {project.inspector && (
+                  <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <User className="w-4 h-4" />
+                    {project.inspector}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
