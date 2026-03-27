@@ -1338,16 +1338,6 @@ export default function ProjectsPage() {
                 >
                   Add Project
                 </button>
-                <button
-                  onClick={() => {
-                    setAreaTargetProjectId(sortedProjects[0]?.id ?? activeProjects[0]?.id ?? null);
-                    setShowAreaProjectPicker(true);
-                  }}
-                  disabled={activeProjects.length === 0}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200 disabled:opacity-50"
-                >
-                  Add Area
-                </button>
               </div>
             )}
           </div>

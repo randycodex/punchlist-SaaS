@@ -618,13 +618,34 @@ export default function ProjectDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         {!showTrash && activeAreas.length === 0 ? (
-          <div className="flex justify-center py-12">
-            <button
-              onClick={() => setShowAddArea(true)}
-              className="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200"
-            >
-              Add Area
-            </button>
+          <div className="min-h-[calc(100%+1px)] flex flex-col">
+            <div className="flex justify-center py-12">
+              <button
+                onClick={() => setShowAddArea(true)}
+                className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
+              >
+                Add Area
+              </button>
+            </div>
+            <div className="mt-auto pt-2">
+              {project.address && (
+                <a
+                  href={projectAddressMapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <MapPin className="w-4 h-4" />
+                  {project.address}
+                </a>
+              )}
+              {project.inspector && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  {project.inspector}
+                </p>
+              )}
+            </div>
           </div>
         ) : showTrash ? (
           trashedAreas.length === 0 ? (
