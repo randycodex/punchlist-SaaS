@@ -16,11 +16,11 @@ export default function PersistentTopBar() {
   const [projectTitle, setProjectTitle] = useState('');
 
   const indicatorClasses = {
-    idle: 'opacity-0 bg-green-500 dark:bg-green-400',
-    syncing: 'opacity-100 bg-green-500 dark:bg-green-400 animate-pulse',
-    pending: 'opacity-100 bg-amber-500 dark:bg-amber-400',
-    'needs-auth': 'opacity-100 bg-amber-500 dark:bg-amber-400',
-    error: 'opacity-100 bg-red-500 dark:bg-red-400',
+    idle: 'opacity-0 bg-gray-500 dark:bg-gray-400',
+    syncing: 'opacity-100 bg-gray-500 dark:bg-gray-400 animate-pulse',
+    pending: 'opacity-100 bg-gray-500 dark:bg-gray-400',
+    'needs-auth': 'opacity-100 bg-gray-500 dark:bg-gray-400',
+    error: 'opacity-100 bg-gray-500 dark:bg-gray-400',
   } as const;
 
   const indicatorLabel = {
@@ -66,7 +66,7 @@ export default function PersistentTopBar() {
   }, [pathname]);
 
   return (
-    <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pt-[env(safe-area-inset-top)]">
+    <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 pt-[env(safe-area-inset-top)]">
       <div className="h-14 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Go to projects" className="flex items-center">

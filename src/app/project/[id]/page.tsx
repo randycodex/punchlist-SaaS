@@ -14,7 +14,6 @@ import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  Plus,
   Building2,
   ChevronRight,
   Trash2,
@@ -76,8 +75,8 @@ const AreaCard = memo(function AreaCard({
       }}
       className={`block rounded-lg border p-4 transition-colors ${
         isSelected
-          ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700'
-          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+          ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
+          : 'bg-gray-50 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-zinc-500'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -91,7 +90,7 @@ const AreaCard = memo(function AreaCard({
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
             <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">{areaStats.total} items</span>
-            {area.isComplete && <CheckCircle className="w-4 h-4 text-green-500" />}
+            {area.isComplete && <CheckCircle className="w-4 h-4 text-gray-500 dark:text-gray-300" />}
           </div>
           <div className="flex items-center gap-4 mt-2 text-sm">
             {pending > 0 && (
@@ -101,19 +100,19 @@ const AreaCard = memo(function AreaCard({
               </span>
             )}
             {areaStats.issues > 0 && (
-              <span className="text-orange-500 flex items-center gap-1">
+              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 {areaStats.issues}
               </span>
             )}
             {areaPhotoCount > 0 && (
-              <span className="text-amber-500 flex items-center gap-1">
+              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
                 <ImageIcon className="w-3 h-3" />
                 {areaPhotoCount}
               </span>
             )}
             {areaCommentCount > 0 && (
-              <span className="text-sky-600 flex items-center gap-1">
+              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
                 <MessageSquare className="w-3 h-3" />
                 {areaCommentCount}
               </span>
@@ -121,7 +120,7 @@ const AreaCard = memo(function AreaCard({
           </div>
           {areaStats.total > 0 && (
             <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-full bg-gray-500 dark:bg-gray-300 transition-all" style={{ width: `${progress}%` }} />
             </div>
           )}
         </Link>
@@ -130,7 +129,7 @@ const AreaCard = memo(function AreaCard({
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
-          className="p-1 text-gray-400 hover:text-blue-500"
+          className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -495,8 +494,8 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500 dark:border-gray-300"></div>
       </div>
     );
   }
@@ -512,7 +511,7 @@ export default function ProjectDetailPage() {
     : '';
 
   return (
-    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-zinc-900 flex flex-col overflow-hidden">
       {/* Header controls */}
       <header className="header-stable shrink-0 border-b z-20">
         <div className="header-row">
@@ -532,14 +531,14 @@ export default function ProjectDetailPage() {
               {showSortMenu && (
                 <div
                   ref={sortMenuRef}
-                  className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                  className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
                 >
                   {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
                     <button
                       key={option}
                       onClick={() => handleSortChange(option)}
                       className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                        sortOption === option ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                        sortOption === option ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-700 dark:text-gray-300'
                       }`}
                     >
                       {sortLabels[option]}
@@ -600,20 +599,12 @@ export default function ProjectDetailPage() {
                 Trash
               </button>
             )}
-            <button
-              onClick={() => setShowAddArea(true)}
-              disabled={showTrash}
-              className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-              aria-label="Add area"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </header>
 
       {syncError && (
-        <div className="shrink-0 px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+        <div className="shrink-0 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
           {syncError}
         </div>
       )}
@@ -630,7 +621,7 @@ export default function ProjectDetailPage() {
           <div className="flex justify-center py-12">
             <button
               onClick={() => setShowAddArea(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
+              className="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200"
             >
               Add Area
             </button>
@@ -649,7 +640,7 @@ export default function ProjectDetailPage() {
                 return (
                   <div
                     key={area.id}
-                    className="rounded-lg border p-4 border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800"
+                    className="rounded-lg border p-4 border-gray-300 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -660,7 +651,7 @@ export default function ProjectDetailPage() {
                       </div>
                       <button
                         onClick={() => void handleRestoreArea(area.id)}
-                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1 shrink-0"
+                        className="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1 shrink-0"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         Restore
@@ -689,10 +680,18 @@ export default function ProjectDetailPage() {
               );
             })}
             <div className="pt-2">
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowAddArea(true)}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
+                >
+                  Add Area
+                </button>
+              </div>
               {stats.total > 0 && (
                 <div className="mb-3">
                   <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
+                    <div className="h-full bg-gray-500 dark:bg-gray-300 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
                   </div>
                 </div>
               )}
@@ -701,7 +700,7 @@ export default function ProjectDetailPage() {
                   href={projectAddressMapUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
                 >
                   <MapPin className="w-4 h-4" />
                   {project.address}
@@ -735,7 +734,7 @@ export default function ProjectDetailPage() {
       {actionSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
           <div className="w-full max-w-md">
-            <div className="rounded-2xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
               <button
                 onClick={() => void handleDeleteSelectedAreas()}
                 className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"
@@ -744,7 +743,7 @@ export default function ProjectDetailPage() {
               </button>
               <button
                 onClick={() => setActionSheet(null)}
-                className="w-full py-3 text-center text-[17px] text-blue-600"
+                className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white"
               >
                 Cancel
               </button>

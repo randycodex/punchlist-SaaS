@@ -37,7 +37,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Project</h2>
           <button onClick={onClose} className="p-1 text-gray-500 dark:text-gray-400">
@@ -54,7 +54,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -66,7 +66,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -78,7 +78,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -90,7 +90,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="text"
               value={inspector}
               onChange={(e) => setInspector(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -102,7 +102,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
               type="text"
               value={gcName}
               onChange={(e) => setGcName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
           <button
             onClick={handleSave}
             disabled={!projectName.trim()}
-            className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
           >
             Save
           </button>

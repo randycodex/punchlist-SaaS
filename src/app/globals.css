@@ -16,10 +16,10 @@
 }
 
 .dark {
-  --background: #111827;
+  --background: #18181b;
   --foreground: #f9fafb;
-  --surface: #111827;
-  --surface-border: #1f2937;
+  --surface: #18181b;
+  --surface-border: #27272a;
 }
 
 body {
@@ -193,8 +193,8 @@ html:not(.dark) .sticky-surface {
   html:not(.dark) .header-stable,
   html:not(.dark) .pinned-surface,
   html:not(.dark) .sticky-surface {
-    background-color: #111827 !important;
-    border-color: #1f2937 !important;
+    background-color: #18181b !important;
+    border-color: #27272a !important;
   }
 }
 

@@ -55,7 +55,7 @@ export default function AreaEditorModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6">
+      <div className="bg-white dark:bg-zinc-800 rounded-xl w-full max-w-md p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
 
         <div className="space-y-4">
@@ -73,7 +73,7 @@ export default function AreaEditorModal({
                   customAreaName: e.target.value === 'custom' ? value.customAreaName : '',
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
               autoFocus
             >
               {orderedAreaTypes.map((definition) => (
@@ -97,7 +97,7 @@ export default function AreaEditorModal({
                     unitType: e.target.value as ApartmentUnitType,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
               >
                 <option value="">Select unit type</option>
                 {APARTMENT_UNIT_TYPES.map((unitType) => (
@@ -123,7 +123,7 @@ export default function AreaEditorModal({
                     customAreaName: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
                 placeholder="Enter custom area name"
               />
             </div>
@@ -142,7 +142,7 @@ export default function AreaEditorModal({
                   areaNumber: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
               placeholder="e.g., 306, 12F, B1"
             />
           </div>
@@ -162,7 +162,7 @@ export default function AreaEditorModal({
               (selectedDefinition.requiresUnitType && !value.unitType) ||
               (selectedDefinition.requiresCustomName && !value.customAreaName.trim())
             }
-            className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitLabel}
           </button>

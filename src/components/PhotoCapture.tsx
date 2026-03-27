@@ -221,7 +221,7 @@ export default function PhotoCapture({
       <div className="flex gap-2">
         <button
           onClick={openCamera}
-          className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
+          className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-zinc-600"
         >
           <Camera className="w-3 h-3" />
           Camera
@@ -262,7 +262,7 @@ export default function PhotoCapture({
               <button
                 onClick={addCapturedBatch}
                 disabled={capturedBatch.length === 0}
-                className="text-white text-sm px-2 py-1 rounded border border-green-400 disabled:opacity-40"
+                className="text-white text-sm px-2 py-1 rounded border border-gray-400 disabled:opacity-40"
               >
                 Add All
               </button>
