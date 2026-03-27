@@ -547,6 +547,18 @@ export default function ProjectDetailPage() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 shrink-0">
+            {!deleteMode && (
+              <button
+                onClick={() => {
+                  setDeleteMode(true);
+                  setSelectedAreaIds(new Set());
+                }}
+                className="h-9 w-9 flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                aria-label="Delete areas"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => setShowAddArea(true)}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
