@@ -614,29 +614,6 @@ export default function ProjectDetailPage() {
           {syncError}
         </div>
       )}
-      {/* Project Info */}
-      <div className="pinned-surface shrink-0 border-b px-4 py-3">
-        {project.address && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
-            <MapPin className="w-4 h-4" />
-            {project.address}
-          </p>
-        )}
-        {project.inspector && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
-            <User className="w-4 h-4" />
-            {project.inspector}
-          </p>
-        )}
-        {stats.total > 0 && (
-          <div className="mt-3">
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Areas List */}
       <main
         ref={listRef}
@@ -708,6 +685,27 @@ export default function ProjectDetailPage() {
                 />
               );
             })}
+            <div className="pt-2">
+              {stats.total > 0 && (
+                <div className="mb-3">
+                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
+                  </div>
+                </div>
+              )}
+              {project.address && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
+                  <MapPin className="w-4 h-4" />
+                  {project.address}
+                </p>
+              )}
+              {project.inspector && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  {project.inspector}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </main>

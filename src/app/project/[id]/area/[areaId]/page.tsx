@@ -667,18 +667,6 @@ export default function AreaDetailPage() {
           {syncError}
         </div>
       )}
-      {/* Progress */}
-      <div className="pinned-surface shrink-0 border-b px-4 py-3">
-        <div className="w-full">
-          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-green-500 transition-all"
-              style={{ width: `${reviewedPercent}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Inspection Items */}
       <main
         ref={listRef}
@@ -937,6 +925,14 @@ export default function AreaDetailPage() {
             </div>
           );
         })}
+          <div className="pt-2">
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 transition-all"
+                style={{ width: `${reviewedPercent}%` }}
+              />
+            </div>
+          </div>
         </div>
       </main>
 
