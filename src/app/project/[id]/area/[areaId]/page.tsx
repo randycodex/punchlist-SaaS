@@ -7,7 +7,6 @@ import { getProject, saveProject, createPhotoAttachment, createLocation, createI
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
 import {
-  areaHasRecordedActivity,
   buildAreaName,
   getAreaFormValue,
   isApartmentArea,
@@ -315,7 +314,7 @@ export default function AreaDetailPage() {
     const templateChanged =
       originalTypeKey !== areaForm.areaTypeKey ||
       originalUnitType !== (areaForm.unitType || undefined);
-    if (templateChanged && !areaHasRecordedActivity(targetArea)) {
+    if (templateChanged) {
       applyTemplateToArea(targetArea);
     }
 

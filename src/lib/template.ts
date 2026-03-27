@@ -1,4 +1,4 @@
-import { Area, Location } from '@/types';
+import { Area, Location, Item, Checkpoint } from '@/types';
 import { createLocation, createItem, createCheckpoint } from './db';
 import { getAreaTypeDefinition, resolveAreaTypeKey } from './areas';
 
@@ -11,6 +11,8 @@ interface TemplateLocation {
   name: string;
   items: TemplateItem[];
 }
+
+const NOTES_LOCATION_NAME = 'Other';
 
 function createLivingAreaItems(includeIntercom: boolean): TemplateItem[] {
   return [
@@ -130,32 +132,135 @@ function getApartmentTemplate(unitType?: Area['unitType']): TemplateLocation[] {
 }
 
 function createNotesLocation(area: Area, sortOrder: number): Location {
-  return createLocation(area.id, 'Other', sortOrder);
+  return createLocation(area.id, NOTES_LOCATION_NAME, sortOrder);
+}
+
+function getLocationMatchNames(name: string): string[] {
+  switch (name) {
+    case 'Living':
+      return ['Living', 'Living/Bedroom'];
+    case 'Living/Bedroom':
+      return ['Living/Bedroom', 'Living'];
+    case 'Bedroom':
+      return ['Bedroom', 'Bedroom 1'];
+    case 'Bedroom 1':
+      return ['Bedroom 1', 'Bedroom'];
+    default:
+      return [name];
+  }
+}
+
+function findMatchingLocation(
+  locations: Location[],
+  targetName: string,
+  usedLocationIds: Set<string>
+): Location | undefined {
+  const candidateNames = getLocationMatchNames(targetName);
+  for (const candidateName of candidateNames) {
+    const match = locations.find(
+      (location) => !usedLocationIds.has(location.id) && location.name === candidateName
+    );
+    if (match) return match;
+  }
+  return undefined;
+}
+
+function reconcileCheckpoints(
+  item: Item,
+  existingCheckpoints: Checkpoint[],
+  templateCheckpointNames: string[],
+  now: Date
+): Checkpoint[] {
+  const usedCheckpointIds = new Set<string>();
+
+  return templateCheckpointNames.map((checkpointName, checkpointIndex) => {
+    const existingCheckpoint = existingCheckpoints.find(
+      (checkpoint) => !usedCheckpointIds.has(checkpoint.id) && checkpoint.name === checkpointName
+    );
+    const checkpoint =
+      existingCheckpoint ?? createCheckpoint(item.id, checkpointName, checkpointIndex);
+
+    usedCheckpointIds.add(checkpoint.id);
+    checkpoint.itemId = item.id;
+    checkpoint.name = checkpointName;
+    checkpoint.sortOrder = checkpointIndex;
+    checkpoint.updatedAt = now;
+
+    return checkpoint;
+  });
+}
+
+function reconcileItems(
+  location: Location,
+  existingItems: Item[],
+  templateItems: TemplateItem[],
+  now: Date
+): Item[] {
+  const usedItemIds = new Set<string>();
+
+  return templateItems.map((templateItem, itemIndex) => {
+    const existingItem = existingItems.find(
+      (item) => !usedItemIds.has(item.id) && item.name === templateItem.name
+    );
+    const item = existingItem ?? createItem(location.id, templateItem.name, itemIndex);
+
+    usedItemIds.add(item.id);
+    item.locationId = location.id;
+    item.name = templateItem.name;
+    item.sortOrder = itemIndex;
+    item.updatedAt = now;
+    item.checkpoints = reconcileCheckpoints(
+      item,
+      existingItem?.checkpoints ?? [],
+      templateItem.checkpoints,
+      now
+    );
+
+    return item;
+  });
 }
 
 function populateArea(area: Area, templateLocations: TemplateLocation[]): void {
-  templateLocations.forEach((templateLocation, locationIndex) => {
-    const location = createLocation(area.id, templateLocation.name, locationIndex);
+  const now = new Date();
+  const existingLocations = area.locations;
+  const usedLocationIds = new Set<string>();
 
-    templateLocation.items.forEach((templateItem, itemIndex) => {
-      const item = createItem(location.id, templateItem.name, itemIndex);
+  area.locations = templateLocations.map((templateLocation, locationIndex) => {
+    const existingLocation = findMatchingLocation(
+      existingLocations,
+      templateLocation.name,
+      usedLocationIds
+    );
+    const location =
+      existingLocation ?? createLocation(area.id, templateLocation.name, locationIndex);
 
-      templateItem.checkpoints.forEach((checkpointName, checkpointIndex) => {
-        const checkpoint = createCheckpoint(item.id, checkpointName, checkpointIndex);
-        item.checkpoints.push(checkpoint);
-      });
+    usedLocationIds.add(location.id);
+    location.areaId = area.id;
+    location.name = templateLocation.name;
+    location.sortOrder = locationIndex;
+    location.updatedAt = now;
+    location.items = reconcileItems(
+      location,
+      existingLocation?.items ?? [],
+      templateLocation.items,
+      now
+    );
 
-      location.items.push(item);
-    });
-
-    area.locations.push(location);
+    return location;
   });
 
-  area.locations.push(createNotesLocation(area, templateLocations.length));
+  const existingNotesLocation = existingLocations.find(
+    (location) => location.name === NOTES_LOCATION_NAME
+  );
+  const notesLocation = existingNotesLocation ?? createNotesLocation(area, templateLocations.length);
+  notesLocation.areaId = area.id;
+  notesLocation.name = NOTES_LOCATION_NAME;
+  notesLocation.sortOrder = templateLocations.length;
+  notesLocation.updatedAt = now;
+  area.locations.push(notesLocation);
 }
 
 export function applyTemplateToArea(area: Area): void {
-  area.locations = [];
   const definition = getAreaTypeDefinition(resolveAreaTypeKey(area));
 
   if (definition.templateKey === 'apartment') {
