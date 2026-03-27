@@ -92,6 +92,7 @@ export default function AreaDetailPage() {
   const pullDistanceRef = useRef(0);
   const pullArmedRef = useRef(false);
   const listRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef(new Map<string, HTMLDivElement | null>());
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
 
@@ -613,6 +614,14 @@ export default function AreaDetailPage() {
     } else {
       // Expand only this item, collapse others
       setExpandedItems(new Set([itemId]));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          itemRefs.current.get(itemId)?.scrollIntoView({
+            block: 'start',
+            behavior: 'smooth',
+          });
+        });
+      });
     }
   }
 
@@ -807,7 +816,13 @@ export default function AreaDetailPage() {
                     const isItemExpanded = expandedItems.has(item.id);
 
                     return (
-                      <div key={item.id} className="border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                      <div
+                        key={item.id}
+                        ref={(node) => {
+                          itemRefs.current.set(item.id, node);
+                        }}
+                        className="border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                      >
                         {/* Item Header */}
                         <button
                           onClick={() => toggleItem(item.id)}

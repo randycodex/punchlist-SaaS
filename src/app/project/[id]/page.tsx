@@ -507,6 +507,9 @@ export default function ProjectDetailPage() {
 
   const stats = getProjectStats(project);
   const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
+  const projectAddressMapUrl = project.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`
+    : '';
 
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
@@ -694,10 +697,15 @@ export default function ProjectDetailPage() {
                 </div>
               )}
               {project.address && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
+                <a
+                  href={projectAddressMapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-blue-600 dark:hover:text-blue-400"
+                >
                   <MapPin className="w-4 h-4" />
                   {project.address}
-                </p>
+                </a>
               )}
               {project.inspector && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
