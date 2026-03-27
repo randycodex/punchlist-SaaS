@@ -153,6 +153,7 @@ export function createCheckpoint(itemId: string, name: string, sortOrder: number
     name,
     status: 'pending',
     fixStatus: 'pending',
+    issueState: 'none',
     comments: '',
     sortOrder,
     photos: [],

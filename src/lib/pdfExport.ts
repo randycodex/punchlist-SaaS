@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { Project } from '@/types';
+import { Project, checkpointHasIssue } from '@/types';
 
 // Load logo as base64 for PDF
 async function loadLogoBase64(): Promise<string | null> {
@@ -250,7 +250,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         items: location.items
           .map((item) => ({
             ...item,
-            checkpoints: item.checkpoints.filter((checkpoint) => checkpoint.status === 'needsReview'),
+            checkpoints: item.checkpoints.filter((checkpoint) => checkpointHasIssue(checkpoint)),
           }))
           .filter((item) => item.checkpoints.length > 0),
       }))

@@ -12,8 +12,6 @@ interface TemplateLocation {
   items: TemplateItem[];
 }
 
-const NOTES_LOCATION_NAME = 'Other';
-
 function createLivingAreaItems(includeIntercom: boolean): TemplateItem[] {
   return [
     { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
@@ -129,10 +127,6 @@ function getApartmentTemplate(unitType?: Area['unitType']): TemplateLocation[] {
   }
 
   return template;
-}
-
-function createNotesLocation(area: Area, sortOrder: number): Location {
-  return createLocation(area.id, NOTES_LOCATION_NAME, sortOrder);
 }
 
 function getLocationMatchNames(name: string): string[] {
@@ -253,15 +247,6 @@ function populateArea(
     return location;
   });
 
-  const existingNotesLocation = existingLocations.find(
-    (location) => location.name === NOTES_LOCATION_NAME
-  );
-  const notesLocation = existingNotesLocation ?? createNotesLocation(area, templateLocations.length);
-  notesLocation.areaId = area.id;
-  notesLocation.name = NOTES_LOCATION_NAME;
-  notesLocation.sortOrder = templateLocations.length;
-  notesLocation.updatedAt = now;
-  area.locations.push(notesLocation);
 }
 
 export function applyTemplateToArea(area: Area): void {
@@ -273,5 +258,4 @@ export function applyTemplateToArea(area: Area): void {
   }
 
   area.locations = [];
-  area.locations.push(createNotesLocation(area, 0));
 }

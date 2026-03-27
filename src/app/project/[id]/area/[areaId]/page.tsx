@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, Area, Checkpoint, getReviewMetrics } from '@/types';
+import { Project, Area, Checkpoint, getReviewMetrics, getCheckpointIssueState, checkpointHasIssue, type IssueState } from '@/types';
 import { getProject, saveProject, createPhotoAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
@@ -17,20 +17,14 @@ import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
-import PhotoCapture from '@/components/PhotoCapture';
+import AreaNotesCard from '@/components/inspection/AreaNotesCard';
+import CheckpointEditorSheet from '@/components/inspection/CheckpointEditorSheet';
+import CustomItemComposer from '@/components/inspection/CustomItemComposer';
+import InspectionLocationCard from '@/components/inspection/InspectionLocationCard';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronRight,
-  AlertTriangle,
-  Circle,
-  Wrench,
-  MessageSquare,
   Pencil,
-  X,
-  Image as ImageIcon,
-  Paperclip,
 } from 'lucide-react';
 
 const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
@@ -144,6 +138,16 @@ export default function AreaDetailPage() {
     setAreaForm(getAreaFormValue(area));
   }, [area]);
 
+  const visibleLocations = useMemo(
+    () =>
+      area
+        ? area.locations.filter(
+            (location) => location.name.trim().toLowerCase() !== OTHER_LOCATION_NAME.toLowerCase()
+          )
+        : [],
+    [area]
+  );
+
   async function loadData() {
     if (!id || !areaId) return;
     try {
@@ -156,6 +160,16 @@ export default function AreaDetailPage() {
         setProject(projectData);
         const areaData = projectData.areas.find((a) => a.id === areaId);
         if (areaData && !areaData.deletedAt) {
+          const normalizedLocations = areaData.locations.filter(
+            (location) => location.name.trim().toLowerCase() !== OTHER_LOCATION_NAME.toLowerCase()
+          );
+          if (normalizedLocations.length !== areaData.locations.length) {
+            areaData.locations = normalizedLocations.map((location, index) => ({
+              ...location,
+              sortOrder: index,
+            }));
+            await saveProject(projectData);
+          }
           setArea(areaData);
         } else {
           router.push(`/project/${id}`);
@@ -181,7 +195,7 @@ export default function AreaDetailPage() {
     let ok = 0;
     let issues = 0;
 
-    for (const location of area.locations) {
+    for (const location of visibleLocations) {
       let locationTotal = 0;
       let locationOk = 0;
       let locationIssues = 0;
@@ -198,7 +212,7 @@ export default function AreaDetailPage() {
         for (const checkpoint of item.checkpoints) {
           itemTotal += 1;
           if (checkpoint.status === 'ok') itemOk += 1;
-          else if (checkpoint.status === 'needsReview') itemIssues += 1;
+          else if (checkpointHasIssue(checkpoint)) itemIssues += 1;
           itemPhotoCount += checkpoint.photos.length;
           if (checkpoint.comments.trim()) itemCommentCount += 1;
         }
@@ -241,7 +255,7 @@ export default function AreaDetailPage() {
       locationMetrics,
       itemMetrics,
     };
-  }, [area]);
+  }, [area, visibleLocations]);
 
   function findCheckpoint(locationId: string, itemId: string, checkpointId: string): Checkpoint | null {
     if (!area) return null;
@@ -252,18 +266,26 @@ export default function AreaDetailPage() {
     return item.checkpoints.find((c) => c.id === checkpointId) || null;
   }
 
-  async function updateCheckpointStatus(
+  async function updateCheckpointIssueState(
     locationId: string,
     itemId: string,
     checkpointId: string,
-    newStatus: 'pending' | 'ok' | 'needsReview'
+    issueState: IssueState
   ) {
     if (!project || !area) return;
 
     const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
     if (!checkpoint) return;
 
-    checkpoint.status = newStatus;
+    checkpoint.issueState = issueState;
+    if (issueState === 'none') {
+      checkpoint.status = 'pending';
+      checkpoint.fixStatus = 'pending';
+    } else {
+      checkpoint.status = 'needsReview';
+      checkpoint.fixStatus =
+        issueState === 'verified' ? 'verified' : issueState === 'resolved' ? 'fixed' : 'pending';
+    }
     checkpoint.updatedAt = new Date();
     await saveProject(project);
     scheduleSync(project.id);
@@ -360,12 +382,7 @@ export default function AreaDetailPage() {
 
     if (!customItemsLocation) {
       customItemsLocation = createLocation(targetArea.id, CUSTOM_ITEMS_LOCATION_NAME, targetArea.locations.length);
-      const otherIndex = targetArea.locations.findIndex((location) => location.name === OTHER_LOCATION_NAME);
-      if (otherIndex >= 0) {
-        targetArea.locations.splice(otherIndex, 0, customItemsLocation);
-      } else {
-        targetArea.locations.push(customItemsLocation);
-      }
+      targetArea.locations.push(customItemsLocation);
       targetArea.locations.forEach((location, index) => {
         location.sortOrder = index;
       });
@@ -644,6 +661,7 @@ export default function AreaDetailPage() {
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
+  const editingIssueState = editingCheckpointData ? getCheckpointIssueState(editingCheckpointData) : 'none';
   const supportsCustomItems = !isApartmentArea(area);
 
   function closeCheckpointEditor() {
@@ -658,29 +676,39 @@ export default function AreaDetailPage() {
     setCommentText('');
   }
 
+  function openCheckpointEditor(locationId: string, itemId: string, checkpointId: string, comments: string) {
+    setEditingCheckpoint({ locationId, itemId, checkpointId });
+    setCommentText(comments);
+  }
+
   return (
     <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-zinc-900 flex flex-col overflow-hidden">
-      {/* Header controls */}
       <header className="header-stable shrink-0 border-b z-20">
-        <div className="header-row">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
+        <div className="px-4 py-4">
+          <div className="flex items-start gap-3">
             <Link
               href={`/project/${project.id}`}
-              className="p-1 -ml-1 text-gray-600 dark:text-gray-300"
+              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-300"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="font-medium text-gray-700 dark:text-gray-200 truncate">
-              {area.name}
-            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                Area
+              </p>
+              <h1 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white truncate">
+                {area.name}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">{project.projectName}</p>
+            </div>
+            <button
+              onClick={() => setShowEditArea(true)}
+              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Edit area"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => setShowEditArea(true)}
-            className="ml-auto p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg"
-            aria-label="Edit area"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
@@ -699,261 +727,46 @@ export default function AreaDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         <div className="min-h-[calc(100%+1px)] list-stack">
-        {supportsCustomItems && (
-          <div className="list-card bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-300 dark:border-zinc-700">
-            <div className="text-sm font-medium text-gray-900 dark:text-white mb-3">Custom Items</div>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={customItemName}
-                onChange={(e) => setCustomItemName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void handleAddCustomItem();
-                  }
-                }}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
-                placeholder="Add custom item"
-              />
-              <button
-                onClick={() => void handleAddCustomItem()}
-                disabled={!customItemName.trim()}
-                className="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        )}
-        {area.locations.map((location) => {
-          if (location.name.trim().toLowerCase() === OTHER_LOCATION_NAME.toLowerCase()) {
-            return (
-              <div
-                key={location.id}
-                className="list-card bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-300 dark:border-zinc-700"
-              >
-                <textarea
-                  value={generalNotes}
-                  onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                  onBlur={(e) => {
-                    if (notesTimerRef.current) {
-                      clearTimeout(notesTimerRef.current);
-                    }
-                    notesDraftRef.current = e.target.value;
-                    void persistGeneralNotes(e.target.value);
-                  }}
-                  placeholder="General Notes"
-                  rows={4}
-                  className="w-full resize-none bg-transparent text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
-                />
-              </div>
-            );
-          }
-
-          const locationMetrics = areaDerived?.locationMetrics.get(location.id);
-          const locationStats = locationMetrics?.stats ?? { total: 0, ok: 0, issues: 0 };
-          const locationPending = locationMetrics?.pending ?? 0;
-          const locationPhotoCount = locationMetrics?.photoCount ?? 0;
-          const locationCommentCount = locationMetrics?.commentCount ?? 0;
-          const isExpanded = expandedLocations.has(location.id);
-
-          return (
-            <div
+          {supportsCustomItems && (
+            <CustomItemComposer
+              value={customItemName}
+              onChange={setCustomItemName}
+              onSubmit={() => void handleAddCustomItem()}
+            />
+          )}
+          {visibleLocations.map((location) => (
+            <InspectionLocationCard
               key={location.id}
-              className="bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-300 dark:border-zinc-700 overflow-hidden"
-            >
-              {/* Location Header */}
-              <button
-                onClick={() => toggleLocation(location.id)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white">{location.name}</span>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3">
-                  {locationStats.issues > 0 && (
-                    <span className="stat-chip text-red-600 text-sm">
-                      <AlertTriangle className="w-3 h-3" />
-                      {locationStats.issues}
-                    </span>
-                  )}
-                  {locationPending > 0 && (
-                    <span className="stat-chip text-gray-400 text-sm">
-                      <Circle className="w-3 h-3" />
-                      {locationPending}
-                    </span>
-                  )}
-                  {locationPhotoCount > 0 && (
-                    <span className="stat-chip text-gray-500 dark:text-gray-300 text-sm">
-                      <ImageIcon className="w-3 h-3" />
-                      {locationPhotoCount}
-                    </span>
-                  )}
-                  {locationCommentCount > 0 && (
-                    <span className="stat-chip text-gray-500 dark:text-gray-300 text-sm">
-                      <MessageSquare className="w-3 h-3" />
-                      {locationCommentCount}
-                    </span>
-                  )}
-                  {isExpanded ? (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  )}
-                </div>
-              </button>
-
-              {/* Location Items */}
-              {isExpanded && (
-                <div className="border-t border-gray-100 dark:border-gray-700">
-                  {location.items.map((item) => {
-                    const itemMetrics = areaDerived?.itemMetrics.get(item.id);
-                    const itemStats = itemMetrics?.stats ?? { total: 0, ok: 0, issues: 0 };
-                    const itemPending = itemMetrics?.pending ?? 0;
-                    const itemPhotoCount = itemMetrics?.photoCount ?? 0;
-                    const itemCommentCount = itemMetrics?.commentCount ?? 0;
-                    const isItemExpanded = expandedItems.has(item.id);
-
-                    return (
-                      <div
-                        key={item.id}
-                        ref={(node) => {
-                          itemRefs.current.set(item.id, node);
-                        }}
-                        className="border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                      >
-                        {/* Item Header */}
-                        <button
-                          onClick={() => toggleItem(item.id)}
-                          className="w-full px-4 py-2 pl-8 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Wrench className="w-3 h-3 text-gray-500 dark:text-gray-300" />
-                            <span className="text-sm text-gray-900 dark:text-white">{item.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            {itemStats.issues > 0 && (
-                              <span className="stat-chip text-red-600 text-xs">
-                                <AlertTriangle className="w-3 h-3" />
-                                {itemStats.issues}
-                              </span>
-                            )}
-                            {itemPending > 0 && (
-                              <span className="stat-chip text-gray-400 text-xs">
-                                <Circle className="w-3 h-3" />
-                                {itemPending}
-                              </span>
-                            )}
-                            {itemPhotoCount > 0 && (
-                              <span className="stat-chip text-gray-500 dark:text-gray-300 text-xs">
-                                <ImageIcon className="w-3 h-3" />
-                                {itemPhotoCount}
-                              </span>
-                            )}
-                            {itemCommentCount > 0 && (
-                              <span className="stat-chip text-gray-500 dark:text-gray-300 text-xs">
-                                <MessageSquare className="w-3 h-3" />
-                                {itemCommentCount}
-                              </span>
-                            )}
-                            {isItemExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-gray-400" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4 text-gray-400" />
-                            )}
-                          </div>
-                        </button>
-
-                        {/* Checkpoints */}
-                        {isItemExpanded && (
-                          <div className="bg-gray-100 dark:bg-zinc-900 px-4 py-2 pl-12 space-y-3">
-                            {item.checkpoints.map((checkpoint) => (
-                              <div key={checkpoint.id} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">{checkpoint.name}</span>
-                                    {checkpoint.comments && (
-                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{checkpoint.comments}</p>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => {
-                                        setEditingCheckpoint({
-                                          locationId: location.id,
-                                          itemId: item.id,
-                                          checkpointId: checkpoint.id,
-                                        });
-                                        setCommentText(checkpoint.comments);
-                                      }}
-                                      className={`p-1.5 rounded ${
-                                        checkpoint.comments || checkpoint.photos.length > 0
-                                          ? 'text-gray-700 dark:text-gray-200'
-                                          : 'text-gray-300 dark:text-gray-600'
-                                      }`}
-                                    >
-                                      {(checkpoint.files?.length ?? 0) > 0 ? (
-                                        <Paperclip className="w-4 h-4" />
-                                      ) : checkpoint.photos.length > 0 ? (
-                                        <ImageIcon className="w-4 h-4" />
-                                      ) : (
-                                        <MessageSquare className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        updateCheckpointStatus(
-                                          location.id,
-                                          item.id,
-                                          checkpoint.id,
-                                          checkpoint.status === 'needsReview' ? 'pending' : 'needsReview'
-                                        )
-                                      }
-                                      className={`p-1.5 rounded ${
-                                        checkpoint.status === 'needsReview'
-                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-600'
-                                          : 'text-gray-300 dark:text-gray-600 hover:text-red-600'
-                                      }`}
-                                    >
-                                      <AlertTriangle className="w-5 h-5" />
-                                    </button>
-                                  </div>
-                                </div>
-                                {/* Inline photo thumbnails */}
-                                {checkpoint.photos.length > 0 && (
-                                  <div className="flex gap-1 overflow-x-auto">
-                                    {checkpoint.photos.map((photo) => (
-                                      <img
-                                        key={photo.id}
-                                        src={photo.thumbnail || photo.imageData}
-                                        alt=""
-                                        className="w-10 h-10 rounded object-cover flex-shrink-0 cursor-pointer"
-                                        onClick={() => {
-                                          setEditingCheckpoint({
-                                            locationId: location.id,
-                                            itemId: item.id,
-                                            checkpointId: checkpoint.id,
-                                          });
-                                          setCommentText(checkpoint.comments);
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-          <div className="pt-2">
+              location={location}
+              locationMetric={areaDerived?.locationMetrics.get(location.id)}
+              itemMetrics={areaDerived?.itemMetrics ?? new Map()}
+              expandedItems={expandedItems}
+              isExpanded={expandedLocations.has(location.id)}
+              onToggleLocation={toggleLocation}
+              onToggleItem={toggleItem}
+              onOpenCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
+                openCheckpointEditor(locationId, itemId, checkpointId, comments)
+              }
+              onToggleIssue={(locationId, itemId, checkpointId, nextState) =>
+                void updateCheckpointIssueState(locationId, itemId, checkpointId, nextState)
+              }
+              registerItemRef={(itemId, node) => {
+                itemRefs.current.set(itemId, node);
+              }}
+            />
+          ))}
+          <AreaNotesCard
+            value={generalNotes}
+            onChange={handleGeneralNotesChange}
+            onBlur={(value) => {
+              if (notesTimerRef.current) {
+                clearTimeout(notesTimerRef.current);
+              }
+              notesDraftRef.current = value;
+              void persistGeneralNotes(value);
+            }}
+          />
+          <div className="mt-auto pt-2">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gray-500 dark:bg-gray-300 transition-all"
@@ -964,108 +777,67 @@ export default function AreaDetailPage() {
         </div>
       </main>
 
-      {/* Edit Checkpoint Modal */}
-      {editingCheckpoint && editingCheckpointData && (
-        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white dark:bg-zinc-800 rounded-t-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-            <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{editingCheckpointData.name}</h3>
-              <button
-                onClick={closeCheckpointEditor}
-                className="p-1 text-gray-500 dark:text-gray-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* Photos */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Attachments
-                </label>
-                <PhotoCapture
-                  photos={editingCheckpointData.photos}
-                  files={editingCheckpointData.files ?? []}
-                  onAddPhoto={(imageData, thumbnail) =>
-                    handleAddPhoto(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
-                      imageData,
-                      thumbnail
-                    )
-                  }
-                  onAddPhotos={(photos) =>
-                    handleAddPhotos(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
-                      photos
-                    )
-                  }
-                  onDeletePhoto={(photoId) =>
-                    handleDeletePhoto(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
-                      photoId
-                    )
-                  }
-                  onDeleteFile={(fileId) =>
-                    handleDeleteFile(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
-                      fileId
-                    )
-                  }
-                />
-              </div>
-
-              {/* Comment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Comment
-                </label>
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 min-h-[100px] bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
-                  placeholder="Enter your comment..."
-                />
-                {recentComments.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                      Recent comments
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {recentComments.map((comment) => (
-                        <button
-                          key={comment}
-                          onClick={() => setCommentText(comment)}
-                          className="px-2.5 py-1.5 text-left text-xs rounded-full border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 hover:text-gray-900 dark:hover:text-white"
-                        >
-                          {comment}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="sticky sticky-surface bottom-0 border-t p-4">
-              <button
-                onClick={saveCheckpointChanges}
-                className="w-full px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CheckpointEditorSheet
+        open={!!editingCheckpoint && !!editingCheckpointData}
+        areaName={area.name}
+        checkpoint={editingCheckpointData}
+        commentText={commentText}
+        recentComments={recentComments}
+        issueState={editingIssueState}
+        onClose={closeCheckpointEditor}
+        onCommentChange={setCommentText}
+        onSave={() => void saveCheckpointChanges()}
+        onIssueStateChange={(value) => {
+          if (!editingCheckpoint) return;
+          void updateCheckpointIssueState(
+            editingCheckpoint.locationId,
+            editingCheckpoint.itemId,
+            editingCheckpoint.checkpointId,
+            value
+          );
+        }}
+        onAddPhoto={(imageData, thumbnail) =>
+          editingCheckpoint
+            ? handleAddPhoto(
+                editingCheckpoint.locationId,
+                editingCheckpoint.itemId,
+                editingCheckpoint.checkpointId,
+                imageData,
+                thumbnail
+              )
+            : Promise.resolve()
+        }
+        onAddPhotos={(photos) =>
+          editingCheckpoint
+            ? handleAddPhotos(
+                editingCheckpoint.locationId,
+                editingCheckpoint.itemId,
+                editingCheckpoint.checkpointId,
+                photos
+              )
+            : Promise.resolve()
+        }
+        onDeletePhoto={(photoId) =>
+          editingCheckpoint
+            ? handleDeletePhoto(
+                editingCheckpoint.locationId,
+                editingCheckpoint.itemId,
+                editingCheckpoint.checkpointId,
+                photoId
+              )
+            : Promise.resolve()
+        }
+        onDeleteFile={(fileId) =>
+          editingCheckpoint
+            ? handleDeleteFile(
+                editingCheckpoint.locationId,
+                editingCheckpoint.itemId,
+                editingCheckpoint.checkpointId,
+                fileId
+              )
+            : Promise.resolve()
+        }
+      />
 
       <AreaEditorModal
         open={showEditArea}

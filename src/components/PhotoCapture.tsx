@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, RotateCcw, X, Paperclip } from 'lucide-react';
+import { Camera, RotateCcw, X, Paperclip, Images } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -26,6 +26,7 @@ export default function PhotoCapture({
   const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const maxImageSize = 1280;
@@ -142,9 +143,8 @@ export default function PhotoCapture({
     }
 
     // Reset inputs
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = '';
-    }
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (libraryInputRef.current) libraryInputRef.current.value = '';
   }
 
   useEffect(() => {
@@ -162,14 +162,13 @@ export default function PhotoCapture({
   }, []);
 
   return (
-    <div>
-      {/* Photo thumbnails */}
+    <div className="space-y-3">
       {photos.length > 0 && (
-        <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200"
+              className="group relative aspect-square overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-900"
               onClick={() => setSelectedPhoto(photo.imageData)}
             >
               <img
@@ -182,32 +181,31 @@ export default function PhotoCapture({
                   e.stopPropagation();
                   onDeletePhoto(photo.id);
                 }}
-                className="absolute top-0 right-0 p-0.5 bg-red-500 text-white rounded-bl"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white opacity-100 transition group-hover:bg-red-600"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* File attachments */}
       {files.length > 0 && (
-        <div className="space-y-1 mb-2">
+        <div className="space-y-2">
           {files.map((file) => (
             <div
               key={file.id}
-              className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-1.5 text-xs"
+              className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 px-3 py-2 text-xs"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Paperclip className="w-3.5 h-3.5 text-gray-500" />
+                <Paperclip className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                 <span className="truncate text-gray-700 dark:text-gray-300">
                   {file.name}
                 </span>
               </div>
               <button
                 onClick={() => onDeleteFile(file.id)}
-                className="ml-2 p-1 text-gray-400 hover:text-red-500"
+                className="ml-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                 aria-label={`Delete ${file.name}`}
               >
                 <X className="w-3 h-3" />
@@ -217,22 +215,38 @@ export default function PhotoCapture({
         </div>
       )}
 
-      {/* Add photo buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={openCamera}
-          className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-zinc-600"
-        >
-          <Camera className="w-3 h-3" />
-          Camera
-        </button>
-        {cameraError && <span className="text-[11px] text-gray-500">{cameraError}</span>}
-        {/* Camera input - directly opens camera on mobile */}
+      <div className="rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 p-3">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={openCamera}
+            className="flex items-center gap-2 rounded-xl bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+          >
+            <Camera className="w-4 h-4" />
+            Take photo
+          </button>
+          <button
+            onClick={() => libraryInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+          >
+            <Images className="w-4 h-4" />
+            Photo library
+          </button>
+        </div>
+        {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
+
         <input
           ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
+          onChange={handlePhotoSelect}
+          className="hidden"
+        />
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept="image/*"
+          multiple
           onChange={handlePhotoSelect}
           className="hidden"
         />

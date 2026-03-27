@@ -1,5 +1,6 @@
 export type CheckpointStatus = 'pending' | 'ok' | 'needsReview';
 export type FixStatus = 'pending' | 'fixed' | 'verified';
+export type IssueState = 'none' | 'open' | 'resolved' | 'verified';
 
 export interface PhotoAttachment {
   id: string;
@@ -25,12 +26,33 @@ export interface Checkpoint {
   name: string;
   status: CheckpointStatus;
   fixStatus: FixStatus;
+  issueState?: IssueState;
   comments: string;
   sortOrder: number;
   photos: PhotoAttachment[];
   files: FileAttachment[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export function getCheckpointIssueState(checkpoint: Pick<Checkpoint, 'status' | 'fixStatus' | 'issueState'>): IssueState {
+  if (checkpoint.issueState) {
+    return checkpoint.issueState;
+  }
+  if (checkpoint.status !== 'needsReview') {
+    return 'none';
+  }
+  if (checkpoint.fixStatus === 'verified') {
+    return 'verified';
+  }
+  if (checkpoint.fixStatus === 'fixed') {
+    return 'resolved';
+  }
+  return 'open';
+}
+
+export function checkpointHasIssue(checkpoint: Pick<Checkpoint, 'status' | 'fixStatus' | 'issueState'>) {
+  return getCheckpointIssueState(checkpoint) !== 'none';
 }
 
 export interface Item {
@@ -95,7 +117,7 @@ export function getAreaStats(area: Area) {
       for (const checkpoint of item.checkpoints) {
         total += 1;
         if (checkpoint.status === 'ok') ok += 1;
-        else if (checkpoint.status === 'needsReview') issues += 1;
+        else if (checkpointHasIssue(checkpoint)) issues += 1;
       }
     }
   }
@@ -132,7 +154,7 @@ export function getLocationStats(location: Location) {
     for (const checkpoint of item.checkpoints) {
       total += 1;
       if (checkpoint.status === 'ok') ok += 1;
-      else if (checkpoint.status === 'needsReview') issues += 1;
+      else if (checkpointHasIssue(checkpoint)) issues += 1;
     }
   }
 
@@ -151,7 +173,7 @@ export function getItemStats(item: Item) {
   for (const checkpoint of item.checkpoints) {
     total += 1;
     if (checkpoint.status === 'ok') ok += 1;
-    else if (checkpoint.status === 'needsReview') issues += 1;
+    else if (checkpointHasIssue(checkpoint)) issues += 1;
   }
 
   return {
@@ -175,7 +197,7 @@ export function getProjectStats(project: Project) {
         for (const checkpoint of item.checkpoints) {
           total += 1;
           if (checkpoint.status === 'ok') ok += 1;
-          else if (checkpoint.status === 'needsReview') issues += 1;
+          else if (checkpointHasIssue(checkpoint)) issues += 1;
         }
       }
     }
