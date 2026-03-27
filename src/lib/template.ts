@@ -220,9 +220,13 @@ function reconcileItems(
   });
 }
 
-function populateArea(area: Area, templateLocations: TemplateLocation[]): void {
+function populateArea(
+  area: Area,
+  templateLocations: TemplateLocation[],
+  options?: { preserveExisting?: boolean }
+): void {
   const now = new Date();
-  const existingLocations = area.locations;
+  const existingLocations = options?.preserveExisting ? area.locations : [];
   const usedLocationIds = new Set<string>();
 
   area.locations = templateLocations.map((templateLocation, locationIndex) => {
@@ -268,5 +272,6 @@ export function applyTemplateToArea(area: Area): void {
     return;
   }
 
+  area.locations = [];
   area.locations.push(createNotesLocation(area, 0));
 }

@@ -7,6 +7,7 @@ import { getProject, saveProject, createPhotoAttachment, createLocation, createI
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
 import {
+  areaHasRecordedActivity,
   buildAreaName,
   getAreaFormValue,
   isApartmentArea,
@@ -315,6 +316,19 @@ export default function AreaDetailPage() {
       originalTypeKey !== areaForm.areaTypeKey ||
       originalUnitType !== (areaForm.unitType || undefined);
     if (templateChanged) {
+      if (
+        areaHasRecordedActivity(targetArea) &&
+        !window.confirm(
+          'Changing this area will reset checklist issues, comments, and images for this unit. Continue?'
+        )
+      ) {
+        targetArea.name = area.name;
+        targetArea.areaTypeKey = originalTypeKey;
+        targetArea.unitType = originalUnitType;
+        targetArea.customAreaName = area.customAreaName;
+        targetArea.areaNumber = area.areaNumber;
+        return;
+      }
       applyTemplateToArea(targetArea);
     }
 
