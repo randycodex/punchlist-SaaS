@@ -9,6 +9,7 @@ interface PhotoCaptureProps {
   files: FileAttachment[];
   onAddPhoto: (imageData: string, thumbnail?: string) => void;
   onAddPhotos?: (photos: Array<{ imageData: string; thumbnail?: string }>) => void;
+  onAddFiles?: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
 }
@@ -18,6 +19,7 @@ export default function PhotoCapture({
   files,
   onAddPhoto,
   onAddPhotos,
+  onAddFiles,
   onDeletePhoto,
   onDeleteFile,
 }: PhotoCaptureProps) {
@@ -27,9 +29,11 @@ export default function PhotoCapture({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const maxImageSize = 1280;
+  const thumbnailSize = 360;
 
   function createScaledImageData(img: HTMLImageElement, maxSize: number, quality: number) {
     const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
@@ -42,6 +46,19 @@ export default function PhotoCapture({
     if (!ctx) return img.src;
     ctx.drawImage(img, 0, 0, width, height);
     return canvas.toDataURL('image/jpeg', quality);
+  }
+
+  function getPhotoPayloadFromDataUrl(sourceData: string): Promise<{ imageData: string; thumbnail?: string } | null> {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const imageData = createScaledImageData(img, maxImageSize, 0.72);
+        const thumbnail = createScaledImageData(img, thumbnailSize, 0.6);
+        resolve({ imageData, thumbnail });
+      };
+      img.onerror = () => resolve(null);
+      img.src = sourceData;
+    });
   }
 
   function stopCameraStream() {
@@ -87,12 +104,10 @@ export default function PhotoCapture({
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const frameData = canvas.toDataURL('image/jpeg', 0.92);
-    const img = new window.Image();
-    img.onload = () => {
-      const imageData = createScaledImageData(img, maxImageSize, 0.72);
-      setCapturedBatch((prev) => [...prev, { imageData }]);
-    };
-    img.src = frameData;
+    void getPhotoPayloadFromDataUrl(frameData).then((payload) => {
+      if (!payload) return;
+      setCapturedBatch((prev) => [...prev, payload]);
+    });
   }
 
   function addCapturedBatch() {
@@ -114,14 +129,30 @@ export default function PhotoCapture({
       const reader = new FileReader();
       reader.onload = (event) => {
         const sourceData = event.target?.result as string;
+        void getPhotoPayloadFromDataUrl(sourceData).then(resolve);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
 
-        const img = new window.Image();
-        img.onload = () => {
-          const imageData = createScaledImageData(img, maxImageSize, 0.72);
-          resolve({ imageData });
-        };
-        img.onerror = () => resolve(null);
-        img.src = sourceData;
+  function fileToAttachmentPayload(
+    file: File
+  ): Promise<{ data: string; name: string; mimeType: string; size: number } | null> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = event.target?.result;
+        if (typeof data !== 'string') {
+          resolve(null);
+          return;
+        }
+        resolve({
+          data,
+          name: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size,
+        });
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
@@ -145,6 +176,40 @@ export default function PhotoCapture({
     // Reset inputs
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (libraryInputRef.current) libraryInputRef.current.value = '';
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    const imageFiles = selected.filter((file) => file.type.startsWith('image/'));
+    const nonImageFiles = selected.filter((file) => !file.type.startsWith('image/'));
+
+    if (imageFiles.length > 0) {
+      const processedPhotos = await Promise.all(imageFiles.map((file) => fileToPhotoPayload(file)));
+      const readyPhotos = processedPhotos.filter(
+        (photo): photo is { imageData: string; thumbnail?: string } => photo !== null
+      );
+      if (readyPhotos.length > 0) {
+        if (onAddPhotos) {
+          onAddPhotos(readyPhotos);
+        } else {
+          readyPhotos.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+        }
+      }
+    }
+
+    if (nonImageFiles.length > 0 && onAddFiles) {
+      const processedFiles = await Promise.all(nonImageFiles.map((file) => fileToAttachmentPayload(file)));
+      const readyFiles = processedFiles.filter(
+        (file): file is { data: string; name: string; mimeType: string; size: number } => file !== null
+      );
+      if (readyFiles.length > 0) {
+        onAddFiles(readyFiles);
+      }
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   useEffect(() => {
@@ -199,9 +264,16 @@ export default function PhotoCapture({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Paperclip className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-                <span className="truncate text-gray-700 dark:text-gray-300">
+                <a
+                  href={file.data}
+                  download={file.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="truncate text-gray-700 underline-offset-2 hover:underline dark:text-gray-300"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {file.name}
-                </span>
+                </a>
               </div>
               <button
                 onClick={() => onDeleteFile(file.id)}
@@ -231,6 +303,13 @@ export default function PhotoCapture({
             <Images className="w-4 h-4" />
             Photo library
           </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+          >
+            <Paperclip className="w-4 h-4" />
+            Files
+          </button>
         </div>
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
 
@@ -248,6 +327,13 @@ export default function PhotoCapture({
           accept="image/*"
           multiple
           onChange={handlePhotoSelect}
+          className="hidden"
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileSelect}
           className="hidden"
         />
       </div>

@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { Project, checkpointHasIssue } from '@/types';
 
-// Load logo as base64 for PDF
 async function loadLogoBase64(): Promise<string | null> {
   try {
     const response = await fetch('/uai-logo.png');
@@ -17,7 +16,6 @@ async function loadLogoBase64(): Promise<string | null> {
   }
 }
 
-// Get image dimensions to maintain aspect ratio
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
     const img = new window.Image();
@@ -46,7 +44,7 @@ async function loadLogoAssets(): Promise<LogoAssets> {
       height = maxLogoHeight;
       width = maxLogoHeight * aspectRatio;
     } catch {
-      // Use defaults
+      // Keep default logo dimensions.
     }
   }
 
@@ -57,12 +55,15 @@ function addFooter(pdf: jsPDF, margin: number) {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const totalPages = pdf.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    pdf.setPage(i);
+
+  for (let page = 1; page <= totalPages; page += 1) {
+    pdf.setPage(page);
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
-    pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+    pdf.text(`Page ${page} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, pageHeight - 10, {
+      align: 'right',
+    });
   }
 }
 
@@ -80,8 +81,9 @@ function addProjectPageHeader(
   const logoY = 6;
   const textY = 10.5;
 
-  for (let page = startPage; page <= endPage; page++) {
+  for (let page = startPage; page <= endPage; page += 1) {
     if (page === coverPage) continue;
+
     pdf.setPage(page);
     let textX = margin;
 
@@ -116,12 +118,17 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const photoWidth = (contentWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
   const photoHeight = photoWidth;
 
-  function isGeneralNotesLocation(location: { name: string; items: { name: string; checkpoints: { name: string }[] }[] }) {
+  function isGeneralNotesLocation(location: {
+    name: string;
+    items: { name: string; checkpoints: { name: string }[] }[];
+  }) {
     const locationName = location.name.trim().toLowerCase();
     if (locationName !== 'other') return false;
     if (location.items.length !== 1) return false;
+
     const item = location.items[0];
     if (item.name.trim().toLowerCase() !== 'general notes') return false;
+
     return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
   }
 
@@ -164,12 +171,14 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   }
 
   function renderPhotos(photos: string[], startY: number) {
-    let currentY = startY + 1.5;
-    for (let index = 0; index < photos.length; index++) {
+    const currentY = startY + 1.5;
+
+    for (let index = 0; index < photos.length; index += 1) {
       const col = index % photosPerRow;
       const row = Math.floor(index / photosPerRow);
       const x = margin + col * (photoWidth + photoGap);
       const y = currentY + row * (photoHeight + 3);
+
       try {
         pdf.addImage(photos[index], 'JPEG', x, y, photoWidth, photoHeight);
       } catch {
@@ -177,18 +186,17 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
         pdf.rect(x, y, photoWidth, photoHeight, 'F');
       }
     }
+
     return currentY + Math.ceil(photos.length / photosPerRow) * (photoHeight + 3);
   }
 
-  // Cover page
   let coverY = 25;
 
-  // Add logo at top (maintaining proportions)
   if (logo.base64) {
     try {
       pdf.addImage(logo.base64, 'PNG', pageWidth / 2 - logo.width / 2, coverY, logo.width, logo.height);
       coverY += logo.height + 15;
-    } catch (e) {
+    } catch {
       coverY += 10;
     }
   }
@@ -226,22 +234,24 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   const inspectedAreaNames = project.areas
     .map((area) => area.name.trim())
     .filter((name) => name.length > 0);
+
   if (inspectedAreaNames.length > 0) {
     pdf.setFont('helvetica', 'bold');
     pdf.text('Areas Inspected:', pageWidth / 2, coverY, { align: 'center' });
     coverY += 6;
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(11);
+
     inspectedAreaNames.forEach((name, index) => {
       const line = `${index + 1}. ${name}`;
       const areaLines = pdf.splitTextToSize(line, contentWidth - 20) as string[];
       pdf.text(areaLines, margin + 10, coverY);
       coverY += areaLines.length * 5 + 1;
     });
+
     coverY += 2;
   }
 
-  // Each area with issues starts on a new page
   for (const area of project.areas) {
     const printableLocations = area.locations
       .filter((location) => !isGeneralNotesLocation(location))
@@ -265,19 +275,27 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
 
     for (const location of printableLocations) {
       let locationHeight = 8;
+
       for (const item of location.items) {
         locationHeight += 6;
+
         for (const checkpoint of item.checkpoints) {
           locationHeight += 6;
+
           if (checkpoint.comments) {
             const commentLines = pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[];
             locationHeight += commentLines.length * 4;
           }
+
           const checkpointFiles = checkpoint.files ?? [];
           if (checkpointFiles.length > 0) {
-            const fileLines = pdf.splitTextToSize(`Files: ${checkpointFiles.map((file) => file.name).join(', ')}`, contentWidth - 18) as string[];
+            const fileLines = pdf.splitTextToSize(
+              `Files: ${checkpointFiles.map((file) => file.name).join(', ')}`,
+              contentWidth - 18
+            ) as string[];
             locationHeight += fileLines.length * 4;
           }
+
           locationHeight += estimatePhotoBlockHeight(checkpoint.photos.length);
           locationHeight += 2;
         }
@@ -309,9 +327,13 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
           const commentLines = checkpoint.comments
             ? (pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[])
             : [];
-          const fileLines = checkpointFiles.length > 0
-            ? (pdf.splitTextToSize(`Files: ${checkpointFiles.map((file) => file.name).join(', ')}`, contentWidth - 18) as string[])
-            : [];
+          const fileLines =
+            checkpointFiles.length > 0
+              ? (pdf.splitTextToSize(
+                  `Files: ${checkpointFiles.map((file) => file.name).join(', ')}`,
+                  contentWidth - 18
+                ) as string[])
+              : [];
 
           const estimatedHeight =
             5 +
@@ -360,7 +382,6 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
   }
 
   addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages());
-
 }
 
 export async function generateProjectPDF(project: Project): Promise<Blob> {
@@ -368,7 +389,6 @@ export async function generateProjectPDF(project: Project): Promise<Blob> {
   const logo = await loadLogoAssets();
   renderProjectToPdf(pdf, project, logo);
   addFooter(pdf, 15);
-
   return pdf.output('blob');
 }
 
@@ -389,11 +409,11 @@ export async function generateMultiProjectPDF(projects: Project[]): Promise<Blob
 
 export function downloadPDF(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 }

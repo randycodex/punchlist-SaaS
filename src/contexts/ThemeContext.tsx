@@ -12,14 +12,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
   useEffect(() => {
-    setMounted(true);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const applySystemTheme = () => setTheme(media.matches ? 'dark' : 'light');
-    applySystemTheme();
     if (typeof media.addEventListener === 'function') {
       media.addEventListener('change', applySystemTheme);
     } else {
@@ -35,21 +35,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (mounted) {
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-  }, [theme, mounted]);
+  }, [theme]);
 
   function toggleTheme() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  }
-
-  if (!mounted) {
-    return null;
   }
 
   return (

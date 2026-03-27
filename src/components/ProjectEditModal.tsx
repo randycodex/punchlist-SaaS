@@ -36,16 +36,16 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-zinc-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="sticky sticky-surface top-0 border-b px-4 py-3 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="menu-surface w-full max-w-md overflow-y-auto rounded-[1.75rem] max-h-[90vh]">
+        <div className="sticky sticky-surface top-0 flex items-center justify-between border-b px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Project</h2>
-          <button onClick={onClose} className="p-1 text-gray-500 dark:text-gray-400">
+          <button onClick={onClose} className="rounded-full p-2 text-gray-500 transition hover:bg-black/[0.04] hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.05] dark:hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="space-y-4 p-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Project Name *
@@ -107,17 +107,17 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
           </div>
         </div>
 
-        <div className="sticky sticky-surface bottom-0 border-t p-4 flex gap-3">
+        <div className="sticky sticky-surface bottom-0 flex gap-3 border-t p-5">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!projectName.trim()}
-            className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
+            className="flex-1 rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             Save
           </button>

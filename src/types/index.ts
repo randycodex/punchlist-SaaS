@@ -55,6 +55,27 @@ export function checkpointHasIssue(checkpoint: Pick<Checkpoint, 'status' | 'fixS
   return getCheckpointIssueState(checkpoint) !== 'none';
 }
 
+export function isCheckpointReviewed(checkpoint: Pick<Checkpoint, 'status' | 'fixStatus' | 'issueState'>) {
+  return checkpoint.status === 'ok' || checkpointHasIssue(checkpoint);
+}
+
+export function isAreaInspectionComplete(area: Pick<Area, 'locations'>) {
+  let total = 0;
+
+  for (const location of area.locations) {
+    for (const item of location.items) {
+      for (const checkpoint of item.checkpoints) {
+        total += 1;
+        if (!isCheckpointReviewed(checkpoint)) {
+          return false;
+        }
+      }
+    }
+  }
+
+  return total > 0;
+}
+
 export interface Item {
   id: string;
   locationId: string;

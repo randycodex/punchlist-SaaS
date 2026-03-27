@@ -54,8 +54,8 @@ export default function AreaEditorModal({
   const selectedDefinition = getAreaTypeDefinition(value.areaTypeKey);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-zinc-800 rounded-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="menu-surface w-full max-w-md rounded-[1.75rem] p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
 
         <div className="space-y-4">
@@ -152,7 +152,7 @@ export default function AreaEditorModal({
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
@@ -162,7 +162,7 @@ export default function AreaEditorModal({
               (selectedDefinition.requiresUnitType && !value.unitType) ||
               (selectedDefinition.requiresCustomName && !value.customAreaName.trim())
             }
-            className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             {submitLabel}
           </button>

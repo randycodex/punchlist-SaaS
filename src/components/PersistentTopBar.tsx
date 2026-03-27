@@ -1,19 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { getProject } from '@/lib/db';
+import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil } from 'lucide-react';
+
+const projectTitleCache = new Map<string, string>();
+type SortOption = 'name' | 'recent' | 'progress';
+type HomeMenuState = {
+  context?: 'home' | 'project';
+  sortOption: SortOption;
+  showTrash: boolean;
+  canAddArea: boolean;
+  isSingleProject: boolean;
+  singleProjectName: string;
+  selectionMode?: boolean;
+};
 
 export default function PersistentTopBar() {
   const pathname = usePathname();
-  const { isReady, isSignedIn, signIn, signOut } = useMicrosoftAuth();
+  const { isReady, isSignedIn } = useMicrosoftAuth();
   const { status } = useSyncStatus();
   const showAuth = pathname === '/';
+  const isProjectOverview = /^\/project\/[^/]+$/.test(pathname);
+  const showTopMenu = showAuth || isProjectOverview;
   const [projectTitle, setProjectTitle] = useState('');
+  const [showHomeMenu, setShowHomeMenu] = useState(false);
+  const [showSortSubmenu, setShowSortSubmenu] = useState(false);
+  const [homeMenuState, setHomeMenuState] = useState<HomeMenuState>({
+    context: 'home',
+    sortOption: 'name',
+    showTrash: false,
+    canAddArea: false,
+    isSingleProject: false,
+    singleProjectName: '',
+    selectionMode: false,
+  });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const projectId = useMemo(() => {
+    if (!pathname.startsWith('/project/')) {
+      return '';
+    }
+    const segments = pathname.split('/').filter(Boolean);
+    return segments[1] ?? '';
+  }, [pathname]);
 
   const indicatorClasses = {
     idle: 'opacity-0 bg-green-500 dark:bg-green-400',
@@ -35,22 +69,25 @@ export default function PersistentTopBar() {
     let cancelled = false;
 
     async function loadProjectTitle() {
-      if (!pathname.startsWith('/project/')) {
+      if (!projectId) {
         if (!cancelled) setProjectTitle('');
         return;
       }
 
-      const segments = pathname.split('/').filter(Boolean);
-      const projectId = segments[1];
-      if (!projectId) {
-        if (!cancelled) setProjectTitle('');
+      const cachedTitle = projectTitleCache.get(projectId);
+      if (cachedTitle !== undefined) {
+        if (!cancelled) {
+          setProjectTitle(cachedTitle);
+        }
         return;
       }
 
       try {
         const project = await getProject(projectId);
         if (!cancelled) {
-          setProjectTitle(project?.projectName ?? '');
+          const nextTitle = project?.projectName ?? '';
+          projectTitleCache.set(projectId, nextTitle);
+          setProjectTitle(nextTitle);
         }
       } catch {
         if (!cancelled) {
@@ -63,13 +100,63 @@ export default function PersistentTopBar() {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!showHomeMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !menuRef.current?.contains(target)) {
+        setShowHomeMenu(false);
+        setShowSortSubmenu(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [showHomeMenu]);
+
+  useEffect(() => {
+    function handleHomeMenuState(event: Event) {
+      const customEvent = event as CustomEvent<HomeMenuState>;
+      if (customEvent.detail) {
+        setHomeMenuState(customEvent.detail);
+      }
+    }
+
+    window.addEventListener('punchlist-home-menu-state', handleHomeMenuState as EventListener);
+    return () => {
+      window.removeEventListener('punchlist-home-menu-state', handleHomeMenuState as EventListener);
+    };
+  }, []);
+
+  const sortOptions: Array<{ value: SortOption; label: string; icon: typeof ArrowDownAZ }> = [
+    { value: 'name', label: 'Sort: Name', icon: ArrowDownAZ },
+    { value: 'recent', label: 'Sort: Recent', icon: Clock3 },
+    { value: 'progress', label: 'Sort: Progress', icon: BarChart3 },
+  ];
+
+  function dispatchHomeAction(action: string, sort?: SortOption) {
+    window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action, sort } }));
+    setShowHomeMenu(false);
+    setShowSortSubmenu(false);
+  }
 
   return (
-    <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 pt-[env(safe-area-inset-top)]">
-      <div className="h-14 px-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/" aria-label="Go to projects" className="flex items-center">
+    <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 border-b pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href="/"
+            aria-label="Go to projects"
+            className="flex shrink-0 items-center rounded-2xl"
+            onClick={() => {
+              if (showAuth || homeMenuState.context === 'project') {
+                window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action: 'clear-trash' } }));
+              }
+            }}
+          >
             <Image
               src="/uai-logo.png"
               alt="UAI Logo"
@@ -80,36 +167,115 @@ export default function PersistentTopBar() {
             />
           </Link>
         </div>
-        {showAuth && isReady && (
-          <div className="flex items-center gap-2">
+        {showTopMenu && isReady && (
+          <div ref={menuRef} className="relative flex items-center gap-2">
             <span
               aria-label={indicatorLabel[status]}
               className={`sync-indicator h-2.5 w-2.5 rounded-full ${indicatorClasses[status]}`}
             />
-            {!isSignedIn ? (
-              <button
-                onClick={signIn}
-                className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Sign in
-              </button>
-            ) : (
-              <button
-                onClick={signOut}
-                className="h-9 px-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Sign out
-              </button>
+            <button
+              onClick={() => setShowHomeMenu((current) => !current)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition hover:bg-black/[0.04] hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+              aria-label="Open app menu"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {showHomeMenu && (
+              <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[14rem] rounded-2xl py-1">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSortSubmenu((current) => !current)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <span className="flex items-center gap-3">
+                      <ArrowDownAZ className="h-4 w-4" />
+                      Sort
+                    </span>
+                    <ChevronRight className={`h-4 w-4 transition ${showSortSubmenu ? 'rotate-90' : ''}`} />
+                  </button>
+                  {showSortSubmenu && (
+                    <div className="border-t border-gray-200 px-2 py-1 dark:border-zinc-700">
+                      {sortOptions.map(({ value, label, icon: Icon }) => (
+                        <button
+                          key={value}
+                          onClick={() => dispatchHomeAction('sort', value)}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                            homeMenuState.sortOption === value ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label.replace('Sort: ', '')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {homeMenuState.context === 'project' && (
+                  <button
+                    onClick={() => dispatchHomeAction('edit-project')}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit project
+                  </button>
+                )}
+                {!homeMenuState.isSingleProject && homeMenuState.context !== 'project' && (
+                  <button
+                    onClick={() => dispatchHomeAction('new-project')}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <PlusSquare className="h-4 w-4" />
+                    Add project
+                  </button>
+                )}
+                {homeMenuState.canAddArea && !homeMenuState.isSingleProject && (
+                  <button
+                    onClick={() => dispatchHomeAction('new-area')}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    Add area
+                  </button>
+                )}
+                <button
+                  onClick={() => dispatchHomeAction('toggle-trash')}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {homeMenuState.showTrash ? 'Hide trash' : 'Trash'}
+                </button>
+                {!isSignedIn ? (
+                  <button
+                    onClick={() => {
+                      dispatchHomeAction('auth');
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Sign in
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      dispatchHomeAction('auth');
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
-        {!showAuth && projectTitle && (
-          <div className="max-w-[60vw] flex items-center justify-end gap-2">
+        {!showAuth && !isProjectOverview && projectTitle && (
+          <div className="max-w-[65vw] flex items-center justify-end gap-2">
             <span
               aria-label={indicatorLabel[status]}
               className={`sync-indicator h-2.5 w-2.5 rounded-full shrink-0 ${indicatorClasses[status]}`}
             />
-            <div className="truncate text-right text-sm font-medium text-gray-700 dark:text-gray-200">
+            <div className="truncate text-right text-sm font-semibold tracking-[-0.01em] text-gray-700 dark:text-gray-200">
               {projectTitle}
             </div>
           </div>

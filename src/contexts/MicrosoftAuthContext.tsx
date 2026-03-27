@@ -1,7 +1,12 @@
 'use client';
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { PublicClientApplication, type AccountInfo, type AuthenticationResult } from '@azure/msal-browser';
+import {
+  InteractionRequiredAuthError,
+  PublicClientApplication,
+  type AccountInfo,
+  type AuthenticationResult,
+} from '@azure/msal-browser';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 
 type MicrosoftAuthContextValue = {
@@ -41,7 +46,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(() => !clientId || !tenantId || !redirectUri);
 
   const pca = useMemo(() => {
     if (!clientId || !tenantId || !redirectUri) return null;
@@ -59,10 +64,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    if (!pca) {
-      setIsReady(true);
-      return;
-    }
+    if (!pca) return;
 
     pca
       .initialize()
@@ -125,7 +127,20 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(tokenResult.accessToken);
       setIsSignedIn(true);
       return tokenResult.accessToken;
-    } catch {
+    } catch (error) {
+      if (error instanceof InteractionRequiredAuthError) {
+        try {
+          const tokenResult = await pca.acquireTokenPopup({ scopes: SCOPES, account });
+          if (tokenResult.account) {
+            pca.setActiveAccount(tokenResult.account);
+          }
+          setAccessToken(tokenResult.accessToken);
+          setIsSignedIn(true);
+          return tokenResult.accessToken;
+        } catch {
+          return null;
+        }
+      }
       return null;
     }
   }

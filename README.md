@@ -44,6 +44,24 @@ Notes:
 
 After updating env vars, restart the dev server or redeploy.
 
+## Production Release Notes
+
+Use [`.env.example`](/Users/randy/Documents/X_CODING/punchlist-pwa/.env.example) as the baseline for local and Vercel environment setup.
+
+Required public env vars for production:
+
+```bash
+NEXT_PUBLIC_MS_CLIENT_ID=your_microsoft_app_client_id
+NEXT_PUBLIC_MS_TENANT_ID=your_uai_tenant_id_or_organizations
+NEXT_PUBLIC_MS_REDIRECT_URI=https://your-production-domain/
+```
+
+Vercel notes:
+
+- Set the same `NEXT_PUBLIC_MS_*` variables in the Vercel project for Production and Preview as needed.
+- The Microsoft Entra app registration must include each deployed redirect URI exactly, including trailing slash if used.
+- This repository currently ships without an active service worker. Old PWA caches are cleaned up once on first load after deploy so stale offline assets do not persist across releases.
+
 ## Self-hosted Inter font
 
 Add the Inter variable font file at:

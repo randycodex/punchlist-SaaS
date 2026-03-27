@@ -2,9 +2,9 @@
 
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Circle,
   Image as ImageIcon,
   MessageSquare,
   Paperclip,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
+
+type CheckpointReviewState = 'pending' | 'ok' | Exclude<IssueState, 'none'>;
 
 type Metrics = {
   stats: { total: number; ok: number; issues: number };
@@ -29,7 +31,12 @@ type InspectionLocationCardProps = {
   onToggleLocation: (locationId: string) => void;
   onToggleItem: (itemId: string) => void;
   onOpenCheckpoint: (payload: { locationId: string; itemId: string; checkpointId: string; comments: string }) => void;
-  onToggleIssue: (locationId: string, itemId: string, checkpointId: string, nextState: IssueState) => void;
+  onUpdateCheckpointStatus: (
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    nextState: CheckpointReviewState
+  ) => void;
   registerItemRef: (itemId: string, node: HTMLDivElement | null) => void;
 };
 
@@ -42,52 +49,31 @@ export default function InspectionLocationCard({
   onToggleLocation,
   onToggleItem,
   onOpenCheckpoint,
-  onToggleIssue,
+  onUpdateCheckpointStatus,
   registerItemRef,
 }: InspectionLocationCardProps) {
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
-  const locationPending = locationMetric?.pending ?? 0;
-  const locationPhotoCount = locationMetric?.photoCount ?? 0;
-  const locationCommentCount = locationMetric?.commentCount ?? 0;
+  const locationMetricsLabel =
+    locationStats.total > 0
+      ? `${locationStats.total} items${locationStats.issues > 0 ? ` · ${locationStats.issues} issues` : ''}`
+      : 'No items yet';
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-300 bg-white/90 dark:border-zinc-700 dark:bg-zinc-800">
+    <div className="card-surface-subtle overflow-hidden rounded-[1.6rem]">
       <button
         onClick={() => onToggleLocation(location.id)}
-        className="w-full px-4 py-4 text-left transition hover:bg-gray-50 dark:hover:bg-zinc-700/60"
+        className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
       >
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-base font-semibold text-gray-900 dark:text-white">{location.name}</div>
-            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {locationStats.total > 0 ? `${locationStats.total} checkpoints` : 'No checklist items yet'}
+          <div className="min-w-0 flex-1">
+            <div className="text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+              {location.name}
+            </div>
+            <div className={`mt-1 text-sm ${locationStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+              {locationMetricsLabel}
             </div>
           </div>
           <div className="ml-4 flex items-center gap-2 sm:gap-3">
-            {locationStats.issues > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 dark:bg-red-900/20">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {locationStats.issues}
-              </span>
-            )}
-            {locationPending > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-zinc-900 dark:text-gray-400">
-                <Circle className="w-3.5 h-3.5" />
-                {locationPending}
-              </span>
-            )}
-            {locationPhotoCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-900 dark:text-gray-300">
-                <ImageIcon className="w-3.5 h-3.5" />
-                {locationPhotoCount}
-              </span>
-            )}
-            {locationCommentCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-900 dark:text-gray-300">
-                <MessageSquare className="w-3.5 h-3.5" />
-                {locationCommentCount}
-              </span>
-            )}
             {isExpanded ? (
               <ChevronDown className="w-5 h-5 text-gray-400" />
             ) : (
@@ -115,7 +101,7 @@ export default function InspectionLocationCard({
               >
                 <button
                   onClick={() => onToggleItem(item.id)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left transition hover:border-gray-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-950"
+                  className="w-full rounded-[1.35rem] border border-gray-200 bg-gray-50 px-4 py-3 text-left transition hover:border-gray-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-950"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex items-center gap-2">
@@ -123,35 +109,24 @@ export default function InspectionLocationCard({
                         <Wrench className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{item.name}</div>
-                        <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                          {itemStats.total} checkpoints
+                        <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
+                        <div className={`mt-1 text-sm ${itemStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {itemStats.total > 0
+                            ? `${itemStats.total} items${itemStats.issues > 0 ? ` · ${itemStats.issues} issues` : ''}`
+                            : 'No items yet'}
                         </div>
                       </div>
                     </div>
                     <div className="ml-4 flex items-center gap-2 sm:gap-3">
-                      {itemStats.issues > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 dark:bg-red-900/20">
-                          <AlertTriangle className="w-3 h-3" />
-                          {itemStats.issues}
-                        </span>
-                      )}
-                      {itemPending > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-500 dark:bg-zinc-800 dark:text-gray-400">
-                          <Circle className="w-3 h-3" />
-                          {itemPending}
-                        </span>
-                      )}
-                      {itemPhotoCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600 dark:bg-zinc-800 dark:text-gray-300">
-                          <ImageIcon className="w-3 h-3" />
-                          {itemPhotoCount}
-                        </span>
-                      )}
-                      {itemCommentCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600 dark:bg-zinc-800 dark:text-gray-300">
-                          <MessageSquare className="w-3 h-3" />
-                          {itemCommentCount}
+                      {(itemCommentCount > 0 || itemPhotoCount > 0 || itemPending > 0) && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {[
+                            itemPending > 0 ? `${itemPending} pending` : null,
+                            itemCommentCount > 0 ? `${itemCommentCount} notes` : null,
+                            itemPhotoCount > 0 ? `${itemPhotoCount} photos` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                       )}
                       {isItemExpanded ? (
@@ -181,12 +156,20 @@ export default function InspectionLocationCard({
                               comments: checkpoint.comments,
                             })
                           }
-                          onToggleIssue={() =>
-                            onToggleIssue(
+                          onToggleOk={() =>
+                            onUpdateCheckpointStatus(
                               location.id,
                               item.id,
                               checkpoint.id,
-                              issueState === 'none' ? 'open' : 'none'
+                              checkpoint.status === 'ok' ? 'pending' : 'ok'
+                            )
+                          }
+                          onToggleIssue={() =>
+                            onUpdateCheckpointStatus(
+                              location.id,
+                              item.id,
+                              checkpoint.id,
+                              issueState === 'open' ? 'pending' : 'open'
                             )
                           }
                         />
@@ -207,18 +190,24 @@ function CheckpointRow({
   checkpoint,
   issueState,
   onOpen,
+  onToggleOk,
   onToggleIssue,
 }: {
   checkpoint: Checkpoint;
   issueState: IssueState;
   onOpen: () => void;
+  onToggleOk: () => void;
   onToggleIssue: () => void;
 }) {
+  const isOk = checkpoint.status === 'ok';
+
   return (
     <div
-      className={`rounded-2xl border px-3 py-3 transition ${
-        issueState === 'open'
-          ? 'border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/20'
+      className={`rounded-[1.35rem] border px-3 py-3 transition ${
+        isOk
+          ? 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+          : issueState === 'open'
+          ? 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/15'
           : issueState === 'resolved' || issueState === 'verified'
             ? 'border-gray-300 bg-gray-100 dark:border-zinc-600 dark:bg-zinc-950'
             : 'border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900'
@@ -227,11 +216,17 @@ function CheckpointRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-gray-900 dark:text-white">{checkpoint.name}</div>
-          {(checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0 || issueState !== 'none') && (
+          {(checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0 || issueState !== 'none' || isOk) && (
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              {isOk && (
+                <span className="pill-chip px-2.5 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  <CheckCircle2 className="w-3 h-3" />
+                  OK
+                </span>
+              )}
               {issueState !== 'none' && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                  className={`pill-chip px-2.5 py-1 ${
                     issueState === 'open'
                       ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                       : 'bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300'
@@ -239,26 +234,26 @@ function CheckpointRow({
                 >
                   <AlertTriangle className="w-3 h-3" />
                   {issueState === 'open'
-                    ? 'Open issue'
+                    ? 'Issue'
                     : issueState === 'resolved'
                       ? 'Resolved'
                       : 'Verified'}
                 </span>
               )}
               {checkpoint.comments && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
+                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
                   <MessageSquare className="w-3 h-3" />
-                  Note added
+                  Note
                 </span>
               )}
               {checkpoint.photos.length > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
+                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
                   <ImageIcon className="w-3 h-3" />
                   {checkpoint.photos.length} photo{checkpoint.photos.length === 1 ? '' : 's'}
                 </span>
               )}
               {(checkpoint.files?.length ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
+                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
                   <Paperclip className="w-3 h-3" />
                   {checkpoint.files?.length} file{(checkpoint.files?.length ?? 0) === 1 ? '' : 's'}
                 </span>
@@ -271,8 +266,19 @@ function CheckpointRow({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
+            onClick={onToggleOk}
+            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+              isOk
+                ? 'border-emerald-200 bg-emerald-600 text-white dark:border-emerald-800 dark:bg-emerald-600'
+                : 'border-gray-200 text-gray-400 hover:border-emerald-200 hover:text-emerald-600 dark:border-zinc-700 dark:text-gray-500'
+            }`}
+            aria-label={`Mark ${checkpoint.name} as ok`}
+          >
+            <CheckCircle2 className="w-5 h-5" />
+          </button>
+          <button
             onClick={onOpen}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
               checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0
                 ? 'border-gray-300 bg-gray-900 text-white dark:border-zinc-600 dark:bg-white dark:text-gray-900'
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-700 dark:border-zinc-700 dark:text-gray-500 dark:hover:border-zinc-600 dark:hover:text-gray-200'
@@ -289,7 +295,7 @@ function CheckpointRow({
           </button>
           <button
             onClick={onToggleIssue}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
               issueState === 'open'
                 ? 'border-red-200 bg-red-600 text-white dark:border-red-800 dark:bg-red-600'
                 : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-600 dark:border-zinc-700 dark:text-gray-500'

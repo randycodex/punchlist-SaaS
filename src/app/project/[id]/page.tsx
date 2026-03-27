@@ -2,10 +2,11 @@
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, getProjectStats, getAreaStats, getReviewMetrics } from '@/types';
+import { Project, getAreaStats, getReviewMetrics } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
+import ProjectEditModal from '@/components/ProjectEditModal';
 import { buildAreaName, getDefaultAreaFormValue, type AreaTypeKey } from '@/lib/areas';
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
@@ -17,15 +18,8 @@ import {
   Building2,
   ChevronRight,
   Trash2,
-  ChevronDown,
-  CheckCircle,
-  AlertTriangle,
-  Circle,
-  MapPin,
-  User,
-  Image as ImageIcon,
-  MessageSquare,
   RotateCcw,
+  Plus,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -61,11 +55,11 @@ const AreaCard = memo(function AreaCard({
   onToggleSelection,
 }: AreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
-  const pending = metric?.pending ?? 0;
-  const areaPhotoCount = metric?.photoCount ?? 0;
-  const areaCommentCount = metric?.commentCount ?? 0;
   const progress = metric?.progress ?? 0;
-
+  const metricsLabel =
+    areaStats.total > 0
+      ? `${areaStats.total} items${areaStats.issues > 0 ? ` · ${areaStats.issues} issues` : ''}`
+      : 'No items yet';
   return (
     <div
       onClick={() => {
@@ -73,10 +67,10 @@ const AreaCard = memo(function AreaCard({
           onToggleSelection(area.id);
         }
       }}
-      className={`block rounded-lg border p-4 transition-colors ${
+      className={`block rounded-2xl border p-4 transition-colors ${
         isSelected
           ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
-          : 'bg-gray-50 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-zinc-500'
+          : 'bg-white/90 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-zinc-500'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -85,51 +79,29 @@ const AreaCard = memo(function AreaCard({
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
-          className="flex-1"
+          className="flex-1 min-w-0"
         >
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-gray-900 dark:text-white">{area.name}</h3>
-            <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">{areaStats.total} items</span>
-            {area.isComplete && <CheckCircle className="w-4 h-4 text-gray-500 dark:text-gray-300" />}
-          </div>
-          <div className="flex items-center gap-4 mt-2 text-sm">
-            {pending > 0 && (
-              <span className="text-gray-400 flex items-center gap-1">
-                <Circle className="w-3 h-3" />
-                {pending}
-              </span>
-            )}
-            {areaStats.issues > 0 && (
-              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                {areaStats.issues}
-              </span>
-            )}
-            {areaPhotoCount > 0 && (
-              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
-                <ImageIcon className="w-3 h-3" />
-                {areaPhotoCount}
-              </span>
-            )}
-            {areaCommentCount > 0 && (
-              <span className="text-gray-500 dark:text-gray-300 flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />
-                {areaCommentCount}
-              </span>
-            )}
-          </div>
-          {areaStats.total > 0 && (
-            <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gray-500 dark:bg-gray-300 transition-all" style={{ width: `${progress}%` }} />
+          <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-2">
+              <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
             </div>
-          )}
+            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+              {metricsLabel}
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
+              <div
+                className={`${areaStats.issues > 0 ? 'bg-red-500/80 dark:bg-red-400/80' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
+                style={{ width: `${Math.max(progress, 4)}%` }}
+              />
+            </div>
+          </div>
         </Link>
         <Link
           href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
-          className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:text-gray-200"
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -151,13 +123,11 @@ export default function ProjectDetailPage() {
   const [newAreaForm, setNewAreaForm] = useState(getDefaultAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('name');
-  const [showSortMenu, setShowSortMenu] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const sortButtonRef = useRef<HTMLButtonElement | null>(null);
-  const sortMenuRef = useRef<HTMLDivElement | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
@@ -168,12 +138,6 @@ export default function ProjectDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-
-  const sortLabels: Record<SortOption, string> = {
-    name: 'Name',
-    recent: 'Recent',
-    progress: 'Progress',
-  };
 
   useEffect(() => {
     if (!id) {
@@ -197,23 +161,6 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!showSortMenu) return;
-    const onDocInteract = (event: Event) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      const inButton = !!sortButtonRef.current?.contains(target);
-      const inMenu = !!sortMenuRef.current?.contains(target);
-      if (!inButton && !inMenu) {
-        setShowSortMenu(false);
-      }
-    };
-    document.addEventListener('pointerdown', onDocInteract, true);
-    return () => {
-      document.removeEventListener('pointerdown', onDocInteract, true);
-    };
-  }, [showSortMenu]);
-
-  useEffect(() => {
     return () => {
       if (syncTimerRef.current) {
         clearTimeout(syncTimerRef.current);
@@ -226,7 +173,15 @@ export default function ProjectDetailPage() {
   function handleSortChange(option: SortOption) {
     setSortOption(option);
     localStorage.setItem(SORT_STORAGE_KEY, option);
-    setShowSortMenu(false);
+  }
+
+  async function handleEditProject(updates: Partial<Project>) {
+    if (!editingProject) return;
+    Object.assign(editingProject, updates);
+    await saveProject(editingProject);
+    scheduleSync(editingProject.id);
+    setEditingProject(null);
+    await loadProject();
   }
 
   async function loadProject() {
@@ -422,7 +377,11 @@ export default function ProjectDetailPage() {
         setSyncStatus('needs-auth');
         return;
       }
-      await pushProjectsToOneDrive(token, dirtyProjectIds);
+      const pushResult = await pushProjectsToOneDrive(token, dirtyProjectIds);
+      if (pushResult.conflicts.length > 0) {
+        await syncProjectsWithOneDrive(token);
+        await loadProject();
+      }
       setSyncStatus('idle');
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
@@ -455,6 +414,76 @@ export default function ProjectDetailPage() {
     setActionSheet(null);
     setSelectedAreaIds(new Set());
   }
+
+  useEffect(() => {
+    function handleTopMenuAction(event: Event) {
+      const customEvent = event as CustomEvent<{ action: string; sort?: SortOption }>;
+      const detail = customEvent.detail;
+      if (!detail || !project) return;
+
+      if (detail.action === 'sort' && detail.sort) {
+        handleSortChange(detail.sort);
+        return;
+      }
+
+      if (detail.action === 'new-area') {
+        setShowAddArea(true);
+        return;
+      }
+
+      if (detail.action === 'edit-project') {
+        setEditingProject(project);
+        return;
+      }
+
+      if (detail.action === 'toggle-selection') {
+        if (deleteMode) {
+          cancelSelectionMode();
+        } else {
+          setDeleteMode(true);
+          setSelectedAreaIds(new Set());
+        }
+        return;
+      }
+
+      if (detail.action === 'toggle-trash') {
+        setShowTrash((current) => !current);
+        setDeleteMode(false);
+        setSelectedAreaIds(new Set());
+        setActionSheet(null);
+        return;
+      }
+
+      if (detail.action === 'clear-trash') {
+        setShowTrash(false);
+        setDeleteMode(false);
+        setSelectedAreaIds(new Set());
+        setActionSheet(null);
+      }
+    }
+
+    window.addEventListener('punchlist-home-menu-action', handleTopMenuAction as EventListener);
+    return () => {
+      window.removeEventListener('punchlist-home-menu-action', handleTopMenuAction as EventListener);
+    };
+  }, [project, deleteMode]);
+
+  useEffect(() => {
+    if (!project) return;
+    window.dispatchEvent(
+      new CustomEvent('punchlist-home-menu-state', {
+        detail: {
+          context: 'project',
+          sortOption,
+          showTrash,
+          canAddArea: true,
+          isSingleProject: true,
+          singleProjectName: project.projectName,
+          selectionMode: deleteMode,
+        },
+      })
+    );
+  }, [project, sortOption, showTrash, deleteMode]);
 
   function isListAtTop() {
     return (listRef.current?.scrollTop ?? 0) <= 8;
@@ -504,103 +533,52 @@ export default function ProjectDetailPage() {
     return null;
   }
 
-  const stats = getProjectStats(project);
-  const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
-  const projectAddressMapUrl = project.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`
-    : '';
-
   return (
-    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-zinc-900 flex flex-col overflow-hidden">
-      {/* Header controls */}
+    <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
       <header className="header-stable shrink-0 border-b z-20">
-        <div className="header-row">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
-            <Link href="/" className="p-1 -ml-1 text-gray-600 dark:text-gray-300">
+        <div className="mx-auto flex h-[4.75rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
+          <div className="flex w-full items-center gap-3">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div className="relative">
-              <button
-                ref={sortButtonRef}
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                className="h-9 flex items-center justify-between gap-1 min-w-[6.5rem] px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                {sortLabels[sortOption]}
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              {showSortMenu && (
-                <div
-                  ref={sortMenuRef}
-                  className="absolute left-0 mt-1 w-36 max-w-[calc(100vw-1rem)] bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
-                >
-                  {(['name', 'recent', 'progress'] as SortOption[]).map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => handleSortChange(option)}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                        sortOption === option ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {sortLabels[option]}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-lg font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+                {project.projectName}
+              </h1>
+              <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
+                {project.address || 'Project dashboard'}
+              </p>
             </div>
-            {!deleteMode ? (
-              <button
-                onClick={() => {
-                  setDeleteMode(true);
-                  setSelectedAreaIds(new Set());
-                }}
-                className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Select
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={cancelSelectionMode}
-                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedAreaIds.size === 0) return;
-                    setActionSheet('delete');
-                  }}
-                  disabled={selectedAreaIds.size === 0}
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 disabled:opacity-40"
-                  aria-label="Delete selected areas"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
-            )}
-          </div>
-          <div className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 shrink-0">
-            {!deleteMode && (
-              <button
-                onClick={() => {
-                  setShowTrash((current) => !current);
-                  setDeleteMode(false);
-                  setSelectedAreaIds(new Set());
-                  setActionSheet(null);
-                }}
-                className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1.5 ${
-                  showTrash
-                    ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                aria-label="Delete areas"
-              >
-                <Trash2 className="w-4 h-4" />
-                Trash
-              </button>
+            {project.inspector && (
+              <span className="ml-4 shrink-0 text-sm text-gray-500 dark:text-gray-400">
+                {project.inspector}
+              </span>
             )}
           </div>
         </div>
+        {deleteMode && (
+          <div className="header-row mx-auto w-full max-w-6xl sm:px-5">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
+              <button
+                onClick={cancelSelectionMode}
+                className="flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium text-gray-600 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.06]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedAreaIds.size === 0) return;
+                  setActionSheet('delete');
+                }}
+                disabled={selectedAreaIds.size === 0}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100 dark:bg-red-900/20 disabled:opacity-40"
+                aria-label="Delete selected areas"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {syncError && (
@@ -611,41 +589,26 @@ export default function ProjectDetailPage() {
       {/* Areas List */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:px-5"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
         onTouchCancelCapture={handlePullEnd}
       >
         {!showTrash && activeAreas.length === 0 ? (
-          <div className="min-h-[calc(100%+1px)] flex flex-col">
-            <div className="flex justify-center py-12">
-              <button
-                onClick={() => setShowAddArea(true)}
-                className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
-              >
-                Add Area
-              </button>
-            </div>
-            <div className="mt-auto pt-2 flex items-end justify-between gap-4">
-              {project.address && (
-                <a
-                  href={projectAddressMapUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
-                >
-                  <MapPin className="w-4 h-4" />
-                  <span className="truncate">{project.address}</span>
-                </a>
-              )}
-              {project.inspector && (
-                <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                  <User className="w-4 h-4" />
-                  {project.inspector}
+          <div className="mx-auto flex min-h-[calc(100%+1px)] w-full max-w-6xl flex-col">
+            <div className="flex flex-1 items-center justify-center py-12">
+              <div className="w-full max-w-sm rounded-[1.75rem] border border-dashed border-gray-300 bg-white/70 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/70">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-500 dark:bg-zinc-900 dark:text-gray-300">
+                  <Building2 className="h-7 w-7" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">No areas yet</h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Add the first area to start walking the punch list.
                 </p>
-              )}
+              </div>
             </div>
+            <div className="mt-auto pt-2" />
           </div>
         ) : showTrash ? (
           trashedAreas.length === 0 ? (
@@ -655,7 +618,7 @@ export default function ProjectDetailPage() {
               <p className="text-gray-500 dark:text-gray-400">Deleted areas will show up here.</p>
             </div>
           ) : (
-            <div className="list-stack">
+            <div className="list-stack mx-auto w-full max-w-6xl">
               {trashedAreas.map((area) => {
                 const deletedAt = area.deletedAt ?? new Date();
                 return (
@@ -684,7 +647,7 @@ export default function ProjectDetailPage() {
             </div>
           )
         ) : (
-          <div className="min-h-[calc(100%+1px)] list-stack">
+          <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
             {sortedAreas.map((area) => {
               const metric = areaMetrics.get(area.id);
               const isSelected = selectedAreaIds.has(area.id);
@@ -700,45 +663,22 @@ export default function ProjectDetailPage() {
                 />
               );
             })}
-            <div className="mt-auto pt-2">
-              <div className="mb-4">
-                <button
-                  onClick={() => setShowAddArea(true)}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
-                >
-                  Add Area
-                </button>
-              </div>
-              {stats.total > 0 && (
-                <div className="mb-3">
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-gray-500 dark:bg-gray-300 transition-all" style={{ width: `${reviewMetrics.reviewedPercent}%` }} />
-                  </div>
-                </div>
-              )}
-              <div className="flex items-end justify-between gap-4">
-                {project.address && (
-                  <a
-                    href={projectAddressMapUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span className="truncate">{project.address}</span>
-                  </a>
-                )}
-                {project.inspector && (
-                  <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    <User className="w-4 h-4" />
-                    {project.inspector}
-                  </p>
-                )}
-              </div>
-            </div>
+            <div className="mt-auto pt-2" />
           </div>
         )}
       </main>
+
+      {!showTrash && !deleteMode && (
+        <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-20 -translate-x-1/2">
+          <button
+            onClick={() => setShowAddArea(true)}
+            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-gray-900 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+          >
+            <Plus className="h-4 w-4" />
+            Add Area
+          </button>
+        </div>
+      )}
 
       <AreaEditorModal
         open={showAddArea}
@@ -754,10 +694,18 @@ export default function ProjectDetailPage() {
         submitLabel="Add"
       />
 
+      {editingProject && (
+        <ProjectEditModal
+          project={editingProject}
+          onSave={(updates) => void handleEditProject(updates)}
+          onClose={() => setEditingProject(null)}
+        />
+      )}
+
       {actionSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
           <div className="w-full max-w-md">
-            <div className="rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
+            <div className="menu-surface overflow-hidden rounded-[1.75rem]">
               <button
                 onClick={() => void handleDeleteSelectedAreas()}
                 className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"

@@ -46,27 +46,43 @@ export default function RootLayout({
             })();
           `}
         </Script>
-        <Script id="disable-pwa-cache" strategy="beforeInteractive">
+        <Script id="pwa-cleanup" strategy="beforeInteractive">
           {`
             (function () {
-              if (!('serviceWorker' in navigator)) return;
+              if (!('serviceWorker' in navigator) || !('localStorage' in window)) return;
+              var cleanupKey = 'punchlist:pwa-cleanup-v1';
+              try {
+                if (localStorage.getItem(cleanupKey) === 'done') return;
+              } catch (e) {}
 
               window.addEventListener('load', function () {
-                navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                  registrations.forEach(function (registration) {
-                    registration.unregister();
-                  });
+                var unregisterPromise = navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                  return Promise.all(
+                    registrations.map(function (registration) {
+                      return registration.unregister();
+                    })
+                  );
                 });
 
+                var cacheCleanupPromise = Promise.resolve();
                 if ('caches' in window) {
-                  caches.keys().then(function (keys) {
+                  cacheCleanupPromise = caches.keys().then(function (keys) {
+                    var staleKeys = keys.filter(function (key) {
+                      return key.indexOf('workbox') !== -1 || key.indexOf('precache') !== -1 || key.indexOf('runtime') !== -1;
+                    });
                     return Promise.all(
-                      keys.map(function (key) {
+                      staleKeys.map(function (key) {
                         return caches.delete(key);
                       })
                     );
                   });
                 }
+
+                Promise.all([unregisterPromise, cacheCleanupPromise]).finally(function () {
+                  try {
+                    localStorage.setItem(cleanupKey, 'done');
+                  } catch (e) {}
+                });
               });
             })();
           `}

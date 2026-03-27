@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, Area, Checkpoint, getReviewMetrics, getCheckpointIssueState, checkpointHasIssue, type IssueState } from '@/types';
-import { getProject, saveProject, createPhotoAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
+import {
+  Project,
+  Area,
+  Checkpoint,
+  getReviewMetrics,
+  getCheckpointIssueState,
+  checkpointHasIssue,
+  isAreaInspectionComplete,
+  type IssueState,
+} from '@/types';
+import { getAllProjects, getProject, saveProject, createPhotoAttachment, createFileAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
 import {
@@ -52,6 +61,8 @@ type LocationMetrics = {
   commentCount: number;
 };
 
+type CheckpointReviewState = 'pending' | 'ok' | 'open' | 'resolved' | 'verified';
+
 export default function AreaDetailPage() {
   const params = useParams<{ id: string; areaId: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -76,6 +87,7 @@ export default function AreaDetailPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
+  const [returnToHome, setReturnToHome] = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
@@ -151,6 +163,8 @@ export default function AreaDetailPage() {
   async function loadData() {
     if (!id || !areaId) return;
     try {
+      const allProjects = await getAllProjects();
+      setReturnToHome(allProjects.filter((entry) => !entry.deletedAt).length === 1);
       const projectData = await getProject(id);
       if (projectData) {
         if (projectData.deletedAt) {
@@ -266,27 +280,39 @@ export default function AreaDetailPage() {
     return item.checkpoints.find((c) => c.id === checkpointId) || null;
   }
 
-  async function updateCheckpointIssueState(
+  function syncAreaCompletion(targetArea: Area) {
+    targetArea.isComplete = isAreaInspectionComplete(targetArea);
+    targetArea.updatedAt = new Date();
+  }
+
+  async function updateCheckpointReviewState(
     locationId: string,
     itemId: string,
     checkpointId: string,
-    issueState: IssueState
+    nextState: CheckpointReviewState | 'pending'
   ) {
     if (!project || !area) return;
 
     const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
     if (!checkpoint) return;
 
-    checkpoint.issueState = issueState;
-    if (issueState === 'none') {
+    if (nextState === 'pending') {
+      checkpoint.issueState = 'none';
       checkpoint.status = 'pending';
       checkpoint.fixStatus = 'pending';
+    } else if (nextState === 'ok') {
+      checkpoint.issueState = 'none';
+      checkpoint.status = 'ok';
+      checkpoint.fixStatus = 'pending';
     } else {
+      const nextIssueState: Exclude<IssueState, 'none'> = nextState;
+      checkpoint.issueState = nextIssueState;
       checkpoint.status = 'needsReview';
       checkpoint.fixStatus =
-        issueState === 'verified' ? 'verified' : issueState === 'resolved' ? 'fixed' : 'pending';
+        nextIssueState === 'verified' ? 'verified' : nextIssueState === 'resolved' ? 'fixed' : 'pending';
     }
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
     setArea({ ...area });
@@ -317,6 +343,7 @@ export default function AreaDetailPage() {
     }
     setEditingCheckpoint(null);
     setCommentText('');
+    syncAreaCompletion(area);
     setArea({ ...area });
   }
 
@@ -355,7 +382,7 @@ export default function AreaDetailPage() {
       applyTemplateToArea(targetArea);
     }
 
-    targetArea.updatedAt = new Date();
+    syncAreaCompletion(targetArea);
     await saveProject(project);
     scheduleSync(project.id);
 
@@ -392,7 +419,7 @@ export default function AreaDetailPage() {
     const checkpoint = createCheckpoint(item.id, 'Notes', 0);
     item.checkpoints.push(checkpoint);
     customItemsLocation.items.push(item);
-    targetArea.updatedAt = new Date();
+    syncAreaCompletion(targetArea);
 
     await saveProject(project);
     scheduleSync(project.id);
@@ -419,6 +446,7 @@ export default function AreaDetailPage() {
     const photo = createPhotoAttachment(checkpointId, imageData, thumbnail);
     checkpoint.photos.push(photo);
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
     setArea({ ...area });
@@ -441,6 +469,7 @@ export default function AreaDetailPage() {
       );
     }
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
     setArea({ ...area });
@@ -459,6 +488,37 @@ export default function AreaDetailPage() {
 
     checkpoint.photos = checkpoint.photos.filter((p) => p.id !== photoId);
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
+    await saveProject(project);
+    scheduleSync(project.id);
+    setArea({ ...area });
+  }
+
+  async function handleAddFiles(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    files: Array<{ data: string; name: string; mimeType: string; size: number }>
+  ) {
+    if (!project || !area || files.length === 0) return;
+
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
+    if (!checkpoint) return;
+    checkpoint.files = checkpoint.files ?? [];
+
+    for (const fileInput of files) {
+      checkpoint.files.push(
+        createFileAttachment(
+          checkpointId,
+          fileInput.data,
+          fileInput.name,
+          fileInput.mimeType,
+          fileInput.size
+        )
+      );
+    }
+    checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
     setArea({ ...area });
@@ -477,6 +537,7 @@ export default function AreaDetailPage() {
 
     checkpoint.files = (checkpoint.files ?? []).filter((f) => f.id !== fileId);
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
     setArea({ ...area });
@@ -584,7 +645,11 @@ export default function AreaDetailPage() {
         setSyncStatus('needs-auth');
         return;
       }
-      await pushProjectsToOneDrive(token, dirtyProjectIds);
+      const pushResult = await pushProjectsToOneDrive(token, dirtyProjectIds);
+      if (pushResult.conflicts.length > 0) {
+        await syncProjectsWithOneDrive(token);
+        await loadData();
+      }
       setSyncStatus('idle');
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
@@ -654,14 +719,17 @@ export default function AreaDetailPage() {
     return null;
   }
 
-  const stats = areaDerived?.stats ?? { total: 0, ok: 0, issues: 0 };
-  const pendingCount = areaDerived?.pending ?? 0;
-  const reviewedPercent = areaDerived?.reviewedPercent ?? 0;
-  const issuePercent = areaDerived?.issuePercent ?? 0;
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
-  const editingIssueState = editingCheckpointData ? getCheckpointIssueState(editingCheckpointData) : 'none';
+  const editingStatusValue = editingCheckpointData
+    ? editingCheckpointData.status === 'ok'
+      ? 'ok'
+      : (() => {
+          const issueState = getCheckpointIssueState(editingCheckpointData);
+          return issueState === 'none' ? 'pending' : issueState;
+        })()
+    : 'pending';
   const supportsCustomItems = !isApartmentArea(area);
 
   function closeCheckpointEditor() {
@@ -682,28 +750,24 @@ export default function AreaDetailPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] bg-gray-50 dark:bg-zinc-900 flex flex-col overflow-hidden">
+    <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
       <header className="header-stable shrink-0 border-b z-20">
-        <div className="px-4 py-4">
-          <div className="flex items-start gap-3">
+        <div className="mx-auto flex h-[4.75rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
+          <div className="flex w-full items-center gap-3">
             <Link
-              href={`/project/${project.id}`}
-              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-300"
+              href={returnToHome ? '/' : `/project/${project.id}`}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                Area
-              </p>
-              <h1 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white truncate">
+            <div className="min-w-0 flex flex-1 items-baseline gap-2">
+              <h1 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
                 {area.name}
               </h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">{project.projectName}</p>
             </div>
             <button
               onClick={() => setShowEditArea(true)}
-              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:text-gray-200"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
               aria-label="Edit area"
             >
               <Pencil className="w-4 h-4" />
@@ -720,13 +784,13 @@ export default function AreaDetailPage() {
       {/* Inspection Items */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)]"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] sm:px-5"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
         onTouchCancelCapture={handlePullEnd}
       >
-        <div className="min-h-[calc(100%+1px)] list-stack">
+        <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
           {supportsCustomItems && (
             <CustomItemComposer
               value={customItemName}
@@ -747,8 +811,8 @@ export default function AreaDetailPage() {
               onOpenCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
                 openCheckpointEditor(locationId, itemId, checkpointId, comments)
               }
-              onToggleIssue={(locationId, itemId, checkpointId, nextState) =>
-                void updateCheckpointIssueState(locationId, itemId, checkpointId, nextState)
+              onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
+                void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
               }
               registerItemRef={(itemId, node) => {
                 itemRefs.current.set(itemId, node);
@@ -766,14 +830,7 @@ export default function AreaDetailPage() {
               void persistGeneralNotes(value);
             }}
           />
-          <div className="mt-auto pt-2">
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gray-500 dark:bg-gray-300 transition-all"
-                style={{ width: `${reviewedPercent}%` }}
-              />
-            </div>
-          </div>
+          <div className="mt-auto pt-2" />
         </div>
       </main>
 
@@ -783,13 +840,13 @@ export default function AreaDetailPage() {
         checkpoint={editingCheckpointData}
         commentText={commentText}
         recentComments={recentComments}
-        issueState={editingIssueState}
+        statusValue={editingStatusValue}
         onClose={closeCheckpointEditor}
         onCommentChange={setCommentText}
         onSave={() => void saveCheckpointChanges()}
-        onIssueStateChange={(value) => {
+        onStatusChange={(value: CheckpointReviewState) => {
           if (!editingCheckpoint) return;
-          void updateCheckpointIssueState(
+          void updateCheckpointReviewState(
             editingCheckpoint.locationId,
             editingCheckpoint.itemId,
             editingCheckpoint.checkpointId,
@@ -814,6 +871,16 @@ export default function AreaDetailPage() {
                 editingCheckpoint.itemId,
                 editingCheckpoint.checkpointId,
                 photos
+              )
+            : Promise.resolve()
+        }
+        onAddFiles={(files) =>
+          editingCheckpoint
+            ? handleAddFiles(
+                editingCheckpoint.locationId,
+                editingCheckpoint.itemId,
+                editingCheckpoint.checkpointId,
+                files
               )
             : Promise.resolve()
         }
