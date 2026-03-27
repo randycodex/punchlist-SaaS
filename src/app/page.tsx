@@ -572,6 +572,9 @@ export default function ProjectsPage() {
     [activeProjects]
   );
   const singleProjectMainView = !!singleProject && !showTrash;
+  const singleProjectAddressMapUrl = singleProject?.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(singleProject.address)}`
+    : '';
 
   const activeAreas = useMemo(
     () => (singleProject ? singleProject.areas.filter((area) => !area.deletedAt) : []),
@@ -1287,10 +1290,15 @@ export default function ProjectsPage() {
                     </button>
                   </div>
                   {singleProject.address && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2">
+                    <a
+                      href={singleProjectAddressMapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
+                    >
                       <MapPin className="w-4 h-4" />
                       {singleProject.address}
-                    </p>
+                    </a>
                   )}
                   {singleProject.inspector && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
