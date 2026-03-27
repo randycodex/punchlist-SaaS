@@ -47,6 +47,7 @@ export default function CheckpointEditorSheet({
           <PhotoCapture
             photos={checkpoint.photos}
             files={checkpoint.files ?? []}
+            compactActions
             onAddPhoto={onAddPhoto}
             onAddPhotos={onAddPhotos}
             onAddFiles={onAddFiles}

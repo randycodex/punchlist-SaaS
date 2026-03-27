@@ -667,7 +667,7 @@ export default function ProjectDetailPage() {
         <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-20 -translate-x-1/2">
           <button
             onClick={() => setShowAddArea(true)}
-            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-gray-900 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
           >
             <Plus className="h-4 w-4" />
             Add Area

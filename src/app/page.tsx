@@ -97,6 +97,11 @@ const ProjectCard = memo(function ProjectCard({
 
   return (
     <div
+      onContextMenu={(event) => {
+        if (!selectionMode) {
+          event.preventDefault();
+        }
+      }}
       onClick={() => {
         if (selectionMode) {
           onToggleSelection(project.id);
@@ -113,7 +118,7 @@ const ProjectCard = memo(function ProjectCard({
       onPointerUp={clearLongPress}
       onPointerCancel={clearLongPress}
       onPointerLeave={clearLongPress}
-      className={`rounded-[1.5rem] border p-4 transition-colors ${
+      className={`select-none rounded-[1.5rem] border p-4 transition-colors [-webkit-touch-callout:none] ${
         isSelected
           ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
           : 'border-gray-300 bg-white/90 hover:border-gray-400 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-zinc-500'
@@ -125,7 +130,12 @@ const ProjectCard = memo(function ProjectCard({
           onClick={(event) => {
             if (selectionMode) event.preventDefault();
           }}
-          className="flex-1 min-w-0"
+          onContextMenu={(event) => {
+            if (!selectionMode) {
+              event.preventDefault();
+            }
+          }}
+          className="flex-1 min-w-0 [-webkit-touch-callout:none]"
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
@@ -196,8 +206,13 @@ const ProjectCard = memo(function ProjectCard({
               event.stopPropagation();
               if (selectionMode) event.preventDefault();
             }}
+            onContextMenu={(event) => {
+              if (!selectionMode) {
+                event.preventDefault();
+              }
+            }}
             onPointerDown={(event) => event.stopPropagation()}
-            className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+            className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 [-webkit-touch-callout:none]"
             aria-label={`Open ${project.projectName}`}
           >
             <ChevronRight className="w-5 h-5" />
@@ -1180,7 +1195,7 @@ export default function ProjectsPage() {
             <div className="pointer-events-auto flex items-center gap-3">
               <button
                 onClick={() => setShowNewProject(true)}
-                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-800 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
               >
                 <Plus className="h-4 w-4" />
                 Add Project
@@ -1190,7 +1205,7 @@ export default function ProjectsPage() {
                   setAreaTargetProjectId(singleProject.id);
                   setShowAddArea(true);
                 }}
-                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-gray-900 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
               >
                 <Plus className="h-4 w-4" />
                 Add Area
@@ -1199,7 +1214,7 @@ export default function ProjectsPage() {
           ) : (
             <button
               onClick={() => setShowNewProject(true)}
-              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-gray-900 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
             >
               <Plus className="h-4 w-4" />
               Add Project

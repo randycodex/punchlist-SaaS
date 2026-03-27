@@ -12,6 +12,7 @@ interface PhotoCaptureProps {
   onAddFiles?: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
+  compactActions?: boolean;
 }
 
 export default function PhotoCapture({
@@ -22,6 +23,7 @@ export default function PhotoCapture({
   onAddFiles,
   onDeletePhoto,
   onDeleteFile,
+  compactActions = false,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -288,27 +290,42 @@ export default function PhotoCapture({
       )}
 
       <div className="rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 p-3">
-        <div className="flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 ${compactActions ? 'justify-center' : ''}`}>
           <button
             onClick={openCamera}
-            className="flex items-center gap-2 rounded-xl bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className={
+              compactActions
+                ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-900 text-white transition hover:bg-gray-800 dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600'
+                : 'flex items-center gap-2 rounded-xl bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
+            }
+            aria-label="Take photo"
           >
             <Camera className="w-4 h-4" />
-            Take photo
+            {!compactActions && 'Take photo'}
           </button>
           <button
             onClick={() => libraryInputRef.current?.click()}
-            className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+            className={
+              compactActions
+                ? 'flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700'
+                : 'flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700'
+            }
+            aria-label="Open photo library"
           >
             <Images className="w-4 h-4" />
-            Photo library
+            {!compactActions && 'Photo library'}
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+            className={
+              compactActions
+                ? 'flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700'
+                : 'flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700'
+            }
+            aria-label="Add file"
           >
             <Paperclip className="w-4 h-4" />
-            Files
+            {!compactActions && 'Files'}
           </button>
         </div>
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
