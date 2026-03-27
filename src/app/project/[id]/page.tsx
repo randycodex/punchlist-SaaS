@@ -26,6 +26,7 @@ import {
   User,
   Image as ImageIcon,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 
 type SortOption = 'name' | 'recent' | 'progress';
@@ -152,6 +153,7 @@ export default function ProjectDetailPage() {
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('name');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -249,11 +251,26 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const activeAreas = useMemo(
+    () => (project ? project.areas.filter((area) => !area.deletedAt) : []),
+    [project]
+  );
+
+  const trashedAreas = useMemo(
+    () =>
+      project
+        ? [...project.areas.filter((area) => area.deletedAt)].sort(
+            (a, b) => (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)
+          )
+        : [],
+    [project]
+  );
+
   const areaMetrics = useMemo(() => {
     const metrics = new Map<string, AreaMetrics>();
     if (!project) return metrics;
 
-    for (const area of project.areas) {
+    for (const area of activeAreas) {
       let photoCount = 0;
       let commentCount = 0;
       for (const location of area.locations) {
@@ -278,11 +295,10 @@ export default function ProjectDetailPage() {
     }
 
     return metrics;
-  }, [project]);
+  }, [project, activeAreas]);
 
   const sortedAreas = useMemo(() => {
-    if (!project) return [];
-    return [...project.areas].sort((a, b) => {
+    return [...activeAreas].sort((a, b) => {
       if (sortOption === 'name') {
         return a.name.localeCompare(b.name);
       }
@@ -293,7 +309,7 @@ export default function ProjectDetailPage() {
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [project, sortOption, areaMetrics]);
+  }, [activeAreas, sortOption, areaMetrics]);
 
   async function handleAddArea() {
     if (!project) return;
@@ -341,12 +357,27 @@ export default function ProjectDetailPage() {
       setDeleteMode(false);
       return;
     }
-    project.areas = project.areas.filter((area) => !selectedAreaIds.has(area.id));
+    const now = new Date();
+    project.areas.forEach((area) => {
+      if (selectedAreaIds.has(area.id)) {
+        area.deletedAt = now;
+      }
+    });
     await saveProject(project);
     scheduleSync(project.id);
     setSelectedAreaIds(new Set());
     setDeleteMode(false);
     setActionSheet(null);
+    await loadProject();
+  }
+
+  async function handleRestoreArea(areaId: string) {
+    if (!project) return;
+    const area = project.areas.find((entry) => entry.id === areaId);
+    if (!area) return;
+    delete area.deletedAt;
+    await saveProject(project);
+    scheduleSync(project.id);
     await loadProject();
   }
 
@@ -550,10 +581,16 @@ export default function ProjectDetailPage() {
             {!deleteMode && (
               <button
                 onClick={() => {
-                  setDeleteMode(true);
+                  setShowTrash((current) => !current);
+                  setDeleteMode(false);
                   setSelectedAreaIds(new Set());
+                  setActionSheet(null);
                 }}
-                className="h-9 px-3 text-sm rounded-lg flex items-center gap-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1.5 ${
+                  showTrash
+                    ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
                 aria-label="Delete areas"
               >
                 <Trash2 className="w-4 h-4" />
@@ -562,6 +599,7 @@ export default function ProjectDetailPage() {
             )}
             <button
               onClick={() => setShowAddArea(true)}
+              disabled={showTrash}
               className="h-9 w-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
               aria-label="Add area"
             >
@@ -608,7 +646,7 @@ export default function ProjectDetailPage() {
         onTouchEndCapture={handlePullEnd}
         onTouchCancelCapture={handlePullEnd}
       >
-        {project.areas.length === 0 ? (
+        {!showTrash && activeAreas.length === 0 ? (
           <div className="flex justify-center py-12">
             <button
               onClick={() => setShowAddArea(true)}
@@ -617,6 +655,42 @@ export default function ProjectDetailPage() {
               Add Area
             </button>
           </div>
+        ) : showTrash ? (
+          trashedAreas.length === 0 ? (
+            <div className="text-center py-12">
+              <Trash2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Trash Is Empty</h2>
+              <p className="text-gray-500 dark:text-gray-400">Deleted areas will show up here.</p>
+            </div>
+          ) : (
+            <div className="list-stack">
+              {trashedAreas.map((area) => {
+                const deletedAt = area.deletedAt ?? new Date();
+                return (
+                  <div
+                    key={area.id}
+                    className="rounded-lg border p-4 border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">{area.name}</div>
+                        <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                          Deleted {deletedAt.toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => void handleRestoreArea(area.id)}
+                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1 shrink-0"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Restore
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : (
           <div className="min-h-[calc(100%+1px)] list-stack">
             {sortedAreas.map((area) => {

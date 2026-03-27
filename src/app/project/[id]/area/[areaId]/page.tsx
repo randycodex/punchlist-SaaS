@@ -154,7 +154,7 @@ export default function AreaDetailPage() {
         }
         setProject(projectData);
         const areaData = projectData.areas.find((a) => a.id === areaId);
-        if (areaData) {
+        if (areaData && !areaData.deletedAt) {
           setArea(areaData);
         } else {
           router.push(`/project/${id}`);

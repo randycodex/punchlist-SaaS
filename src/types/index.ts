@@ -65,6 +65,7 @@ export interface Area {
   isComplete: boolean;
   notes: string;
   locations: Location[];
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -164,8 +165,11 @@ export function getProjectStats(project: Project) {
   let total = 0;
   let ok = 0;
   let issues = 0;
+  let activeAreaCount = 0;
 
   for (const area of project.areas) {
+    if (area.deletedAt) continue;
+    activeAreaCount += 1;
     for (const location of area.locations) {
       for (const item of location.items) {
         for (const checkpoint of item.checkpoints) {
@@ -181,6 +185,6 @@ export function getProjectStats(project: Project) {
     total,
     ok,
     issues,
-    areas: project.areas.length,
+    areas: activeAreaCount,
   };
 }
