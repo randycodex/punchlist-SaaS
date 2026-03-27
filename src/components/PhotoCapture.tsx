@@ -303,30 +303,26 @@ export default function PhotoCapture({
             <Camera className="w-4 h-4" />
             {!compactActions && 'Take photo'}
           </button>
-          <button
-            onClick={() => libraryInputRef.current?.click()}
-            className={
-              compactActions
-                ? 'flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700'
-                : 'flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700'
-            }
-            aria-label="Open photo library"
-          >
-            <Images className="w-4 h-4" />
-            {!compactActions && 'Photo library'}
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className={
-              compactActions
-                ? 'flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700'
-                : 'flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700'
-            }
-            aria-label="Add file"
-          >
-            <Paperclip className="w-4 h-4" />
-            {!compactActions && 'Files'}
-          </button>
+          {!compactActions && (
+            <>
+              <button
+                onClick={() => libraryInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+                aria-label="Open photo library"
+              >
+                <Images className="w-4 h-4" />
+                Photo library
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
+                aria-label="Add file"
+              >
+                <Paperclip className="w-4 h-4" />
+                Files
+              </button>
+            </>
+          )}
         </div>
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
 

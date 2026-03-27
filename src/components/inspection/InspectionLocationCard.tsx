@@ -417,19 +417,6 @@ function CheckpointRow({
           </button>
         </div>
       </div>
-      {checkpoint.photos.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {checkpoint.photos.map((photo) => (
-            <img
-              key={photo.id}
-              src={photo.thumbnail || photo.imageData}
-              alt=""
-              className="aspect-square w-full rounded-xl object-cover cursor-pointer"
-              onClick={onOpen}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

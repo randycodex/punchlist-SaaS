@@ -22,7 +22,7 @@
 .dark {
   --background: #121315;
   --foreground: #f9fafb;
-  --surface: rgba(25, 28, 31, 0.92);
+  --surface: #181b1f;
   --surface-strong: #181b1f;
   --surface-muted: #101215;
   --surface-border: rgba(255, 255, 255, 0.08);
@@ -58,7 +58,7 @@ button,
 .dark body {
   background:
     radial-gradient(circle at top, rgba(148, 163, 184, 0.08), transparent 34%),
-    linear-gradient(180deg, #17191d 0%, var(--background) 20%, var(--background) 100%);
+    linear-gradient(180deg, var(--surface-strong) 0%, var(--background) 20%, var(--background) 100%);
 }
 
 .app-shell {
@@ -257,7 +257,7 @@ html:not(.dark) {
 .dark .header-stable,
 .dark .pinned-surface,
 .dark .sticky-surface {
-  background-color: var(--surface) !important;
+  background-color: var(--surface-strong) !important;
   border-color: var(--surface-border) !important;
 }
 
