@@ -830,6 +830,15 @@ export default function ProjectsPage() {
     setActionSheet('export');
   }
 
+  function handleExportSingleProject(projectId: string) {
+    if (exportingSelected || exportingSelectedToDrive) return;
+    setDeleteMode(false);
+    setExportMode(false);
+    setSelectedAreaIds(new Set());
+    setSelectedProjectIds(new Set([projectId]));
+    setActionSheet('export');
+  }
+
   async function handleExportSelectedLocal() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
     setActionSheet(null);
@@ -1043,17 +1052,32 @@ export default function ProjectsPage() {
             </div>
             {!showTrash ? (
               !selectionMode ? (
-                <button
-                  onClick={() => {
-                    setDeleteMode(true);
-                    setExportMode(false);
-                    setSelectedProjectIds(new Set());
-                    setSelectedAreaIds(new Set());
-                  }}
-                  className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  Select
-                </button>
+                singleProjectMainView ? (
+                  <button
+                    onClick={() => handleExportSingleProject(singleProject.id)}
+                    disabled={exportingSelected || exportingSelectedToDrive}
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 disabled:opacity-40"
+                    aria-label="Export project"
+                  >
+                    {exportingSelected || exportingSelectedToDrive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileDown className="w-4 h-4" />
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setDeleteMode(true);
+                      setExportMode(false);
+                      setSelectedProjectIds(new Set());
+                      setSelectedAreaIds(new Set());
+                    }}
+                    className="h-9 px-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  >
+                    Select
+                  </button>
+                )
               ) : (
                 <>
                   <button
@@ -1239,14 +1263,35 @@ export default function ProjectsPage() {
         ) : singleProjectMainView ? (
           <div className="min-h-[calc(100%+1px)] list-stack">
             {sortedAreas.length === 0 ? (
-              <div className="flex justify-center py-12">
-                <button
-                  onClick={() => setShowAddArea(true)}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
-                >
-                  Add Area
-                </button>
-              </div>
+              <>
+                <div className="flex justify-center py-12">
+                  <button
+                    onClick={() => setShowAddArea(true)}
+                    className="px-4 py-2 bg-gray-200 text-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-200"
+                  >
+                    Add Area
+                  </button>
+                </div>
+                <div className="mt-auto pt-2 flex items-end justify-between gap-4">
+                  {singleProject.address && (
+                    <a
+                      href={singleProjectAddressMapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
+                    >
+                      <MapPin className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{singleProject.address}</span>
+                    </a>
+                  )}
+                  {singleProject.inspector && (
+                    <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 text-right">
+                      <User className="w-4 h-4 shrink-0" />
+                      {singleProject.inspector}
+                    </p>
+                  )}
+                </div>
+              </>
             ) : (
               <>
                 {sortedAreas.map((area) => {
@@ -1264,7 +1309,7 @@ export default function ProjectsPage() {
                     />
                   );
                 })}
-                <div className="pt-2">
+                <div className="mt-auto pt-2">
                   {projectMetrics.get(singleProject.id)?.stats.total ? (
                     <div className="mb-3">
                       <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -1289,23 +1334,25 @@ export default function ProjectsPage() {
                       Add Area
                     </button>
                   </div>
-                  {singleProject.address && (
-                    <a
-                      href={singleProjectAddressMapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mb-2 hover:text-gray-900 dark:hover:text-white"
-                    >
-                      <MapPin className="w-4 h-4" />
-                      {singleProject.address}
-                    </a>
-                  )}
-                  {singleProject.inspector && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      {singleProject.inspector}
-                    </p>
-                  )}
+                  <div className="flex items-end justify-between gap-4">
+                    {singleProject.address && (
+                      <a
+                        href={singleProjectAddressMapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-w-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
+                      >
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{singleProject.address}</span>
+                      </a>
+                    )}
+                    {singleProject.inspector && (
+                      <p className="shrink-0 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 text-right">
+                        <User className="w-4 h-4 shrink-0" />
+                        {singleProject.inspector}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </>
             )}

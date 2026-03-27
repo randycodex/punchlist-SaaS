@@ -700,7 +700,7 @@ export default function ProjectDetailPage() {
                 />
               );
             })}
-            <div className="pt-2">
+            <div className="mt-auto pt-2">
               <div className="mb-4">
                 <button
                   onClick={() => setShowAddArea(true)}
