@@ -27,7 +27,6 @@ import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDrive
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import AreaNotesCard from '@/components/inspection/AreaNotesCard';
-import CheckpointEditorSheet from '@/components/inspection/CheckpointEditorSheet';
 import CustomItemComposer from '@/components/inspection/CustomItemComposer';
 import InspectionLocationCard from '@/components/inspection/InspectionLocationCard';
 import Link from 'next/link';
@@ -158,6 +157,22 @@ export default function AreaDetailPage() {
           )
         : [],
     [area]
+  );
+
+  const customItemsLocation = useMemo(
+    () =>
+      visibleLocations.find(
+        (location) => location.name.trim().toLowerCase() === CUSTOM_ITEMS_LOCATION_NAME.toLowerCase()
+      ) ?? null,
+    [visibleLocations]
+  );
+
+  const standardLocations = useMemo(
+    () =>
+      visibleLocations.filter(
+        (location) => location.name.trim().toLowerCase() !== CUSTOM_ITEMS_LOCATION_NAME.toLowerCase()
+      ),
+    [visibleLocations]
   );
 
   async function loadData() {
@@ -425,7 +440,6 @@ export default function AreaDetailPage() {
     scheduleSync(project.id);
 
     setCustomItemName('');
-    setExpandedLocations(new Set([customItemsLocation.id]));
     setExpandedItems(new Set([item.id]));
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
@@ -722,14 +736,6 @@ export default function AreaDetailPage() {
   const editingCheckpointData = editingCheckpoint
     ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
     : null;
-  const editingStatusValue = editingCheckpointData
-    ? editingCheckpointData.status === 'ok'
-      ? 'ok'
-      : (() => {
-          const issueState = getCheckpointIssueState(editingCheckpointData);
-          return issueState === 'none' ? 'pending' : issueState;
-        })()
-    : 'pending';
   const supportsCustomItems = !isApartmentArea(area);
 
   function closeCheckpointEditor() {
@@ -745,6 +751,16 @@ export default function AreaDetailPage() {
   }
 
   function openCheckpointEditor(locationId: string, itemId: string, checkpointId: string, comments: string) {
+    const isSameCheckpoint =
+      editingCheckpoint?.locationId === locationId &&
+      editingCheckpoint?.itemId === itemId &&
+      editingCheckpoint?.checkpointId === checkpointId;
+
+    if (isSameCheckpoint) {
+      closeCheckpointEditor();
+      return;
+    }
+
     setEditingCheckpoint({ locationId, itemId, checkpointId });
     setCommentText(comments);
   }
@@ -791,14 +807,87 @@ export default function AreaDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
-          {supportsCustomItems && (
-            <CustomItemComposer
-              value={customItemName}
-              onChange={setCustomItemName}
-              onSubmit={() => void handleAddCustomItem()}
+          {supportsCustomItems && customItemsLocation && (
+            <InspectionLocationCard
+              key={customItemsLocation.id}
+              location={customItemsLocation}
+              locationMetric={areaDerived?.locationMetrics.get(customItemsLocation.id)}
+              itemMetrics={areaDerived?.itemMetrics ?? new Map()}
+              expandedItems={expandedItems}
+              isExpanded
+              alwaysExpanded
+              hideHeader
+              onToggleLocation={toggleLocation}
+              onToggleItem={toggleItem}
+              onOpenCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
+                openCheckpointEditor(locationId, itemId, checkpointId, comments)
+              }
+              onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
+                void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
+              }
+              editingCheckpointId={editingCheckpoint?.checkpointId ?? null}
+              commentText={commentText}
+              recentComments={recentComments}
+              onCloseEditor={closeCheckpointEditor}
+              onCommentChange={setCommentText}
+              onSaveEditor={() => void saveCheckpointChanges()}
+              onAddPhoto={(imageData, thumbnail) =>
+                editingCheckpoint
+                  ? handleAddPhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      imageData,
+                      thumbnail
+                    )
+                  : Promise.resolve()
+              }
+              onAddPhotos={(photos) =>
+                editingCheckpoint
+                  ? handleAddPhotos(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photos
+                    )
+                  : Promise.resolve()
+              }
+              onAddFiles={(files) =>
+                editingCheckpoint
+                  ? handleAddFiles(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      files
+                    )
+                  : Promise.resolve()
+              }
+              onDeletePhoto={(photoId) =>
+                editingCheckpoint
+                  ? handleDeletePhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photoId
+                    )
+                  : Promise.resolve()
+              }
+              onDeleteFile={(fileId) =>
+                editingCheckpoint
+                  ? handleDeleteFile(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      fileId
+                    )
+                  : Promise.resolve()
+              }
+              registerItemRef={(itemId, node) => {
+                itemRefs.current.set(itemId, node);
+              }}
             />
           )}
-          {visibleLocations.map((location) => (
+          {standardLocations.map((location) => (
             <InspectionLocationCard
               key={location.id}
               location={location}
@@ -813,6 +902,63 @@ export default function AreaDetailPage() {
               }
               onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
                 void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
+              }
+              editingCheckpointId={editingCheckpoint?.checkpointId ?? null}
+              commentText={commentText}
+              recentComments={recentComments}
+              onCloseEditor={closeCheckpointEditor}
+              onCommentChange={setCommentText}
+              onSaveEditor={() => void saveCheckpointChanges()}
+              onAddPhoto={(imageData, thumbnail) =>
+                editingCheckpoint
+                  ? handleAddPhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      imageData,
+                      thumbnail
+                    )
+                  : Promise.resolve()
+              }
+              onAddPhotos={(photos) =>
+                editingCheckpoint
+                  ? handleAddPhotos(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photos
+                    )
+                  : Promise.resolve()
+              }
+              onAddFiles={(files) =>
+                editingCheckpoint
+                  ? handleAddFiles(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      files
+                    )
+                  : Promise.resolve()
+              }
+              onDeletePhoto={(photoId) =>
+                editingCheckpoint
+                  ? handleDeletePhoto(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      photoId
+                    )
+                  : Promise.resolve()
+              }
+              onDeleteFile={(fileId) =>
+                editingCheckpoint
+                  ? handleDeleteFile(
+                      editingCheckpoint.locationId,
+                      editingCheckpoint.itemId,
+                      editingCheckpoint.checkpointId,
+                      fileId
+                    )
+                  : Promise.resolve()
               }
               registerItemRef={(itemId, node) => {
                 itemRefs.current.set(itemId, node);
@@ -830,81 +976,16 @@ export default function AreaDetailPage() {
               void persistGeneralNotes(value);
             }}
           />
+          {supportsCustomItems && (
+            <CustomItemComposer
+              value={customItemName}
+              onChange={setCustomItemName}
+              onSubmit={() => void handleAddCustomItem()}
+            />
+          )}
           <div className="mt-auto pt-2" />
         </div>
       </main>
-
-      <CheckpointEditorSheet
-        open={!!editingCheckpoint && !!editingCheckpointData}
-        areaName={area.name}
-        checkpoint={editingCheckpointData}
-        commentText={commentText}
-        recentComments={recentComments}
-        statusValue={editingStatusValue}
-        onClose={closeCheckpointEditor}
-        onCommentChange={setCommentText}
-        onSave={() => void saveCheckpointChanges()}
-        onStatusChange={(value: CheckpointReviewState) => {
-          if (!editingCheckpoint) return;
-          void updateCheckpointReviewState(
-            editingCheckpoint.locationId,
-            editingCheckpoint.itemId,
-            editingCheckpoint.checkpointId,
-            value
-          );
-        }}
-        onAddPhoto={(imageData, thumbnail) =>
-          editingCheckpoint
-            ? handleAddPhoto(
-                editingCheckpoint.locationId,
-                editingCheckpoint.itemId,
-                editingCheckpoint.checkpointId,
-                imageData,
-                thumbnail
-              )
-            : Promise.resolve()
-        }
-        onAddPhotos={(photos) =>
-          editingCheckpoint
-            ? handleAddPhotos(
-                editingCheckpoint.locationId,
-                editingCheckpoint.itemId,
-                editingCheckpoint.checkpointId,
-                photos
-              )
-            : Promise.resolve()
-        }
-        onAddFiles={(files) =>
-          editingCheckpoint
-            ? handleAddFiles(
-                editingCheckpoint.locationId,
-                editingCheckpoint.itemId,
-                editingCheckpoint.checkpointId,
-                files
-              )
-            : Promise.resolve()
-        }
-        onDeletePhoto={(photoId) =>
-          editingCheckpoint
-            ? handleDeletePhoto(
-                editingCheckpoint.locationId,
-                editingCheckpoint.itemId,
-                editingCheckpoint.checkpointId,
-                photoId
-              )
-            : Promise.resolve()
-        }
-        onDeleteFile={(fileId) =>
-          editingCheckpoint
-            ? handleDeleteFile(
-                editingCheckpoint.locationId,
-                editingCheckpoint.itemId,
-                editingCheckpoint.checkpointId,
-                fileId
-              )
-            : Promise.resolve()
-        }
-      />
 
       <AreaEditorModal
         open={showEditArea}

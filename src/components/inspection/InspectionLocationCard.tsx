@@ -2,7 +2,6 @@
 
 import {
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Image as ImageIcon,
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
+import CheckpointEditorSheet from '@/components/inspection/CheckpointEditorSheet';
 
 type CheckpointReviewState = 'pending' | 'ok' | Exclude<IssueState, 'none'>;
 
@@ -28,6 +28,8 @@ type InspectionLocationCardProps = {
   itemMetrics: Map<string, Metrics>;
   expandedItems: Set<string>;
   isExpanded: boolean;
+  alwaysExpanded?: boolean;
+  hideHeader?: boolean;
   onToggleLocation: (locationId: string) => void;
   onToggleItem: (itemId: string) => void;
   onOpenCheckpoint: (payload: { locationId: string; itemId: string; checkpointId: string; comments: string }) => void;
@@ -37,8 +39,21 @@ type InspectionLocationCardProps = {
     checkpointId: string,
     nextState: CheckpointReviewState
   ) => void;
+  editingCheckpointId: string | null;
+  commentText: string;
+  recentComments: string[];
+  onCloseEditor: () => void;
+  onCommentChange: (value: string) => void;
+  onSaveEditor: () => void;
+  onAddPhoto: (imageData: string, thumbnail?: string) => void;
+  onAddPhotos: (photos: Array<{ imageData: string; thumbnail?: string }>) => void;
+  onAddFiles: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void;
+  onDeletePhoto: (photoId: string) => void;
+  onDeleteFile: (fileId: string) => void;
   registerItemRef: (itemId: string, node: HTMLDivElement | null) => void;
 };
+
+const CUSTOM_ITEM_CHECKPOINT_NAME = 'Notes';
 
 export default function InspectionLocationCard({
   location,
@@ -46,10 +61,23 @@ export default function InspectionLocationCard({
   itemMetrics,
   expandedItems,
   isExpanded,
+  alwaysExpanded = false,
+  hideHeader = false,
   onToggleLocation,
   onToggleItem,
   onOpenCheckpoint,
   onUpdateCheckpointStatus,
+  editingCheckpointId,
+  commentText,
+  recentComments,
+  onCloseEditor,
+  onCommentChange,
+  onSaveEditor,
+  onAddPhoto,
+  onAddPhotos,
+  onAddFiles,
+  onDeletePhoto,
+  onDeleteFile,
   registerItemRef,
 }: InspectionLocationCardProps) {
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
@@ -59,32 +87,40 @@ export default function InspectionLocationCard({
       : 'No items yet';
 
   return (
-    <div className="card-surface-subtle overflow-hidden rounded-[1.6rem]">
-      <button
-        onClick={() => onToggleLocation(location.id)}
-        className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
-              {location.name}
+    <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
+      {!hideHeader && (
+        <button
+          onClick={() => {
+            if (!alwaysExpanded) {
+              onToggleLocation(location.id);
+            }
+          }}
+          className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+                {location.name}
+              </div>
+              <div className={`mt-1 text-sm ${locationStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                {locationMetricsLabel}
+              </div>
             </div>
-            <div className={`mt-1 text-sm ${locationStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
-              {locationMetricsLabel}
-            </div>
-          </div>
-          <div className="ml-4 flex items-center gap-2 sm:gap-3">
-            {isExpanded ? (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+            {!alwaysExpanded && (
+              <div className="ml-4 flex items-center gap-2 sm:gap-3">
+                {isExpanded ? (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                )}
+              </div>
             )}
           </div>
-        </div>
-      </button>
+        </button>
+      )}
 
-      {isExpanded && (
-        <div className="border-t border-gray-200 px-3 pb-3 pt-2 dark:border-zinc-700">
+      {(alwaysExpanded || isExpanded) && (
+        <div className={hideHeader ? 'space-y-2' : 'border-t border-gray-200 px-3 pb-3 pt-2 dark:border-zinc-700'}>
           {location.items.map((item) => {
             const itemMetric = itemMetrics.get(item.id);
             const itemStats = itemMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
@@ -92,13 +128,103 @@ export default function InspectionLocationCard({
             const itemPhotoCount = itemMetric?.photoCount ?? 0;
             const itemCommentCount = itemMetric?.commentCount ?? 0;
             const isItemExpanded = expandedItems.has(item.id);
+            const isFlatCustomItem =
+              hideHeader && item.checkpoints.length === 1 && item.checkpoints[0]?.name === CUSTOM_ITEM_CHECKPOINT_NAME;
+            const customCheckpoint = isFlatCustomItem ? item.checkpoints[0] : null;
+            const customIssueState = customCheckpoint ? getCheckpointIssueState(customCheckpoint) : 'none';
+            const isCustomEditorOpen = customCheckpoint ? editingCheckpointId === customCheckpoint.id : false;
 
             return (
               <div
                 key={item.id}
                 ref={(node) => registerItemRef(item.id, node)}
-                className="mt-2 first:mt-0"
+                className={hideHeader ? '' : 'mt-2 first:mt-0'}
               >
+                {isFlatCustomItem && customCheckpoint ? (
+                  <div className="rounded-[1.35rem] border border-gray-200 bg-gray-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-gray-300">
+                          <Wrench className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
+                          <div className={`mt-1 text-sm ${customIssueState === 'open' ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {itemPending > 0
+                              ? `${itemPending} pending`
+                              : customIssueState === 'open'
+                                ? 'Issue'
+                                : 'No items yet'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          onClick={() =>
+                            onOpenCheckpoint({
+                              locationId: location.id,
+                              itemId: item.id,
+                              checkpointId: customCheckpoint.id,
+                              comments: customCheckpoint.comments,
+                            })
+                          }
+                          className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+                            customCheckpoint.comments || customCheckpoint.photos.length > 0 || (customCheckpoint.files?.length ?? 0) > 0
+                              ? 'border-gray-300 bg-gray-900 text-white dark:border-zinc-600 dark:bg-white dark:text-gray-900'
+                              : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-700 dark:border-zinc-700 dark:text-gray-500 dark:hover:border-zinc-600 dark:hover:text-gray-200'
+                          }`}
+                          aria-label={`Add note for ${item.name}`}
+                        >
+                          {(customCheckpoint.files?.length ?? 0) > 0 ? (
+                            <Paperclip className="w-4 h-4" />
+                          ) : customCheckpoint.photos.length > 0 ? (
+                            <ImageIcon className="w-4 h-4" />
+                          ) : (
+                            <MessageSquare className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() =>
+                            onUpdateCheckpointStatus(
+                              location.id,
+                              item.id,
+                              customCheckpoint.id,
+                              customIssueState === 'open' ? 'pending' : 'open'
+                            )
+                          }
+                          className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+                            customIssueState === 'open'
+                              ? 'border-red-200 bg-red-600 text-white dark:border-red-800 dark:bg-red-600'
+                              : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-600 dark:border-zinc-700 dark:text-gray-500'
+                          }`}
+                          aria-label={`Flag issue for ${item.name}`}
+                        >
+                          <AlertTriangle className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                    {isCustomEditorOpen && (
+                      <div className="mt-3">
+                        <CheckpointEditorSheet
+                          inline
+                          open
+                          areaName={location.name}
+                          checkpoint={customCheckpoint}
+                          commentText={commentText}
+                          recentComments={recentComments}
+                          onClose={onCloseEditor}
+                          onCommentChange={onCommentChange}
+                          onSave={onSaveEditor}
+                          onAddPhoto={onAddPhoto}
+                          onAddPhotos={onAddPhotos}
+                          onAddFiles={onAddFiles}
+                          onDeletePhoto={onDeletePhoto}
+                          onDeleteFile={onDeleteFile}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <button
                   onClick={() => onToggleItem(item.id)}
                   className="w-full rounded-[1.35rem] border border-gray-200 bg-gray-50 px-4 py-3 text-left transition hover:border-gray-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-950"
@@ -137,42 +263,55 @@ export default function InspectionLocationCard({
                     </div>
                   </div>
                 </button>
+                )}
 
-                {isItemExpanded && (
-                  <div className="space-y-2 px-2 pb-1 pt-2">
+                {!isFlatCustomItem && isItemExpanded && (
+                  <div className="space-y-2 pl-5 pr-2 pb-1 pt-3">
                     {item.checkpoints.map((checkpoint) => {
                       const issueState = getCheckpointIssueState(checkpoint);
+                      const isEditorOpen = editingCheckpointId === checkpoint.id;
 
                       return (
-                        <CheckpointRow
-                          key={checkpoint.id}
-                          checkpoint={checkpoint}
-                          issueState={issueState}
-                          onOpen={() =>
-                            onOpenCheckpoint({
-                              locationId: location.id,
-                              itemId: item.id,
-                              checkpointId: checkpoint.id,
-                              comments: checkpoint.comments,
-                            })
-                          }
-                          onToggleOk={() =>
-                            onUpdateCheckpointStatus(
-                              location.id,
-                              item.id,
-                              checkpoint.id,
-                              checkpoint.status === 'ok' ? 'pending' : 'ok'
-                            )
-                          }
-                          onToggleIssue={() =>
-                            onUpdateCheckpointStatus(
-                              location.id,
-                              item.id,
-                              checkpoint.id,
-                              issueState === 'open' ? 'pending' : 'open'
-                            )
-                          }
-                        />
+                        <div key={checkpoint.id} className="space-y-2">
+                          <CheckpointRow
+                            checkpoint={checkpoint}
+                            issueState={issueState}
+                            onOpen={() =>
+                              onOpenCheckpoint({
+                                locationId: location.id,
+                                itemId: item.id,
+                                checkpointId: checkpoint.id,
+                                comments: checkpoint.comments,
+                              })
+                            }
+                            onToggleIssue={() =>
+                              onUpdateCheckpointStatus(
+                                location.id,
+                                item.id,
+                                checkpoint.id,
+                                issueState === 'open' ? 'pending' : 'open'
+                              )
+                            }
+                          />
+                          {isEditorOpen && (
+                            <CheckpointEditorSheet
+                              inline
+                            open
+                            areaName={location.name}
+                            checkpoint={checkpoint}
+                            commentText={commentText}
+                            recentComments={recentComments}
+                              onClose={onCloseEditor}
+                              onCommentChange={onCommentChange}
+                              onSave={onSaveEditor}
+                              onAddPhoto={onAddPhoto}
+                              onAddPhotos={onAddPhotos}
+                              onAddFiles={onAddFiles}
+                              onDeletePhoto={onDeletePhoto}
+                              onDeleteFile={onDeleteFile}
+                            />
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -190,13 +329,11 @@ function CheckpointRow({
   checkpoint,
   issueState,
   onOpen,
-  onToggleOk,
   onToggleIssue,
 }: {
   checkpoint: Checkpoint;
   issueState: IssueState;
   onOpen: () => void;
-  onToggleOk: () => void;
   onToggleIssue: () => void;
 }) {
   const isOk = checkpoint.status === 'ok';
@@ -213,31 +350,16 @@ function CheckpointRow({
             : 'border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-gray-900 dark:text-white">{checkpoint.name}</div>
-          {(checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0 || issueState !== 'none' || isOk) && (
+          {(checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0 || issueState !== 'none') && (
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {isOk && (
-                <span className="pill-chip px-2.5 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  <CheckCircle2 className="w-3 h-3" />
-                  OK
-                </span>
-              )}
-              {issueState !== 'none' && (
+              {(issueState === 'resolved' || issueState === 'verified') && (
                 <span
-                  className={`pill-chip px-2.5 py-1 ${
-                    issueState === 'open'
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                      : 'bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300'
-                  }`}
+                  className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300"
                 >
-                  <AlertTriangle className="w-3 h-3" />
-                  {issueState === 'open'
-                    ? 'Issue'
-                    : issueState === 'resolved'
-                      ? 'Resolved'
-                      : 'Verified'}
+                  {issueState === 'resolved' ? 'Resolved' : 'Verified'}
                 </span>
               )}
               {checkpoint.comments && (
@@ -265,17 +387,6 @@ function CheckpointRow({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={onToggleOk}
-            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
-              isOk
-                ? 'border-emerald-200 bg-emerald-600 text-white dark:border-emerald-800 dark:bg-emerald-600'
-                : 'border-gray-200 text-gray-400 hover:border-emerald-200 hover:text-emerald-600 dark:border-zinc-700 dark:text-gray-500'
-            }`}
-            aria-label={`Mark ${checkpoint.name} as ok`}
-          >
-            <CheckCircle2 className="w-5 h-5" />
-          </button>
           <button
             onClick={onOpen}
             className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition ${

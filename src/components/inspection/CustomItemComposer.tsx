@@ -13,14 +13,6 @@ export default function CustomItemComposer({
 }: CustomItemComposerProps) {
   return (
     <div className="card-surface-subtle rounded-[1.5rem] p-4 sm:p-5">
-      <div className="mb-3">
-        <div className="section-eyebrow">
-          Custom Items
-        </div>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Add field notes or one-off components without changing the template.
-        </p>
-      </div>
       <div className="flex gap-3">
         <input
           type="text"

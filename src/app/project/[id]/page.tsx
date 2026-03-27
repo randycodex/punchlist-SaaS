@@ -549,11 +549,6 @@ export default function ProjectDetailPage() {
                 {project.address || 'Project dashboard'}
               </p>
             </div>
-            {project.inspector && (
-              <span className="ml-4 shrink-0 text-sm text-gray-500 dark:text-gray-400">
-                {project.inspector}
-              </span>
-            )}
           </div>
         </div>
         {deleteMode && (
