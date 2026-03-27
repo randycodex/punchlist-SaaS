@@ -16,8 +16,8 @@ export default function PersistentTopBar() {
   const [projectTitle, setProjectTitle] = useState('');
 
   const indicatorClasses = {
-    idle: 'opacity-0 bg-gray-500 dark:bg-gray-400',
-    syncing: 'opacity-100 bg-gray-500 dark:bg-gray-400 animate-pulse',
+    idle: 'opacity-0 bg-green-500 dark:bg-green-400',
+    syncing: 'opacity-100 bg-green-500 dark:bg-green-400 animate-pulse',
     pending: 'opacity-100 bg-gray-500 dark:bg-gray-400',
     'needs-auth': 'opacity-100 bg-gray-500 dark:bg-gray-400',
     error: 'opacity-100 bg-gray-500 dark:bg-gray-400',
