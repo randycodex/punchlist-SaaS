@@ -787,14 +787,14 @@ export default function ProjectsPage() {
                 }
                 void handlePermanentDeleteSelectedProjects();
               }}
-              className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1 ${
+              className={`h-9 px-3 text-sm rounded-lg flex items-center gap-1.5 ${
                 showTrash
                   ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               <Trash2 className="w-4 h-4" />
-              {trashedProjects.length > 0 ? `Trash (${trashedProjects.length})` : 'Trash'}
+              Trash
             </button>
             <button
               onClick={() => setShowNewProject(true)}

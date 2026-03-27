@@ -553,10 +553,11 @@ export default function ProjectDetailPage() {
                   setDeleteMode(true);
                   setSelectedAreaIds(new Set());
                 }}
-                className="h-9 w-9 flex items-center justify-center text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                className="h-9 px-3 text-sm rounded-lg flex items-center gap-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 aria-label="Delete areas"
               >
                 <Trash2 className="w-4 h-4" />
+                Trash
               </button>
             )}
             <button
@@ -608,10 +609,7 @@ export default function ProjectDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         {project.areas.length === 0 ? (
-          <div className="text-center py-12">
-            <Building2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Areas</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">Add an area to start inspecting</p>
+          <div className="flex justify-center py-12">
             <button
               onClick={() => setShowAddArea(true)}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
