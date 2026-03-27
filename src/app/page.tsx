@@ -692,6 +692,14 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set([projectId]));
   }, []);
 
+  const handleTrashedProjectLongPress = useCallback((projectId: string) => {
+    setShowTrash(true);
+    setDeleteMode(true);
+    setExportMode(false);
+    setSelectedAreaIds(new Set());
+    setSelectedProjectIds(new Set([projectId]));
+  }, []);
+
   const toggleAreaSelection = useCallback((id: string) => {
     setSelectedAreaIds((prev) => {
       const next = new Set(prev);
@@ -706,15 +714,26 @@ export default function ProjectsPage() {
 
   async function handleDeleteSelectedProjects() {
     if (selectedProjectIds.size === 0) return;
-    const projectsToTrash = activeProjects.filter((project) => selectedProjectIds.has(project.id));
-    if (projectsToTrash.length === 0) return;
+    if (showTrash) {
+      const projectsToDelete = trashedProjects.filter((project) => selectedProjectIds.has(project.id));
+      if (projectsToDelete.length === 0) return;
 
-    for (const project of projectsToTrash) {
-      project.deletedAt = new Date();
-      await saveProject(project);
-      dirtyProjectIdsRef.current.add(project.id);
+      for (const project of projectsToDelete) {
+        markProjectDeleted(project.id);
+        await deleteProject(project.id);
+      }
+      scheduleSync(undefined, { fullSync: true });
+    } else {
+      const projectsToTrash = activeProjects.filter((project) => selectedProjectIds.has(project.id));
+      if (projectsToTrash.length === 0) return;
+
+      for (const project of projectsToTrash) {
+        project.deletedAt = new Date();
+        await saveProject(project);
+        dirtyProjectIdsRef.current.add(project.id);
+      }
+      scheduleSync();
     }
-    scheduleSync();
 
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
@@ -993,7 +1012,7 @@ export default function ProjectsPage() {
             >
               Cancel
             </button>
-            {!singleProjectMainView && (
+            {!singleProjectMainView && !showTrash && (
               <button
                 onClick={() => void handleExportSelectedConfirm()}
                 disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
@@ -1069,19 +1088,51 @@ export default function ProjectsPage() {
                 const deletedAt = project.deletedAt ?? new Date();
                 const expiresAt = new Date(deletedAt.getTime() + TRASH_RETENTION_MS);
                 const isSelected = selectedProjectIds.has(project.id);
+                const longPressRef = { current: null as ReturnType<typeof setTimeout> | null };
                 return (
                   <div
                     key={project.id}
+                    onContextMenu={(event) => {
+                      if (!deleteMode) {
+                        event.preventDefault();
+                      }
+                    }}
                     onClick={() => {
                       if (deleteMode) {
                         toggleProjectSelection(project.id);
+                      }
+                    }}
+                    onPointerDown={() => {
+                      if (!deleteMode) {
+                        longPressRef.current = setTimeout(() => {
+                          handleTrashedProjectLongPress(project.id);
+                          longPressRef.current = null;
+                        }, LONG_PRESS_MS);
+                      }
+                    }}
+                    onPointerUp={() => {
+                      if (longPressRef.current) {
+                        clearTimeout(longPressRef.current);
+                        longPressRef.current = null;
+                      }
+                    }}
+                    onPointerCancel={() => {
+                      if (longPressRef.current) {
+                        clearTimeout(longPressRef.current);
+                        longPressRef.current = null;
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      if (longPressRef.current) {
+                        clearTimeout(longPressRef.current);
+                        longPressRef.current = null;
                       }
                     }}
                     className={`rounded-lg border p-4 transition-colors ${
                       isSelected
                         ? 'border-gray-500 bg-gray-200 dark:bg-zinc-700 dark:border-zinc-500'
                         : 'border-gray-300 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700'
-                    } ${deleteMode ? 'cursor-pointer' : ''}`}
+                    } ${deleteMode ? 'cursor-pointer' : ''} select-none [-webkit-touch-callout:none]`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">

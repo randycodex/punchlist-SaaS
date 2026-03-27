@@ -46,6 +46,13 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dark body {
