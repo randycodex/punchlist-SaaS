@@ -12,7 +12,9 @@ export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
 export type DefaultItemState = 'pending' | 'ok';
 
 type AppSettings = {
-  showOnlyIssues: boolean;
+  homeShowOnlyIssues: boolean;
+  projectShowOnlyIssues: boolean;
+  inspectionShowOnlyIssues: boolean;
   quickSort: QuickSortOption;
   profileName: string;
   profileInitials: string;
@@ -30,7 +32,9 @@ type AppSettings = {
 };
 
 type AppSettingsContextValue = AppSettings & {
-  setShowOnlyIssues: (value: boolean) => void;
+  setHomeShowOnlyIssues: (value: boolean) => void;
+  setProjectShowOnlyIssues: (value: boolean) => void;
+  setInspectionShowOnlyIssues: (value: boolean) => void;
   setQuickSort: (value: QuickSortOption) => void;
   setProfileName: (value: string) => void;
   setProfileInitials: (value: string) => void;
@@ -50,10 +54,12 @@ type AppSettingsContextValue = AppSettings & {
 const STORAGE_KEY = 'punchlist:app-settings';
 
 const defaultSettings: AppSettings = {
-  showOnlyIssues: false,
+  homeShowOnlyIssues: false,
+  projectShowOnlyIssues: false,
+  inspectionShowOnlyIssues: false,
   quickSort: 'default',
-  profileName: 'Inspector',
-  profileInitials: 'IN',
+  profileName: '',
+  profileInitials: '',
   cameraQuality: 'high',
   autoSaveAfterCapture: true,
   defaultCamera: 'rear',
@@ -75,7 +81,16 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultSettings;
-      return { ...defaultSettings, ...JSON.parse(raw) } as AppSettings;
+      const rawSettings = JSON.parse(raw) as Partial<AppSettings> & { showOnlyIssues?: boolean };
+      const parsed = { ...defaultSettings, ...rawSettings } as AppSettings;
+      if (typeof rawSettings.showOnlyIssues === 'boolean' && rawSettings.homeShowOnlyIssues === undefined) {
+        parsed.homeShowOnlyIssues = rawSettings.showOnlyIssues;
+      }
+      if (parsed.profileName === 'Inspector' && parsed.profileInitials === 'IN') {
+        parsed.profileName = '';
+        parsed.profileInitials = '';
+      }
+      return parsed;
     } catch {
       return defaultSettings;
     }
@@ -94,7 +109,9 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppSettingsContextValue>(
     () => ({
       ...settings,
-      setShowOnlyIssues: (showOnlyIssues) => setSettings((prev) => ({ ...prev, showOnlyIssues })),
+      setHomeShowOnlyIssues: (homeShowOnlyIssues) => setSettings((prev) => ({ ...prev, homeShowOnlyIssues })),
+      setProjectShowOnlyIssues: (projectShowOnlyIssues) => setSettings((prev) => ({ ...prev, projectShowOnlyIssues })),
+      setInspectionShowOnlyIssues: (inspectionShowOnlyIssues) => setSettings((prev) => ({ ...prev, inspectionShowOnlyIssues })),
       setQuickSort: (quickSort) => setSettings((prev) => ({ ...prev, quickSort })),
       setProfileName: (profileName) => setSettings((prev) => ({ ...prev, profileName })),
       setProfileInitials: (profileInitials) => setSettings((prev) => ({ ...prev, profileInitials })),

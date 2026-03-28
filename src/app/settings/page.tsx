@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRight, ChevronLeft, RefreshCw } from 'lucide-react';
-import { useAppSettings, type CameraFacing, type CameraQuality, type DateFormat, type DefaultItemState, type DensityMode, type ExportLocation, type FilenameFormat, type QuickSortOption } from '@/contexts/AppSettingsContext';
+import { useAppSettings, type CameraFacing, type CameraQuality, type DefaultItemState, type DensityMode, type QuickSortOption } from '@/contexts/AppSettingsContext';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -93,9 +93,6 @@ export default function SettingsPage() {
     defaultItemState,
     autoExpandNextItem,
     density,
-    defaultExportLocation,
-    filenameFormat,
-    dateFormat,
     confirmBeforeDelete,
     lastSyncAt,
     setProfileName,
@@ -107,9 +104,6 @@ export default function SettingsPage() {
     setDefaultItemState,
     setAutoExpandNextItem,
     setDensity,
-    setDefaultExportLocation,
-    setFilenameFormat,
-    setDateFormat,
     setConfirmBeforeDelete,
   } = useAppSettings();
   const { isSignedIn, signIn, signOut } = useMicrosoftAuth();
@@ -117,10 +111,11 @@ export default function SettingsPage() {
   const { themeMode, setThemeMode } = useTheme();
 
   return (
-    <main className="app-page min-h-[100dvh]">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col px-4 pb-10 pt-4 sm:px-5">
-        <header className="header-stable -mx-4 mb-5 border-b px-4 py-4 sm:-mx-5 sm:px-5">
-          <div className="flex items-center gap-3">
+    <main className="app-page h-full overflow-y-auto overscroll-y-contain">
+      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 pb-10 sm:px-5">
+        <header className="header-stable -mx-4 mb-4 shrink-0 border-b z-20 sm:-mx-5">
+          <div className="mx-auto flex h-[4.75rem] w-full max-w-3xl items-center px-4 py-3 sm:px-5">
+            <div className="flex w-full items-center gap-3">
             <Link
               href="/"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.04] text-gray-600 transition hover:bg-black/[0.06] dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/[0.08]"
@@ -128,10 +123,10 @@ export default function SettingsPage() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Settings</h1>
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Quick preferences and app defaults</p>
             </div>
+          </div>
           </div>
         </header>
 
@@ -224,21 +219,6 @@ export default function SettingsPage() {
             />
           </Section>
 
-          <Section title="Export Defaults">
-            <SettingRow
-              label="Default export location"
-              action={<Segmented<ExportLocation> value={defaultExportLocation} onChange={setDefaultExportLocation} options={[{ value: 'local', label: 'Local' }, { value: 'onedrive', label: 'OneDrive' }]} />}
-            />
-            <SettingRow
-              label="Filename format"
-              action={<Segmented<FilenameFormat> value={filenameFormat} onChange={setFilenameFormat} options={[{ value: 'project-date', label: 'Project + date' }, { value: 'project-only', label: 'Project' }, { value: 'date-project', label: 'Date + project' }]} />}
-            />
-            <SettingRow
-              label="Date format"
-              action={<Segmented<DateFormat> value={dateFormat} onChange={setDateFormat} options={[{ value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' }, { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' }, { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' }]} />}
-            />
-          </Section>
-
           <Section title="Trash">
             <SettingRow label="Confirm before delete" action={<Toggle checked={confirmBeforeDelete} onChange={setConfirmBeforeDelete} />} />
             <div className="px-1 text-sm text-gray-500 dark:text-gray-400">Deleted projects remain in Trash for 30 days before permanent removal.</div>
@@ -246,7 +226,6 @@ export default function SettingsPage() {
 
           <Section title="About">
             <SettingRow label="App version" value="2.0" />
-            <SettingRow label="Help / privacy" action={<ChevronRight className="h-4 w-4" />} />
           </Section>
         </div>
       </div>

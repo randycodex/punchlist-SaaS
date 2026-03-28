@@ -365,7 +365,7 @@ export default function ProjectsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, signIn, signOut, isSignedIn, ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-  const { showOnlyIssues, quickSort, setShowOnlyIssues, setQuickSort, markSyncedNow } = useAppSettings();
+  const { homeShowOnlyIssues, quickSort, setHomeShowOnlyIssues, setQuickSort, markSyncedNow } = useAppSettings();
   const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
@@ -578,7 +578,7 @@ export default function ProjectsPage() {
   );
 
   const sortedProjects = useMemo(() => {
-    const visibleProjects = showOnlyIssues
+    const visibleProjects = homeShowOnlyIssues
       ? activeProjects.filter((project) => (projectMetrics.get(project.id)?.stats.issues ?? 0) > 0)
       : activeProjects;
 
@@ -602,7 +602,7 @@ export default function ProjectsPage() {
       const progressB = projectMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeProjects, projectMetrics, quickSort, showOnlyIssues, sortOption]);
+  }, [activeProjects, projectMetrics, quickSort, homeShowOnlyIssues, sortOption]);
 
   const singleProject = useMemo(
     () => (activeProjects.length === 1 ? activeProjects[0] : null),
@@ -644,7 +644,7 @@ export default function ProjectsPage() {
   }, [singleProject, activeAreas]);
 
   const sortedAreas = useMemo(() => {
-    const visibleAreas = showOnlyIssues
+    const visibleAreas = homeShowOnlyIssues
       ? activeAreas.filter((area) => (areaMetrics.get(area.id)?.stats.issues ?? 0) > 0)
       : activeAreas;
 
@@ -668,7 +668,7 @@ export default function ProjectsPage() {
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeAreas, areaMetrics, quickSort, showOnlyIssues, sortOption]);
+  }, [activeAreas, areaMetrics, quickSort, homeShowOnlyIssues, sortOption]);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -939,7 +939,7 @@ export default function ProjectsPage() {
       }
 
       if (detail.action === 'toggle-issues-only') {
-        setShowOnlyIssues(!showOnlyIssues);
+        setHomeShowOnlyIssues(!homeShowOnlyIssues);
         return;
       }
 
@@ -1008,7 +1008,7 @@ export default function ProjectsPage() {
     return () => {
       window.removeEventListener('punchlist-home-menu-action', handleHomeMenuAction as EventListener);
     };
-  }, [isSignedIn, showOnlyIssues, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort, setShowOnlyIssues]);
+  }, [isSignedIn, homeShowOnlyIssues, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort, setHomeShowOnlyIssues]);
 
   useEffect(() => {
     window.dispatchEvent(
@@ -1020,10 +1020,11 @@ export default function ProjectsPage() {
           canAddArea: !!singleProject,
           isSingleProject: !!singleProject,
           singleProjectName: singleProject?.projectName ?? '',
+          showOnlyIssues: homeShowOnlyIssues,
         },
       })
     );
-  }, [sortOption, showTrash, singleProject]);
+  }, [sortOption, showTrash, singleProject, homeShowOnlyIssues]);
 
   function toggleTrashView() {
     setShowTrash((current) => {

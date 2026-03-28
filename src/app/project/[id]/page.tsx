@@ -28,6 +28,7 @@ type SortOption = 'name' | 'recent' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
+const LONG_PRESS_MS = 500;
 
 type AreaMetrics = {
   stats: ReturnType<typeof getAreaStats>;
@@ -46,6 +47,7 @@ type AreaCardProps = {
   deleteMode: boolean;
   isSelected: boolean;
   onToggleSelection: (areaId: string) => void;
+  onLongPressSelect: (areaId: string) => void;
 };
 
 const AreaCard = memo(function AreaCard({
@@ -55,18 +57,44 @@ const AreaCard = memo(function AreaCard({
   deleteMode,
   isSelected,
   onToggleSelection,
+  onLongPressSelect,
 }: AreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearLongPress() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+
   return (
     <div
+      onContextMenu={(event) => {
+        if (!deleteMode) {
+          event.preventDefault();
+        }
+      }}
       onClick={() => {
         if (deleteMode) {
           onToggleSelection(area.id);
         }
       }}
+      onPointerDown={() => {
+        if (!deleteMode) {
+          longPressRef.current = setTimeout(() => {
+            onLongPressSelect(area.id);
+            longPressRef.current = null;
+          }, LONG_PRESS_MS);
+        }
+      }}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
       className={`block rounded-2xl border p-4 transition-colors ${
         isSelected
           ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
@@ -78,6 +106,11 @@ const AreaCard = memo(function AreaCard({
           href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
+          }}
+          onContextMenu={(event) => {
+            if (!deleteMode) {
+              event.preventDefault();
+            }
           }}
           className="flex-1 min-w-0"
         >
@@ -98,6 +131,11 @@ const AreaCard = memo(function AreaCard({
           href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
+          }}
+          onContextMenu={(event) => {
+            if (!deleteMode) {
+              event.preventDefault();
+            }
           }}
           className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:text-gray-200"
           aria-label={`Open ${area.name}`}
@@ -136,7 +174,7 @@ export default function ProjectDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-  const { markSyncedNow } = useAppSettings();
+  const { projectShowOnlyIssues, setProjectShowOnlyIssues, markSyncedNow } = useAppSettings();
 
   useEffect(() => {
     if (!id) {
@@ -251,7 +289,11 @@ export default function ProjectDetailPage() {
   }, [project, activeAreas]);
 
   const sortedAreas = useMemo(() => {
-    return [...activeAreas].sort((a, b) => {
+    const visibleAreas = projectShowOnlyIssues
+      ? activeAreas.filter((area) => (areaMetrics.get(area.id)?.stats.issues ?? 0) > 0)
+      : activeAreas;
+
+    return [...visibleAreas].sort((a, b) => {
       if (sortOption === 'name') {
         return a.name.localeCompare(b.name);
       }
@@ -262,7 +304,7 @@ export default function ProjectDetailPage() {
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeAreas, sortOption, areaMetrics]);
+  }, [activeAreas, sortOption, areaMetrics, projectShowOnlyIssues]);
 
   async function handleAddArea() {
     if (!project) return;
@@ -302,6 +344,13 @@ export default function ProjectDetailPage() {
       else next.add(areaId);
       return next;
     });
+  }, []);
+
+  const handleAreaCardLongPress = useCallback((areaId: string) => {
+    setShowTrash(false);
+    setSelectedAreaIds(new Set([areaId]));
+    setDeleteMode(true);
+    setActionSheet(null);
   }, []);
 
   async function handleDeleteSelectedAreas() {
@@ -437,6 +486,11 @@ export default function ProjectDetailPage() {
         return;
       }
 
+      if (detail.action === 'toggle-issues-only') {
+        setProjectShowOnlyIssues(!projectShowOnlyIssues);
+        return;
+      }
+
       if (detail.action === 'toggle-selection') {
         if (deleteMode) {
           cancelSelectionMode();
@@ -467,7 +521,7 @@ export default function ProjectDetailPage() {
     return () => {
       window.removeEventListener('punchlist-home-menu-action', handleTopMenuAction as EventListener);
     };
-  }, [project, deleteMode]);
+  }, [project, deleteMode, projectShowOnlyIssues, setProjectShowOnlyIssues]);
 
   useEffect(() => {
     if (!project) return;
@@ -480,11 +534,12 @@ export default function ProjectDetailPage() {
           canAddArea: true,
           isSingleProject: true,
           singleProjectName: project.projectName,
+          showOnlyIssues: projectShowOnlyIssues,
           selectionMode: deleteMode,
         },
       })
     );
-  }, [project, sortOption, showTrash, deleteMode]);
+  }, [project, sortOption, showTrash, deleteMode, projectShowOnlyIssues]);
 
   function isListAtTop() {
     return (listRef.current?.scrollTop ?? 0) <= 8;
@@ -656,6 +711,7 @@ export default function ProjectDetailPage() {
                   deleteMode={deleteMode}
                   isSelected={isSelected}
                   onToggleSelection={toggleAreaSelection}
+                  onLongPressSelect={handleAreaCardLongPress}
                 />
               );
             })}

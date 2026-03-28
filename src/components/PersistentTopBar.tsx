@@ -20,6 +20,7 @@ type HomeMenuState = {
   canAddArea: boolean;
   isSingleProject: boolean;
   singleProjectName: string;
+  showOnlyIssues?: boolean;
   selectionMode?: boolean;
 };
 
@@ -27,13 +28,12 @@ export default function PersistentTopBar() {
   const pathname = usePathname();
   const { isReady, isSignedIn } = useMicrosoftAuth();
   const { status } = useSyncStatus();
-  const { showOnlyIssues, quickSort } = useAppSettings();
+  const { homeShowOnlyIssues, projectShowOnlyIssues, quickSort } = useAppSettings();
   const showAuth = pathname === '/';
   const isProjectOverview = /^\/project\/[^/]+$/.test(pathname);
   const showTopMenu = showAuth || isProjectOverview;
   const [projectTitle, setProjectTitle] = useState('');
   const [showHomeMenu, setShowHomeMenu] = useState(false);
-  const [showSortSubmenu, setShowSortSubmenu] = useState(false);
   const [homeMenuState, setHomeMenuState] = useState<HomeMenuState>({
     context: 'home',
     sortOption: 'name',
@@ -41,6 +41,7 @@ export default function PersistentTopBar() {
     canAddArea: false,
     isSingleProject: false,
     singleProjectName: '',
+    showOnlyIssues: false,
     selectionMode: false,
   });
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +112,6 @@ export default function PersistentTopBar() {
       const target = event.target as Node | null;
       if (target && !menuRef.current?.contains(target)) {
         setShowHomeMenu(false);
-        setShowSortSubmenu(false);
       }
     };
     document.addEventListener('pointerdown', handlePointerDown, true);
@@ -149,8 +149,10 @@ export default function PersistentTopBar() {
   function dispatchHomeAction(action: string, sort?: SortOption) {
     window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action, sort } }));
     setShowHomeMenu(false);
-    setShowSortSubmenu(false);
   }
+
+  const currentShowOnlyIssues =
+    homeMenuState.context === 'project' ? (homeMenuState.showOnlyIssues ?? projectShowOnlyIssues) : (homeMenuState.showOnlyIssues ?? homeShowOnlyIssues);
 
   return (
     <div className="persistent-top-bar fixed top-0 left-0 right-0 z-30 border-b pt-[env(safe-area-inset-top)]">
@@ -204,12 +206,12 @@ export default function PersistentTopBar() {
                         <span>Show only issues</span>
                         <span
                           className={`relative inline-flex h-6 w-10 items-center rounded-full transition ${
-                            showOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
+                            currentShowOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
                           }`}
                         >
                           <span
                             className={`inline-block h-4 w-4 rounded-full bg-white transition ${
-                              showOnlyIssues ? 'translate-x-5' : 'translate-x-1'
+                              currentShowOnlyIssues ? 'translate-x-5' : 'translate-x-1'
                             }`}
                           />
                         </span>
@@ -243,34 +245,54 @@ export default function PersistentTopBar() {
                   </div>
                 )}
                 {!showAuth && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowSortSubmenu((current) => !current)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
-                    >
-                      <span className="flex items-center gap-3">
-                        <ArrowDownAZ className="h-4 w-4" />
-                        Sort
-                      </span>
-                      <ChevronRight className={`h-4 w-4 transition ${showSortSubmenu ? 'rotate-90' : ''}`} />
-                    </button>
-                    {showSortSubmenu && (
-                      <div className="border-t border-gray-200 px-2 py-1 dark:border-zinc-700">
-                        {sortOptions.map(({ value, label, icon: Icon }) => (
-                          <button
-                            key={value}
-                            onClick={() => dispatchHomeAction('sort', value)}
-                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                              homeMenuState.sortOption === value ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                  <>
+                  <div className="px-3 py-2">
+                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
+                      Quick Settings
+                    </div>
+                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                      <button
+                        onClick={() => dispatchHomeAction('toggle-issues-only')}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
+                      >
+                        <span>Show only issues</span>
+                        <span
+                          className={`relative inline-flex h-6 w-10 items-center rounded-full transition ${
+                            currentShowOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 rounded-full bg-white transition ${
+                              currentShowOnlyIssues ? 'translate-x-5' : 'translate-x-1'
                             }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                            {label.replace('Sort: ', '')}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                          />
+                        </span>
+                      </button>
+                    </div>
                   </div>
+                  <div className="border-t border-gray-200 dark:border-zinc-700" />
+                  <div className="px-3 py-2">
+                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
+                      Sort
+                    </div>
+                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                      {sortOptions.map(({ value, label, icon: Icon }) => (
+                        <button
+                          key={value}
+                          onClick={() => dispatchHomeAction('sort', value)}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                            homeMenuState.sortOption === value
+                              ? 'bg-[var(--accent)] font-medium text-white'
+                              : 'text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label.replace('Sort: ', '')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  </>
                 )}
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button

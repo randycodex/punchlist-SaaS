@@ -24,6 +24,7 @@ type InspectionLocationCardProps = {
   location: Area['locations'][number];
   locationMetric?: Metrics;
   itemMetrics: Map<string, Metrics>;
+  showOnlyIssues?: boolean;
   expandedItems: Set<string>;
   isExpanded: boolean;
   alwaysExpanded?: boolean;
@@ -54,6 +55,7 @@ export default function InspectionLocationCard({
   location,
   locationMetric,
   itemMetrics,
+  showOnlyIssues = false,
   expandedItems,
   isExpanded,
   alwaysExpanded = false,
@@ -77,6 +79,9 @@ export default function InspectionLocationCard({
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const isCustomItemsList =
     hideHeader && alwaysExpanded && location.name.trim().toLowerCase() === 'custom items';
+  const visibleItems = showOnlyIssues
+    ? location.items.filter((item) => (itemMetrics.get(item.id)?.stats.issues ?? 0) > 0)
+    : location.items;
 
   return (
     <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
@@ -112,7 +117,7 @@ export default function InspectionLocationCard({
                 : 'relative space-y-2.5 pl-4 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]'
             }
           >
-          {location.items.map((item) => {
+          {visibleItems.map((item) => {
             const itemMetric = itemMetrics.get(item.id);
             const itemStats = itemMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
             const customCheckpoint = isCustomItemsList ? item.checkpoints[0] ?? null : null;
@@ -193,7 +198,9 @@ export default function InspectionLocationCard({
 
                 {isItemExpanded && (
                   <div className="relative space-y-2.5 pl-10 pr-1 pt-2 before:absolute before:bottom-2 before:left-0 before:top-1 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]">
-                    {item.checkpoints.map((checkpoint) => {
+                    {item.checkpoints
+                      .filter((checkpoint) => !showOnlyIssues || getCheckpointIssueState(checkpoint) !== 'none')
+                      .map((checkpoint) => {
                         const issueState = getCheckpointIssueState(checkpoint);
                         const isExpandedCheckpoint = expandedCheckpointId === checkpoint.id;
 
