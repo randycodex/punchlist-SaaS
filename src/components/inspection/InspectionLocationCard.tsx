@@ -80,10 +80,7 @@ export default function InspectionLocationCard({
   registerItemRef,
 }: InspectionLocationCardProps) {
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
-  const locationMetricsLabel =
-    locationStats.total > 0
-      ? `${locationStats.total} items${locationStats.issues > 0 ? ` · ${locationStats.issues} issues` : ''}`
-      : 'No items yet';
+  const locationMetricsLabel = `${locationStats.issues} issues`;
 
   return (
     <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
@@ -221,23 +218,16 @@ export default function InspectionLocationCard({
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
                       <div className={`mt-1 text-sm ${itemStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {itemStats.total > 0
-                          ? `${itemStats.total} items${itemStats.issues > 0 ? ` · ${itemStats.issues} issues` : ''}`
-                          : 'No items yet'}
+                        {[
+                          `${itemStats.issues} issues`,
+                          `${itemCommentCount} notes`,
+                          `${itemPhotoCount} photos`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </div>
                     </div>
                     <div className="ml-4 flex items-center gap-2 sm:gap-3">
-                      {(itemCommentCount > 0 || itemPhotoCount > 0 || itemPending > 0) && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {[
-                            itemPending > 0 ? `${itemPending} pending` : null,
-                            itemCommentCount > 0 ? `${itemCommentCount} notes` : null,
-                            itemPhotoCount > 0 ? `${itemPhotoCount} photos` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      )}
                       {isItemExpanded ? (
                         <ChevronDown className="w-4 h-4 text-gray-400" />
                       ) : (
@@ -337,32 +327,26 @@ function CheckpointRow({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-gray-900 dark:text-white">{checkpoint.name}</div>
           {(checkpoint.comments || checkpoint.photos.length > 0 || (checkpoint.files?.length ?? 0) > 0 || issueState !== 'none') && (
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {(issueState === 'resolved' || issueState === 'verified') && (
-                <span
-                  className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300"
-                >
-                  {issueState === 'resolved' ? 'Resolved' : 'Verified'}
-                </span>
-              )}
-              {checkpoint.comments && (
-                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
-                  <MessageSquare className="w-3 h-3" />
-                  Note
-                </span>
-              )}
-              {checkpoint.photos.length > 0 && (
-                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
-                  <ImageIcon className="w-3 h-3" />
-                  {checkpoint.photos.length} photo{checkpoint.photos.length === 1 ? '' : 's'}
-                </span>
-              )}
-              {(checkpoint.files?.length ?? 0) > 0 && (
-                <span className="pill-chip px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
-                  <Paperclip className="w-3 h-3" />
-                  {checkpoint.files?.length} file{(checkpoint.files?.length ?? 0) === 1 ? '' : 's'}
-                </span>
-              )}
+            <div
+              className={`mt-1 text-sm ${
+                issueState === 'open'
+                  ? 'text-red-600 dark:text-red-300'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              {[
+                issueState === 'resolved' ? 'Resolved' : null,
+                issueState === 'verified' ? 'Verified' : null,
+                `${checkpoint.comments ? 1 : 0} notes`,
+                checkpoint.photos.length > 0
+                  ? `${checkpoint.photos.length} photos`
+                  : '0 photos',
+                (checkpoint.files?.length ?? 0) > 0
+                  ? `${checkpoint.files?.length} file${(checkpoint.files?.length ?? 0) === 1 ? '' : 's'}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </div>
           )}
           {checkpoint.comments && (

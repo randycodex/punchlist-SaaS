@@ -80,11 +80,15 @@ const ProjectCard = memo(function ProjectCard({
 }: ProjectCardProps) {
   const stats = metric?.stats ?? { total: 0, ok: 0, issues: 0, areas: project.areas.length };
   const progress = metric?.progress ?? 0;
+  const commentCount = metric?.commentCount ?? 0;
+  const photoCount = metric?.photoCount ?? 0;
   const hasContent = stats.total > 0 || stats.areas > 0;
   const metricsLabel =
-    stats.total > 0
-      ? `${stats.total} items${stats.issues > 0 ? ` · ${stats.issues} issues` : ''}`
-      : 'No areas yet';
+    [
+      `${stats.issues} issues`,
+      `${commentCount} notes`,
+      `${photoCount} photos`,
+    ].join(' · ');
 
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

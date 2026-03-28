@@ -56,10 +56,15 @@ const AreaCard = memo(function AreaCard({
 }: AreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
+  const commentCount = metric?.commentCount ?? 0;
+  const photoCount = metric?.photoCount ?? 0;
   const metricsLabel =
-    areaStats.total > 0
-      ? `${areaStats.total} items${areaStats.issues > 0 ? ` · ${areaStats.issues} issues` : ''}`
-      : 'No items yet';
+    [
+      `${areaStats.issues} issues`,
+      `${commentCount} notes`,
+      `${photoCount} photos`,
+    ]
+      .join(' · ');
   return (
     <div
       onClick={() => {
