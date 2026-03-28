@@ -7,7 +7,6 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Paperclip,
-  Wrench,
 } from 'lucide-react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
@@ -143,19 +142,14 @@ export default function InspectionLocationCard({
                 {isFlatCustomItem && customCheckpoint ? (
                   <div className="rounded-[1.35rem] border border-gray-200 bg-gray-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-gray-300">
-                          <Wrench className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
-                          <div className={`mt-1 text-sm ${customIssueState === 'open' ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                            {itemPending > 0
-                              ? `${itemPending} pending`
-                              : customIssueState === 'open'
-                                ? 'Issue'
-                                : 'No items yet'}
-                          </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
+                        <div className={`mt-1 text-sm ${customIssueState === 'open' ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {itemPending > 0
+                            ? `${itemPending} pending`
+                            : customIssueState === 'open'
+                              ? 'Issue'
+                              : 'No items yet'}
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
@@ -175,13 +169,7 @@ export default function InspectionLocationCard({
                           }`}
                           aria-label={`Add note for ${item.name}`}
                         >
-                          {(customCheckpoint.files?.length ?? 0) > 0 ? (
-                            <Paperclip className="w-4 h-4" />
-                          ) : customCheckpoint.photos.length > 0 ? (
-                            <ImageIcon className="w-4 h-4" />
-                          ) : (
-                            <MessageSquare className="w-4 h-4" />
-                          )}
+                          <MessageSquare className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() =>
@@ -230,17 +218,12 @@ export default function InspectionLocationCard({
                   className="w-full rounded-[1.35rem] border border-gray-200 bg-gray-50 px-4 py-3 text-left transition hover:border-gray-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-950"
                 >
                   <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 flex items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-gray-300">
-                        <Wrench className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
-                        <div className={`mt-1 text-sm ${itemStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {itemStats.total > 0
-                            ? `${itemStats.total} items${itemStats.issues > 0 ? ` · ${itemStats.issues} issues` : ''}`
-                            : 'No items yet'}
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{item.name}</div>
+                      <div className={`mt-1 text-sm ${itemStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {itemStats.total > 0
+                          ? `${itemStats.total} items${itemStats.issues > 0 ? ` · ${itemStats.issues} issues` : ''}`
+                          : 'No items yet'}
                       </div>
                     </div>
                     <div className="ml-4 flex items-center gap-2 sm:gap-3">
@@ -396,13 +379,7 @@ function CheckpointRow({
             }`}
             aria-label={`Add note for ${checkpoint.name}`}
           >
-            {(checkpoint.files?.length ?? 0) > 0 ? (
-              <Paperclip className="w-4 h-4" />
-            ) : checkpoint.photos.length > 0 ? (
-              <ImageIcon className="w-4 h-4" />
-            ) : (
-              <MessageSquare className="w-4 h-4" />
-            )}
+            <MessageSquare className="w-4 h-4" />
           </button>
           <button
             onClick={onToggleIssue}
