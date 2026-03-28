@@ -134,18 +134,14 @@ export function isApartmentArea(area?: Pick<Area, 'areaTypeKey' | 'name'> | null
 
 export function buildAreaName(form: AreaFormValue): string {
   const definition = getAreaTypeDefinition(form.areaTypeKey);
-  const parts = [definition.requiresCustomName ? form.customAreaName.trim() : definition.label];
-
-  if (form.areaTypeKey === 'apartment_unit' && form.unitType) {
-    parts.push(form.unitType);
-  }
-
+  const baseName = definition.requiresCustomName ? form.customAreaName.trim() : definition.label;
   const areaNumber = form.areaNumber.trim();
-  if (areaNumber) {
-    parts.push(areaNumber);
+
+  if (form.areaTypeKey === 'apartment_unit') {
+    return [baseName, form.unitType, areaNumber].filter(Boolean).join(' - ').trim();
   }
 
-  return parts.join(' ').trim();
+  return [baseName, areaNumber].filter(Boolean).join(' - ').trim();
 }
 
 export function getDefaultAreaFormValue(): AreaFormValue {

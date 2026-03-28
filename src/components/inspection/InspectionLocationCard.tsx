@@ -185,7 +185,7 @@ export default function InspectionLocationCard({
                 </button>
 
                 {isItemExpanded && (
-                  <div className="space-y-2.5 pl-5 pr-1 pt-2">
+                  <div className="space-y-2.5 pl-11 pr-1 pt-2">
                     {item.checkpoints.map((checkpoint) => {
                         const issueState = getCheckpointIssueState(checkpoint);
                         const isExpandedCheckpoint = expandedCheckpointId === checkpoint.id;
@@ -272,7 +272,7 @@ function CheckpointRow({
     >
       <div className="flex items-center justify-between gap-3">
         <button onClick={onToggleExpand} className="min-w-0 flex-1 text-left">
-          <div className="text-sm font-medium text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
+          <div className="text-sm text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
           <div className="metric-line mt-1 text-sm">
             <span className="metric-secondary">{`${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`}</span>
             <span className="metric-secondary">{`${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}</span>

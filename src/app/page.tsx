@@ -234,6 +234,7 @@ type HomeAreaCardProps = {
   deleteMode: boolean;
   isSelected: boolean;
   onToggleSelection: (areaId: string) => void;
+  onLongPressSelect: (areaId: string) => void;
 };
 
 const HomeAreaCard = memo(function HomeAreaCard({
@@ -243,6 +244,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
   deleteMode,
   isSelected,
   onToggleSelection,
+  onLongPressSelect,
 }: HomeAreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
@@ -250,13 +252,38 @@ const HomeAreaCard = memo(function HomeAreaCard({
     areaStats.total > 0
       ? `${areaStats.total} items${areaStats.issues > 0 ? ` · ${areaStats.issues} issues` : ''}`
       : 'No items yet';
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearLongPress() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+
   return (
     <div
+      onContextMenu={(event) => {
+        if (!deleteMode) {
+          event.preventDefault();
+        }
+      }}
       onClick={() => {
         if (deleteMode) {
           onToggleSelection(area.id);
         }
       }}
+      onPointerDown={() => {
+        if (!deleteMode) {
+          longPressRef.current = setTimeout(() => {
+            onLongPressSelect(area.id);
+            longPressRef.current = null;
+          }, LONG_PRESS_MS);
+        }
+      }}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
       className={`card-surface-subtle rounded-[1.5rem] p-4 transition-colors ${
         isSelected
           ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
@@ -268,6 +295,11 @@ const HomeAreaCard = memo(function HomeAreaCard({
           href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
+          }}
+          onContextMenu={(event) => {
+            if (!deleteMode) {
+              event.preventDefault();
+            }
           }}
           className="flex-1 min-w-0"
         >
@@ -292,6 +324,12 @@ const HomeAreaCard = memo(function HomeAreaCard({
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
+          onContextMenu={(event) => {
+            if (!deleteMode) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
           className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
           aria-label={`Open ${area.name}`}
         >
@@ -704,6 +742,14 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set([projectId]));
   }, []);
 
+  const handleAreaCardLongPress = useCallback((areaId: string) => {
+    setShowTrash(false);
+    setDeleteMode(true);
+    setExportMode(false);
+    setSelectedProjectIds(new Set());
+    setSelectedAreaIds(new Set([areaId]));
+  }, []);
+
   const toggleAreaSelection = useCallback((id: string) => {
     setSelectedAreaIds((prev) => {
       const next = new Set(prev);
@@ -906,6 +952,16 @@ export default function ProjectsPage() {
         return;
       }
 
+      if (detail.action === 'export-project' && singleProject) {
+        setShowTrash(false);
+        setDeleteMode(false);
+        setExportMode(true);
+        setSelectedAreaIds(new Set());
+        setSelectedProjectIds(new Set([singleProject.id]));
+        setActionSheet('export');
+        return;
+      }
+
       if (detail.action === 'auth') {
         if (isSignedIn) signOut();
         else signIn();
@@ -1093,6 +1149,14 @@ export default function ProjectsPage() {
                 const expiresAt = new Date(deletedAt.getTime() + TRASH_RETENTION_MS);
                 const isSelected = selectedProjectIds.has(project.id);
                 const longPressRef = { current: null as ReturnType<typeof setTimeout> | null };
+
+                function clearLongPress() {
+                  if (longPressRef.current) {
+                    clearTimeout(longPressRef.current);
+                    longPressRef.current = null;
+                  }
+                }
+
                 return (
                   <div
                     key={project.id}
@@ -1114,29 +1178,14 @@ export default function ProjectsPage() {
                         }, LONG_PRESS_MS);
                       }
                     }}
-                    onPointerUp={() => {
-                      if (longPressRef.current) {
-                        clearTimeout(longPressRef.current);
-                        longPressRef.current = null;
-                      }
-                    }}
-                    onPointerCancel={() => {
-                      if (longPressRef.current) {
-                        clearTimeout(longPressRef.current);
-                        longPressRef.current = null;
-                      }
-                    }}
-                    onPointerLeave={() => {
-                      if (longPressRef.current) {
-                        clearTimeout(longPressRef.current);
-                        longPressRef.current = null;
-                      }
-                    }}
+                    onPointerUp={clearLongPress}
+                    onPointerCancel={clearLongPress}
+                    onPointerLeave={clearLongPress}
                     className={`rounded-lg border p-4 transition-colors ${
                       isSelected
                         ? 'border-gray-500 bg-gray-200 dark:bg-zinc-700 dark:border-zinc-500'
                         : 'border-gray-300 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700'
-                    } ${deleteMode ? 'cursor-pointer' : ''} select-none [-webkit-touch-callout:none]`}
+                    } ${deleteMode ? 'cursor-pointer' : ''} select-none touch-manipulation [-webkit-touch-callout:none]`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -1165,6 +1214,8 @@ export default function ProjectsPage() {
                         <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => void handleRestoreProject(project.id)}
+                          onContextMenu={(event) => event.preventDefault()}
+                          onPointerDown={(event) => event.stopPropagation()}
                           className="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -1202,6 +1253,7 @@ export default function ProjectsPage() {
                     deleteMode={deleteMode}
                     isSelected={isSelected}
                     onToggleSelection={toggleAreaSelection}
+                    onLongPressSelect={handleAreaCardLongPress}
                   />
                 );
               })

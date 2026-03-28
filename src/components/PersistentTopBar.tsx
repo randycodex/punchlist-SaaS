@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { getProject } from '@/lib/db';
-import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil } from 'lucide-react';
+import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil, FileDown } from 'lucide-react';
 
 const projectTitleCache = new Map<string, string>();
 type SortOption = 'name' | 'recent' | 'progress';
@@ -167,7 +167,7 @@ export default function PersistentTopBar() {
             />
           </Link>
         </div>
-        {showTopMenu && isReady && (
+        {showTopMenu && isReady && !homeMenuState.showTrash && (
           <div ref={menuRef} className="relative flex items-center gap-2">
             <span
               aria-label={indicatorLabel[status]}
@@ -217,6 +217,15 @@ export default function PersistentTopBar() {
                   >
                     <Pencil className="h-4 w-4" />
                     Edit project
+                  </button>
+                )}
+                {homeMenuState.isSingleProject && (
+                  <button
+                    onClick={() => dispatchHomeAction('export-project')}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Export project
                   </button>
                 )}
                 {homeMenuState.context !== 'project' && (
