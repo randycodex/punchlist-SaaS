@@ -1,56 +1,86 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 type Theme = 'light' | 'dark';
+type ThemeMode = Theme | 'system';
 
 interface ThemeContextType {
   theme: Theme;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
 }
 
+const STORAGE_KEY = 'punchlist:theme-mode';
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+function getSystemTheme(): Theme {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'light';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    if (typeof window === 'undefined') return 'system';
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    } catch {}
+    return 'system';
   });
+  const [theme, setTheme] = useState<Theme>(() => getSystemTheme());
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const applySystemTheme = () => setTheme(media.matches ? 'dark' : 'light');
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', applySystemTheme);
-    } else {
-      media.addListener(applySystemTheme);
+
+    function applyTheme() {
+      setTheme(themeMode === 'system' ? (media.matches ? 'dark' : 'light') : themeMode);
     }
+
+    applyTheme();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', applyTheme);
+    } else {
+      media.addListener(applyTheme);
+    }
+
     return () => {
       if (typeof media.removeEventListener === 'function') {
-        media.removeEventListener('change', applySystemTheme);
+        media.removeEventListener('change', applyTheme);
       } else {
-        media.removeListener(applySystemTheme);
+        media.removeListener(applyTheme);
       }
     };
-  }, []);
+  }, [themeMode]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, themeMode);
+    } catch {}
+  }, [themeMode]);
+
+  useEffect(() => {
+    document.documentElement.dataset.themeMode = themeMode;
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [theme]);
+  }, [theme, themeMode]);
 
-  function toggleTheme() {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+  const value = useMemo<ThemeContextType>(
+    () => ({
+      theme,
+      themeMode,
+      setThemeMode,
+      toggleTheme: () => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark')),
+    }),
+    [theme, themeMode]
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

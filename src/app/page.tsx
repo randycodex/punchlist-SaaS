@@ -9,8 +9,10 @@ import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDri
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import AreaEditorModal from '@/components/AreaEditorModal';
+import MetadataLine from '@/components/MetadataLine';
 import { applyTemplateToArea } from '@/lib/template';
 import { buildAreaName, getDefaultAreaFormValue, type AreaTypeKey } from '@/lib/areas';
 import Link from 'next/link';
@@ -83,12 +85,6 @@ const ProjectCard = memo(function ProjectCard({
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
   const hasContent = stats.total > 0 || stats.areas > 0;
-  const metricsLabel =
-    [
-      `${stats.issues} issues`,
-      `${commentCount} notes`,
-      `${photoCount} photos`,
-    ].join(' · ');
 
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,11 +144,7 @@ const ProjectCard = memo(function ProjectCard({
             <p className={`mt-1 truncate text-sm ${project.address ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
               {project.address || 'No address added'}
             </p>
-            <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className={stats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}>
-                {metricsLabel}
-              </span>
-            </div>
+            <MetadataLine className="mt-3" issues={stats.issues} notes={commentCount} photos={photoCount} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
                 className={`h-full rounded-full transition-all ${
@@ -248,10 +240,8 @@ const HomeAreaCard = memo(function HomeAreaCard({
 }: HomeAreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
-  const metricsLabel =
-    areaStats.total > 0
-      ? `${areaStats.total} items${areaStats.issues > 0 ? ` · ${areaStats.issues} issues` : ''}`
-      : 'No items yet';
+  const commentCount = metric?.commentCount ?? 0;
+  const photoCount = metric?.photoCount ?? 0;
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearLongPress() {
@@ -308,9 +298,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
               <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">{areaStats.total} items</span>
             </div>
-            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}`}>
-              {metricsLabel}
-            </div>
+            <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
                 className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
@@ -377,6 +365,7 @@ export default function ProjectsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, signIn, signOut, isSignedIn, ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
+  const { showOnlyIssues, quickSort, setShowOnlyIssues, setQuickSort, markSyncedNow } = useAppSettings();
   const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
@@ -456,6 +445,7 @@ export default function ProjectsPage() {
       const result = await syncProjectsWithOneDrive(token);
       setSyncConflicts(result.conflicts);
       setSyncStatus('idle');
+      markSyncedNow();
       await loadProjects();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -495,6 +485,7 @@ export default function ProjectsPage() {
         const result = await syncProjectsWithOneDrive(token);
         setSyncConflicts(result.conflicts);
         setSyncStatus('idle');
+        markSyncedNow();
         await loadProjects();
         return;
       }
@@ -506,6 +497,7 @@ export default function ProjectsPage() {
         await loadProjects();
       }
       setSyncStatus('idle');
+      markSyncedNow();
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       if (shouldRunFullSync) {
@@ -586,7 +578,20 @@ export default function ProjectsPage() {
   );
 
   const sortedProjects = useMemo(() => {
-    return [...activeProjects].sort((a, b) => {
+    const visibleProjects = showOnlyIssues
+      ? activeProjects.filter((project) => (projectMetrics.get(project.id)?.stats.issues ?? 0) > 0)
+      : activeProjects;
+
+    return [...visibleProjects].sort((a, b) => {
+      if (quickSort === 'alphabetical') {
+        return a.projectName.localeCompare(b.projectName);
+      }
+      if (quickSort === 'issues') {
+        const issuesA = projectMetrics.get(a.id)?.stats.issues ?? 0;
+        const issuesB = projectMetrics.get(b.id)?.stats.issues ?? 0;
+        if (issuesB !== issuesA) return issuesB - issuesA;
+        return a.projectName.localeCompare(b.projectName);
+      }
       if (sortOption === 'name') {
         return a.projectName.localeCompare(b.projectName);
       }
@@ -597,7 +602,7 @@ export default function ProjectsPage() {
       const progressB = projectMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeProjects, sortOption, projectMetrics]);
+  }, [activeProjects, projectMetrics, quickSort, showOnlyIssues, sortOption]);
 
   const singleProject = useMemo(
     () => (activeProjects.length === 1 ? activeProjects[0] : null),
@@ -639,7 +644,20 @@ export default function ProjectsPage() {
   }, [singleProject, activeAreas]);
 
   const sortedAreas = useMemo(() => {
-    return [...activeAreas].sort((a, b) => {
+    const visibleAreas = showOnlyIssues
+      ? activeAreas.filter((area) => (areaMetrics.get(area.id)?.stats.issues ?? 0) > 0)
+      : activeAreas;
+
+    return [...visibleAreas].sort((a, b) => {
+      if (quickSort === 'alphabetical') {
+        return a.name.localeCompare(b.name);
+      }
+      if (quickSort === 'issues') {
+        const issuesA = areaMetrics.get(a.id)?.stats.issues ?? 0;
+        const issuesB = areaMetrics.get(b.id)?.stats.issues ?? 0;
+        if (issuesB !== issuesA) return issuesB - issuesA;
+        return a.name.localeCompare(b.name);
+      }
       if (sortOption === 'name') {
         return a.name.localeCompare(b.name);
       }
@@ -650,7 +668,7 @@ export default function ProjectsPage() {
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeAreas, sortOption, areaMetrics]);
+  }, [activeAreas, areaMetrics, quickSort, showOnlyIssues, sortOption]);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -920,6 +938,24 @@ export default function ProjectsPage() {
         return;
       }
 
+      if (detail.action === 'toggle-issues-only') {
+        setShowOnlyIssues(!showOnlyIssues);
+        return;
+      }
+
+      if (detail.action === 'sync-now') {
+        void handleSync();
+        return;
+      }
+
+      if (detail.action.startsWith('quick-sort:')) {
+        const nextQuickSort = detail.action.replace('quick-sort:', '');
+        if (nextQuickSort === 'default' || nextQuickSort === 'issues' || nextQuickSort === 'alphabetical') {
+          setQuickSort(nextQuickSort);
+        }
+        return;
+      }
+
       if (detail.action === 'new-project') {
         setShowNewProject(true);
         return;
@@ -972,7 +1008,7 @@ export default function ProjectsPage() {
     return () => {
       window.removeEventListener('punchlist-home-menu-action', handleHomeMenuAction as EventListener);
     };
-  }, [isSignedIn, signIn, signOut, singleProject, sortOption, showTrash]);
+  }, [isSignedIn, showOnlyIssues, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort, setShowOnlyIssues]);
 
   useEffect(() => {
     window.dispatchEvent(

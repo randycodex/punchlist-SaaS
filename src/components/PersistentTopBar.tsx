@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { getProject } from '@/lib/db';
-import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil, FileDown } from 'lucide-react';
+import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil, FileDown, Settings2, RefreshCw } from 'lucide-react';
 
 const projectTitleCache = new Map<string, string>();
 type SortOption = 'name' | 'recent' | 'progress';
+type QuickSortOption = 'default' | 'issues' | 'alphabetical';
 type HomeMenuState = {
   context?: 'home' | 'project';
   sortOption: SortOption;
@@ -25,6 +27,7 @@ export default function PersistentTopBar() {
   const pathname = usePathname();
   const { isReady, isSignedIn } = useMicrosoftAuth();
   const { status } = useSyncStatus();
+  const { showOnlyIssues, quickSort } = useAppSettings();
   const showAuth = pathname === '/';
   const isProjectOverview = /^\/project\/[^/]+$/.test(pathname);
   const showTopMenu = showAuth || isProjectOverview;
@@ -137,6 +140,12 @@ export default function PersistentTopBar() {
     { value: 'progress', label: 'Sort: Progress', icon: BarChart3 },
   ];
 
+  const quickSortOptions: Array<{ value: QuickSortOption; label: string }> = [
+    { value: 'default', label: 'Default' },
+    { value: 'issues', label: 'Issues first' },
+    { value: 'alphabetical', label: 'Alphabetical' },
+  ];
+
   function dispatchHomeAction(action: string, sort?: SortOption) {
     window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action, sort } }));
     setShowHomeMenu(false);
@@ -182,34 +191,87 @@ export default function PersistentTopBar() {
             </button>
             {showHomeMenu && (
               <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[14rem] rounded-2xl py-1">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSortSubmenu((current) => !current)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    <span className="flex items-center gap-3">
-                      <ArrowDownAZ className="h-4 w-4" />
-                      Sort
-                    </span>
-                    <ChevronRight className={`h-4 w-4 transition ${showSortSubmenu ? 'rotate-90' : ''}`} />
-                  </button>
-                  {showSortSubmenu && (
-                    <div className="border-t border-gray-200 px-2 py-1 dark:border-zinc-700">
-                      {sortOptions.map(({ value, label, icon: Icon }) => (
-                        <button
-                          key={value}
-                          onClick={() => dispatchHomeAction('sort', value)}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                            homeMenuState.sortOption === value ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                {showAuth && (
+                  <div className="px-3 py-2">
+                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
+                      Quick Settings
+                    </div>
+                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                      <button
+                        onClick={() => dispatchHomeAction('toggle-issues-only')}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
+                      >
+                        <span>Show only issues</span>
+                        <span
+                          className={`relative inline-flex h-6 w-10 items-center rounded-full transition ${
+                            showOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
                           }`}
                         >
-                          <Icon className="h-4 w-4" />
-                          {label.replace('Sort: ', '')}
-                        </button>
-                      ))}
+                          <span
+                            className={`inline-block h-4 w-4 rounded-full bg-white transition ${
+                              showOnlyIssues ? 'translate-x-5' : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                      </button>
+                      <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                        Sort
+                      </div>
+                      <div className="flex flex-wrap gap-2 px-3 pb-1">
+                        {quickSortOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => dispatchHomeAction(`quick-sort:${option.value}`)}
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                              quickSort === option.value
+                                ? 'bg-[var(--accent)] text-white'
+                                : 'bg-black/[0.04] text-gray-600 hover:bg-black/[0.07] dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/[0.08]'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => dispatchHomeAction('sync-now')}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin text-[var(--accent)]' : ''}`} />
+                        Sync now
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+                {!showAuth && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSortSubmenu((current) => !current)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <span className="flex items-center gap-3">
+                        <ArrowDownAZ className="h-4 w-4" />
+                        Sort
+                      </span>
+                      <ChevronRight className={`h-4 w-4 transition ${showSortSubmenu ? 'rotate-90' : ''}`} />
+                    </button>
+                    {showSortSubmenu && (
+                      <div className="border-t border-gray-200 px-2 py-1 dark:border-zinc-700">
+                        {sortOptions.map(({ value, label, icon: Icon }) => (
+                          <button
+                            key={value}
+                            onClick={() => dispatchHomeAction('sort', value)}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                              homeMenuState.sortOption === value ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {label.replace('Sort: ', '')}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('edit-project')}
@@ -274,6 +336,19 @@ export default function PersistentTopBar() {
                     Sign out
                   </button>
                 )}
+                <div className="mt-1 border-t border-gray-200 dark:border-zinc-700">
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowHomeMenu(false)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Settings2 className="h-4 w-4" />
+                      Settings
+                    </span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
             )}
           </div>

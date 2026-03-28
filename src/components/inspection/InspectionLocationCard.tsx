@@ -9,6 +9,7 @@ import {
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
 import PhotoCapture from '@/components/PhotoCapture';
+import MetadataLine from '@/components/MetadataLine';
 
 type CheckpointReviewState = 'pending' | 'ok' | Exclude<IssueState, 'none'>;
 
@@ -93,9 +94,7 @@ export default function InspectionLocationCard({
               <div className="text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
                 {location.name}
               </div>
-              <div className={`mt-1 text-sm ${locationStats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}`}>
-                {locationStats.issues} issues
-              </div>
+              <MetadataLine className="mt-1" issues={locationStats.issues} issuesOnly />
             </div>
             {!alwaysExpanded && (
               isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -106,6 +105,13 @@ export default function InspectionLocationCard({
 
       {(alwaysExpanded || isExpanded) && (
         <div className={hideHeader ? 'space-y-2.5' : 'space-y-2.5 px-2.5 pb-2.5 pt-2'}>
+          <div
+            className={
+              isCustomItemsList
+                ? 'space-y-2.5'
+                : 'relative space-y-2.5 pl-4 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]'
+            }
+          >
           {location.items.map((item) => {
             const itemMetric = itemMetrics.get(item.id);
             const itemStats = itemMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
@@ -160,7 +166,7 @@ export default function InspectionLocationCard({
 
             const isItemExpanded = expandedItems.has(item.id);
             return (
-              <div key={item.id} ref={(node) => registerItemRef(item.id, node)}>
+              <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="pl-4">
                 <button
                   onClick={() => void onToggleItem(item.id)}
                   className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
@@ -171,21 +177,22 @@ export default function InspectionLocationCard({
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+                      <div className="truncate text-[1.02rem] tracking-[-0.01em] text-gray-900 dark:text-white">
                         {item.name}
                       </div>
-                      <div className="metric-line mt-1 text-sm">
-                        <span className={itemStats.issues > 0 ? 'accent-text' : 'metric-secondary'}>{itemStats.issues} issues</span>
-                        <span className="metric-secondary">{`${itemMetric?.commentCount ?? 0} notes`}</span>
-                        <span className="metric-secondary">{`${itemMetric?.photoCount ?? 0} photos`}</span>
-                      </div>
+                      <MetadataLine
+                        className="mt-1"
+                        issues={itemStats.issues}
+                        notes={itemMetric?.commentCount ?? 0}
+                        photos={itemMetric?.photoCount ?? 0}
+                      />
                     </div>
                     {isItemExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                   </div>
                 </button>
 
                 {isItemExpanded && (
-                  <div className="space-y-2.5 pl-11 pr-1 pt-2">
+                  <div className="relative space-y-2.5 pl-10 pr-1 pt-2 before:absolute before:bottom-2 before:left-0 before:top-1 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]">
                     {item.checkpoints.map((checkpoint) => {
                         const issueState = getCheckpointIssueState(checkpoint);
                         const isExpandedCheckpoint = expandedCheckpointId === checkpoint.id;
@@ -237,6 +244,7 @@ export default function InspectionLocationCard({
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>
@@ -272,11 +280,8 @@ function CheckpointRow({
     >
       <div className="flex items-center justify-between gap-3">
         <button onClick={onToggleExpand} className="min-w-0 flex-1 text-left">
-          <div className="text-sm text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
-          <div className="metric-line mt-1 text-sm">
-            <span className="metric-secondary">{`${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`}</span>
-            <span className="metric-secondary">{`${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}</span>
-          </div>
+          <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
+          <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
           {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">{checkpoint.comments}</p>}
         </button>
         <div className="flex shrink-0 items-center gap-2">

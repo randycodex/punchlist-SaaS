@@ -12,6 +12,8 @@ import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
+import MetadataLine from '@/components/MetadataLine';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -58,13 +60,6 @@ const AreaCard = memo(function AreaCard({
   const progress = metric?.progress ?? 0;
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
-  const metricsLabel =
-    [
-      `${areaStats.issues} issues`,
-      `${commentCount} notes`,
-      `${photoCount} photos`,
-    ]
-      .join(' · ');
   return (
     <div
       onClick={() => {
@@ -90,9 +85,7 @@ const AreaCard = memo(function AreaCard({
             <div className="min-w-0 flex items-center gap-2">
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
             </div>
-            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}`}>
-              {metricsLabel}
-            </div>
+            <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
                 className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
@@ -143,6 +136,7 @@ export default function ProjectDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
+  const { markSyncedNow } = useAppSettings();
 
   useEffect(() => {
     if (!id) {
@@ -354,6 +348,7 @@ export default function ProjectDetailPage() {
       }
       await syncProjectsWithOneDrive(token);
       setSyncStatus('idle');
+      markSyncedNow();
       await loadProject();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -388,6 +383,7 @@ export default function ProjectDetailPage() {
         await loadProject();
       }
       setSyncStatus('idle');
+      markSyncedNow();
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       setSyncStatus('error');

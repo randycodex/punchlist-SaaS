@@ -25,6 +25,7 @@ import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AreaNotesCard from '@/components/inspection/AreaNotesCard';
 import CustomItemComposer from '@/components/inspection/CustomItemComposer';
 import InspectionLocationCard from '@/components/inspection/InspectionLocationCard';
@@ -101,6 +102,7 @@ export default function AreaDetailPage() {
   const locationRefs = useRef(new Map<string, HTMLDivElement | null>());
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
+  const { markSyncedNow } = useAppSettings();
 
   useEffect(() => {
     if (!id || !areaId) {
@@ -574,6 +576,7 @@ export default function AreaDetailPage() {
       }
       await syncProjectsWithOneDrive(token);
       setSyncStatus('idle');
+      markSyncedNow();
       await loadData();
     } catch (error) {
       console.error('Sync failed:', error);
@@ -668,6 +671,7 @@ export default function AreaDetailPage() {
         await loadData();
       }
       setSyncStatus('idle');
+      markSyncedNow();
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
       setSyncStatus('error');
