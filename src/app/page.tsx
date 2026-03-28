@@ -4,7 +4,7 @@ import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEven
 import { Project, getProjectStats, getAreaStats, getReviewMetrics } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject, createArea } from '@/lib/db';
 import { syncProjectsWithOneDrive, pushProjectsToOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
-import { generateMultiProjectPDF, downloadPDF } from '@/lib/pdfExport';
+import { generateMultiProjectPDF, downloadPDF, type PdfExportMode } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
@@ -355,6 +355,7 @@ export default function ProjectsPage() {
   const [exportingSelected, setExportingSelected] = useState(false);
   const [exportingSelectedToDrive, setExportingSelectedToDrive] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | 'export' | null>(null);
+  const [exportType] = useState<PdfExportMode>('issues');
   const [showProjectMenuId, setShowProjectMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showAddArea, setShowAddArea] = useState(false);
@@ -858,8 +859,8 @@ export default function ProjectsPage() {
         ...project,
         areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
       }));
-      const blob = await generateMultiProjectPDF(projectsForExport);
-      const filename = 'PunchList_Projects_Report.pdf';
+      const blob = await generateMultiProjectPDF(projectsForExport, exportType);
+      const filename = exportType === 'issues' ? 'PunchList_Issues_Report.pdf' : 'PunchList_Full_Report.pdf';
       downloadPDF(blob, filename);
     } catch (error) {
       console.error('Failed to export selected projects:', error);
@@ -888,10 +889,10 @@ export default function ProjectsPage() {
         ...project,
         areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
       }));
-      const blob = await generateMultiProjectPDF(projectsForExport);
+      const blob = await generateMultiProjectPDF(projectsForExport, exportType);
       const filename = await getNextOneDriveExportFilename(
         token,
-        projectsToExport.map((project) => project.projectName)
+        projectsToExport.map((project) => `${project.projectName}_${exportType === 'issues' ? 'Issues' : 'Full'}`)
       );
       await uploadPdfToOneDrive(token, filename, blob);
     } catch (error) {

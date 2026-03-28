@@ -1,5 +1,46 @@
 import { jsPDF } from 'jspdf';
-import { Project, checkpointHasIssue } from '@/types';
+import { Area, Checkpoint, Item, Location, Project, checkpointHasIssue, getCheckpointIssueState } from '@/types';
+
+export type PdfExportMode = 'full' | 'issues';
+
+type ImageSize = { width: number; height: number };
+
+type LogoAssets = {
+  base64: string | null;
+  width: number;
+  height: number;
+};
+
+type LayoutMetrics = {
+  pageWidth: number;
+  pageHeight: number;
+  margin: number;
+  headerHeight: number;
+  footerHeight: number;
+  contentTop: number;
+  contentBottom: number;
+  contentWidth: number;
+  detailColumnGap: number;
+  detailColumnsPerPage: number;
+  detailColumnWidth: number;
+  photoGap: number;
+  photosPerRow: number;
+  photoWidth: number;
+  photoHeight: number;
+  statusIconRadius: number;
+};
+
+type ExportProject = Omit<Project, 'areas'> & { areas: ExportArea[] };
+type ExportArea = Omit<Area, 'locations'> & { locations: ExportLocation[] };
+type ExportLocation = Omit<Location, 'items'> & { items: ExportItem[] };
+type ExportItem = Omit<Item, 'checkpoints'> & { checkpoints: ExportCheckpoint[] };
+type ExportCheckpoint = Checkpoint;
+
+type SummaryArea = {
+  areaName: string;
+  issueCount: number;
+  sections: Array<{ sectionName: string; issueCount: number }>;
+};
 
 async function loadLogoBase64(): Promise<string | null> {
   try {
@@ -16,7 +57,7 @@ async function loadLogoBase64(): Promise<string | null> {
   }
 }
 
-function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
+function getImageDimensions(base64: string): Promise<ImageSize> {
   return new Promise((resolve) => {
     const img = new window.Image();
     img.onload = () => resolve({ width: img.width, height: img.height });
@@ -24,12 +65,6 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
     img.src = base64;
   });
 }
-
-type LogoAssets = {
-  base64: string | null;
-  width: number;
-  height: number;
-};
 
 async function loadLogoAssets(): Promise<LogoAssets> {
   const base64 = await loadLogoBase64();
@@ -39,32 +74,142 @@ async function loadLogoAssets(): Promise<LogoAssets> {
   if (base64) {
     try {
       const dims = await getImageDimensions(base64);
-      const maxLogoHeight = 25;
+      const maxLogoHeight = 15;
       const aspectRatio = dims.width / dims.height;
       height = maxLogoHeight;
       width = maxLogoHeight * aspectRatio;
     } catch {
-      // Keep default logo dimensions.
+      // Keep defaults.
     }
   }
 
   return { base64, width, height };
 }
 
-function addFooter(pdf: jsPDF, margin: number) {
+function createLayout(pdf: jsPDF): LayoutMetrics {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const headerHeight = 14;
+  const footerHeight = 14;
+  const contentTop = margin + headerHeight;
+  const contentBottom = pageHeight - margin - footerHeight;
+  const contentWidth = pageWidth - margin * 2;
+  const detailColumnGap = 6;
+  const detailColumnsPerPage = 2;
+  const detailColumnWidth = (contentWidth - detailColumnGap * (detailColumnsPerPage - 1)) / detailColumnsPerPage;
+  const photoGap = 4;
+  const photosPerRow = 1;
+  const photoWidth = (detailColumnWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
+  const photoHeight = photoWidth * 0.68;
+
+  return {
+    pageWidth,
+    pageHeight,
+    margin,
+    headerHeight,
+    footerHeight,
+    contentTop,
+    contentBottom,
+    contentWidth,
+    detailColumnGap,
+    detailColumnsPerPage,
+    detailColumnWidth,
+    photoGap,
+    photosPerRow,
+    photoWidth,
+    photoHeight,
+    statusIconRadius: 1.6,
+  };
+}
+
+function sanitizeText(value: string | undefined | null) {
+  return (value ?? '').trim();
+}
+
+function formatDate(value: Date | string | number | undefined, withTime = false) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return withTime ? date.toLocaleString() : date.toLocaleDateString();
+}
+
+function getGeneratedAt() {
+  return formatDate(new Date(), true);
+}
+
+function fitImageSize(size: ImageSize, maxWidth: number, maxHeight: number): ImageSize {
+  if (size.width <= 0 || size.height <= 0) {
+    return { width: maxWidth, height: maxHeight };
+  }
+  const scale = Math.min(maxWidth / size.width, maxHeight / size.height);
+  return { width: size.width * scale, height: size.height * scale };
+}
+
+async function loadPhotoDimensions(photos: string[]) {
+  return Promise.all(
+    photos.map(async (photo) => {
+      try {
+        return await getImageDimensions(photo);
+      } catch {
+        return { width: 1, height: 1 };
+      }
+    })
+  );
+}
+
+function drawStatusIcon(pdf: jsPDF, checkpoint: Checkpoint, x: number, y: number, radius: number) {
+  const centerY = y - 1.5;
+  const issueState = getCheckpointIssueState(checkpoint);
+
+  pdf.setLineWidth(0.35);
+
+  if (issueState === 'open') {
+    pdf.setDrawColor(239, 78, 36);
+    pdf.setFillColor(239, 78, 36);
+    pdf.circle(x, centerY, radius, 'F');
+  } else if (issueState === 'resolved') {
+    pdf.setDrawColor(217, 119, 6);
+    pdf.setFillColor(217, 119, 6);
+    pdf.circle(x, centerY, radius, 'F');
+  } else if (issueState === 'verified') {
+    pdf.setDrawColor(22, 163, 74);
+    pdf.setFillColor(22, 163, 74);
+    pdf.circle(x, centerY, radius, 'F');
+  } else if (checkpoint.status === 'ok') {
+    pdf.setDrawColor(51, 65, 85);
+    pdf.circle(x, centerY, radius, 'S');
+  } else {
+    pdf.setDrawColor(148, 163, 184);
+    pdf.circle(x, centerY, radius, 'S');
+  }
+
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setFillColor(0, 0, 0);
+}
+
+function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
   const totalPages = pdf.getNumberOfPages();
 
   for (let page = 1; page <= totalPages; page += 1) {
     pdf.setPage(page);
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(
+      layout.margin,
+      layout.pageHeight - layout.margin - 7,
+      layout.pageWidth - layout.margin,
+      layout.pageHeight - layout.margin - 7
+    );
+    pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text(`Page ${page} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, pageHeight - 10, {
+    pdf.setTextColor(120, 120, 120);
+    pdf.text(`Generated ${generatedAt}`, layout.margin, layout.pageHeight - layout.margin - 2);
+    pdf.text(`Page ${page} of ${totalPages}`, layout.pageWidth - layout.margin, layout.pageHeight - layout.margin - 2, {
       align: 'right',
     });
   }
+
+  pdf.setTextColor(0, 0, 0);
 }
 
 function addProjectPageHeader(
@@ -73,339 +218,657 @@ function addProjectPageHeader(
   logo: LogoAssets,
   coverPage: number,
   startPage: number,
-  endPage: number
+  endPage: number,
+  layout: LayoutMetrics
 ) {
-  const margin = 15;
   const logoHeight = 5;
   const logoWidth = logo.height > 0 ? (logo.width / logo.height) * logoHeight : logoHeight;
-  const logoY = 6;
-  const textY = 10.5;
+  const logoY = layout.margin - 1;
+  const textY = layout.margin + 3;
 
   for (let page = startPage; page <= endPage; page += 1) {
     if (page === coverPage) continue;
 
     pdf.setPage(page);
-    let textX = margin;
+    let textX = layout.margin;
 
     if (logo.base64) {
       try {
-        pdf.addImage(logo.base64, 'PNG', margin, logoY, logoWidth, logoHeight);
-        textX = margin + logoWidth + 3;
+        pdf.addImage(logo.base64, 'PNG', layout.margin, logoY, logoWidth, logoHeight);
+        textX = layout.margin + logoWidth + 3;
       } catch {
-        textX = margin;
+        textX = layout.margin;
       }
     }
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(9);
-    pdf.setTextColor(55, 65, 81);
+    pdf.setTextColor(71, 85, 105);
     pdf.text(projectName, textX, textY);
-    pdf.setTextColor(0, 0, 0);
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(layout.margin, layout.margin + layout.headerHeight - 3, layout.pageWidth - layout.margin, layout.margin + layout.headerHeight - 3);
   }
+
+  pdf.setTextColor(0, 0, 0);
 }
 
-function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
-  const coverPage = pdf.getNumberOfPages();
-  const startPage = coverPage;
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 15;
-  const contentTopMargin = 21;
-  const contentWidth = pageWidth - margin * 2;
-  const statusIconRadius = 1.6;
-  const photoGap = 4;
-  const photosPerRow = 3;
-  const photoWidth = (contentWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
-  const photoHeight = photoWidth;
+function drawSectionTitle(pdf: jsPDF, title: string, y: number, layout: LayoutMetrics) {
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(12);
+  pdf.setTextColor(71, 85, 105);
+  pdf.text(title, layout.margin, y);
+  pdf.setDrawColor(226, 232, 240);
+  pdf.line(layout.margin, y + 1.5, layout.pageWidth - layout.margin, y + 1.5);
+  pdf.setTextColor(0, 0, 0);
+  return y + 8;
+}
 
-  function isGeneralNotesLocation(location: {
-    name: string;
-    items: { name: string; checkpoints: { name: string }[] }[];
-  }) {
-    const locationName = location.name.trim().toLowerCase();
-    if (locationName !== 'other') return false;
-    if (location.items.length !== 1) return false;
+function drawAreaHeader(pdf: jsPDF, areaName: string, y: number, layout: LayoutMetrics) {
+  pdf.setFillColor(71, 85, 105);
+  pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 10, 1.5, 1.5, 'F');
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(14);
+  pdf.setTextColor(255, 255, 255);
+  pdf.text(areaName, layout.margin + 3, y + 2);
+  pdf.setTextColor(0, 0, 0);
+  return y + 12;
+}
 
-    const item = location.items[0];
-    if (item.name.trim().toLowerCase() !== 'general notes') return false;
+const SECTION_GAP = 5;
+const GROUP_GAP = 3.2;
+const ITEM_GAP = 2.2;
+const GROUP_TO_ITEM_GAP = 5.4;
+const GROUP_INDENT = 3.5;
+const ITEM_INDENT = 7.5;
+const BODY_INDENT = 11;
+const IMAGE_RADIUS = 1.8;
 
-    return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
+function isGeneralNotesLocation(location: Location | ExportLocation) {
+  const locationName = location.name.trim().toLowerCase();
+  if (locationName !== 'other') return false;
+  if (location.items.length !== 1) return false;
+  const item = location.items[0];
+  if (item.name.trim().toLowerCase() !== 'general notes') return false;
+  return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
+}
+
+function estimatePhotoBlockHeight(photoCount: number, layout: LayoutMetrics) {
+  if (photoCount === 0) return 0;
+  const rows = Math.ceil(photoCount / layout.photosPerRow);
+  return 3 + rows * (layout.photoHeight + 6) + 3;
+}
+
+function getCheckpointNotesLines(pdf: jsPDF, checkpoint: Checkpoint, textWidth: number) {
+  const notes = sanitizeText(checkpoint.comments);
+  return notes ? (pdf.splitTextToSize(notes, textWidth) as string[]) : [];
+}
+
+function getCheckpointFileLines(pdf: jsPDF, checkpoint: Checkpoint, textWidth: number) {
+  const fileNames = (checkpoint.files ?? []).map((file) => file.name).filter(Boolean);
+  return fileNames.length > 0 ? (pdf.splitTextToSize(`Files: ${fileNames.join(', ')}`, textWidth) as string[]) : [];
+}
+
+function getCheckpointPhotoSources(checkpoint: Checkpoint) {
+  return checkpoint.photos
+    .map((photo) => photo.imageData || photo.thumbnail)
+    .filter((photo): photo is string => Boolean(photo));
+}
+
+function estimateCheckpointBlockHeight(pdf: jsPDF, checkpoint: Checkpoint, layout: LayoutMetrics, textWidth: number) {
+  const notesLines = getCheckpointNotesLines(pdf, checkpoint, textWidth);
+  const fileLines = getCheckpointFileLines(pdf, checkpoint, textWidth);
+  const photoCount = getCheckpointPhotoSources(checkpoint).length;
+  return 4.8 + notesLines.length * 3.5 + fileLines.length * 3.4 + estimatePhotoBlockHeight(photoCount, layout) + ITEM_GAP;
+}
+
+function estimateItemBlockHeight(pdf: jsPDF, item: ExportItem, layout: LayoutMetrics) {
+  let height = GROUP_TO_ITEM_GAP + 1.6;
+  for (const checkpoint of item.checkpoints) {
+    height += estimateCheckpointBlockHeight(pdf, checkpoint, layout, layout.detailColumnWidth - 20);
+  }
+  return height + 1.6;
+}
+
+function estimateLocationBlockHeight(pdf: jsPDF, location: ExportLocation, layout: LayoutMetrics) {
+  let height = 9;
+  for (const item of location.items) {
+    height += estimateItemBlockHeight(pdf, item, layout);
+  }
+  return height + 2.5;
+}
+
+function getActiveAreas(project: Project) {
+  return project.areas.filter((area) => !area.deletedAt);
+}
+
+function filterProjectForMode(project: Project, mode: PdfExportMode): ExportProject {
+  const activeAreas = getActiveAreas(project);
+
+  if (mode === 'full') {
+    return {
+      ...project,
+      areas: activeAreas.map((area) => ({
+        ...area,
+        locations: area.locations.map((location) => ({
+          ...location,
+          items: location.items.map((item) => ({
+            ...item,
+            checkpoints: [...item.checkpoints],
+          })),
+        })),
+      })),
+    };
   }
 
-  function drawStatusIcon(status: 'pending' | 'ok' | 'needsReview', x: number, y: number) {
-    const centerY = y - 1.5;
-    pdf.setLineWidth(0.35);
+  return {
+    ...project,
+    areas: activeAreas
+      .map((area) => ({
+        ...area,
+        locations: area.locations
+          .map((location) => ({
+            ...location,
+            items: location.items
+              .map((item) => ({
+                ...item,
+                checkpoints: item.checkpoints.filter((checkpoint) => checkpointHasIssue(checkpoint)),
+              }))
+              .filter((item) => item.checkpoints.length > 0),
+          }))
+          .filter((location) => location.items.length > 0),
+      }))
+      .filter((area) => area.locations.length > 0),
+  };
+}
 
-    if (status === 'ok') {
-      pdf.setDrawColor(34, 197, 94);
-      pdf.setFillColor(34, 197, 94);
-      pdf.circle(x, centerY, statusIconRadius, 'F');
-    } else if (status === 'needsReview') {
-      pdf.setDrawColor(239, 68, 68);
-      pdf.setFillColor(239, 68, 68);
-      pdf.circle(x, centerY, statusIconRadius, 'F');
-    } else {
-      pdf.setDrawColor(156, 163, 175);
-      pdf.circle(x, centerY, statusIconRadius, 'S');
-    }
+function getProjectIssueSummary(project: Project) {
+  const activeAreas = getActiveAreas(project);
+  let totalIssues = 0;
+  const areasWithIssues = new Set<string>();
+  const areas: SummaryArea[] = [];
 
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setFillColor(0, 0, 0);
-  }
+  for (const area of activeAreas) {
+    let areaIssueCount = 0;
+    const sections: Array<{ sectionName: string; issueCount: number }> = [];
 
-  function drawAreaHeader(areaName: string, y: number) {
-    pdf.setFillColor(59, 130, 246);
-    pdf.rect(margin, y - 4, contentWidth, 10, 'F');
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(areaName, margin + 3, y + 2);
-    pdf.setTextColor(0, 0, 0);
-    return y + 12;
-  }
+    for (const location of area.locations) {
+      let sectionIssueCount = 0;
 
-  function estimatePhotoBlockHeight(photoCount: number) {
-    if (photoCount === 0) return 0;
-    const rows = Math.ceil(photoCount / photosPerRow);
-    return 3 + rows * (photoHeight + 3);
-  }
+      for (const item of location.items) {
+        for (const checkpoint of item.checkpoints) {
+          if (!checkpointHasIssue(checkpoint)) continue;
+          totalIssues += 1;
+          areaIssueCount += 1;
+          sectionIssueCount += 1;
+          areasWithIssues.add(area.id);
+        }
+      }
 
-  function renderPhotos(photos: string[], startY: number) {
-    const currentY = startY + 1.5;
-
-    for (let index = 0; index < photos.length; index += 1) {
-      const col = index % photosPerRow;
-      const row = Math.floor(index / photosPerRow);
-      const x = margin + col * (photoWidth + photoGap);
-      const y = currentY + row * (photoHeight + 3);
-
-      try {
-        pdf.addImage(photos[index], 'JPEG', x, y, photoWidth, photoHeight);
-      } catch {
-        pdf.setFillColor(225, 225, 225);
-        pdf.rect(x, y, photoWidth, photoHeight, 'F');
+      if (sectionIssueCount > 0) {
+        sections.push({ sectionName: location.name, issueCount: sectionIssueCount });
       }
     }
 
-    return currentY + Math.ceil(photos.length / photosPerRow) * (photoHeight + 3);
-  }
-
-  let coverY = 25;
-
-  if (logo.base64) {
-    try {
-      pdf.addImage(logo.base64, 'PNG', pageWidth / 2 - logo.width / 2, coverY, logo.width, logo.height);
-      coverY += logo.height + 15;
-    } catch {
-      coverY += 10;
+    if (areaIssueCount > 0) {
+      areas.push({
+        areaName: area.name,
+        issueCount: areaIssueCount,
+        sections,
+      });
     }
   }
 
-  pdf.setFontSize(24);
+  return {
+    totalIssues,
+    totalAreasInspected: activeAreas.length,
+    totalAreasWithIssues: areasWithIssues.size,
+    areas,
+  };
+}
+
+function renderCoverPage(
+  pdf: jsPDF,
+  project: ExportProject,
+  mode: PdfExportMode,
+  logo: LogoAssets,
+  layout: LayoutMetrics
+) {
+  let y = 20;
+  const logoX = layout.margin;
+  let titleX = layout.margin;
+  let contentTopY = y;
+
+  if (logo.base64) {
+    try {
+      contentTopY = y - 2;
+      pdf.addImage(logo.base64, 'PNG', logoX, contentTopY, logo.width, logo.height);
+      titleX = logoX + logo.width + 6;
+    } catch {
+      titleX = layout.margin;
+    }
+  }
+
   pdf.setFont('helvetica', 'bold');
-  pdf.text('PunchList Report', pageWidth / 2, coverY, { align: 'center' });
-  coverY += 20;
-
   pdf.setFontSize(18);
-  pdf.text(project.projectName, pageWidth / 2, coverY, { align: 'center' });
-  coverY += 15;
+  pdf.setTextColor(71, 85, 105);
+  const titleLines = pdf.splitTextToSize(`PunchList Report - ${project.projectName}`, layout.pageWidth - titleX - layout.margin) as string[];
+  const titleBaselineY = contentTopY + 5.5;
+  pdf.text(titleLines, titleX, titleBaselineY);
+  y = titleBaselineY + titleLines.length * 6.5 - 1.5;
 
-  pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'normal');
+  const metadata = [
+    sanitizeText(project.address) ? `Address: ${sanitizeText(project.address)}` : '',
+    sanitizeText(project.inspector) ? `Inspector: ${sanitizeText(project.inspector)}` : '',
+    `Date: ${formatDate(project.date) || 'N/A'}`,
+    sanitizeText(project.gcName) ? `GC: ${sanitizeText(project.gcName)}` : '',
+  ].filter(Boolean);
 
-  if (project.address) {
-    pdf.text(`Address: ${project.address}`, pageWidth / 2, coverY, { align: 'center' });
-    coverY += 8;
+  pdf.setFontSize(8.75);
+  const metadataLine = metadata.join(' | ');
+  const metadataLines = pdf.splitTextToSize(metadataLine, layout.pageWidth - titleX - layout.margin) as string[];
+  pdf.text(metadataLines, titleX, y + 1.5);
+  y += metadataLines.length * 4.5;
+
+  y += 4;
+  pdf.setDrawColor(226, 232, 240);
+  pdf.line(layout.margin, y, layout.pageWidth - layout.margin, y);
+  y += 4;
+  pdf.setTextColor(0, 0, 0);
+
+  return y + 4;
+}
+
+function renderAreaNotesSection(pdf: jsPDF, project: ExportProject, layout: LayoutMetrics, startY?: number) {
+  const notesAreas = project.areas.filter((area) => sanitizeText(area.notes));
+  if (notesAreas.length === 0) return startY ?? layout.contentTop;
+
+  let y = startY ?? layout.contentTop;
+  if (!startY) {
+    pdf.addPage();
   }
+  y = drawSectionTitle(pdf, 'Area Notes', y, layout);
 
-  if (project.inspector) {
-    pdf.text(`Inspector: ${project.inspector}`, pageWidth / 2, coverY, { align: 'center' });
-    coverY += 8;
-  }
+  for (const area of notesAreas) {
+    const lines = pdf.splitTextToSize(sanitizeText(area.notes), layout.contentWidth - 6) as string[];
+    const blockHeight = 8 + lines.length * 4.5 + 4;
 
-  pdf.text(`Date: ${new Date(project.date).toLocaleDateString()}`, pageWidth / 2, coverY, { align: 'center' });
-  coverY += 8;
+    if (y + blockHeight > layout.contentBottom) {
+      pdf.addPage();
+      y = drawSectionTitle(pdf, 'Area Notes', layout.contentTop, layout);
+    }
 
-  if (project.gcName) {
-    pdf.text(`GC: ${project.gcName}`, pageWidth / 2, coverY, { align: 'center' });
-    coverY += 8;
-  }
-
-  const activeAreas = project.areas.filter((area) => !area.deletedAt);
-
-  const inspectedAreaNames = activeAreas
-    .map((area) => area.name.trim())
-    .filter((name) => name.length > 0);
-
-  if (inspectedAreaNames.length > 0) {
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(layout.margin, y - 5, layout.contentWidth, blockHeight, 1.5, 1.5, 'F');
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Areas Inspected:', pageWidth / 2, coverY, { align: 'center' });
-    coverY += 6;
-    pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(11);
+    pdf.text(area.name, layout.margin + 3, y);
+    y += 6;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(55, 65, 81);
+    pdf.text(lines, layout.margin + 3, y);
+    pdf.setTextColor(0, 0, 0);
+    y += lines.length * 4.5 + 6;
+  }
 
-    inspectedAreaNames.forEach((name, index) => {
-      const line = `${index + 1}. ${name}`;
-      const areaLines = pdf.splitTextToSize(line, contentWidth - 20) as string[];
-      pdf.text(areaLines, margin + 10, coverY);
-      coverY += areaLines.length * 5 + 1;
+  return y;
+}
+
+function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: LayoutMetrics, startY: number) {
+  const summary = getProjectIssueSummary(project);
+  let y = drawSectionTitle(pdf, 'Summary', startY, layout);
+
+  if (summary.areas.length === 0) {
+    pdf.setFontSize(10);
+    pdf.text('No issues recorded.', layout.margin, y);
+    pdf.setTextColor(0, 0, 0);
+    return y + 6;
+  }
+
+  pdf.setFontSize(10);
+  pdf.setTextColor(75, 85, 99);
+
+  for (const area of summary.areas) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${area.areaName} - ${area.issueCount}`, layout.margin, y);
+    y += 5.5;
+
+    pdf.setFont('helvetica', 'normal');
+    area.sections.slice(0, 4).forEach((section) => {
+      pdf.text(`- ${section.sectionName} - ${section.issueCount}`, layout.margin + 4, y);
+      y += 4.5;
     });
 
-    coverY += 2;
+    y += 1.5;
   }
 
-  for (const area of activeAreas) {
-    const printableLocations = area.locations
-      .filter((location) => !isGeneralNotesLocation(location))
-      .map((location) => ({
-        ...location,
-        items: location.items
-          .map((item) => ({
-            ...item,
-            checkpoints: item.checkpoints.filter((checkpoint) => checkpointHasIssue(checkpoint)),
-          }))
-          .filter((item) => item.checkpoints.length > 0),
-      }))
-      .filter((location) => location.items.length > 0);
+  pdf.setTextColor(0, 0, 0);
+  return y;
+}
+
+function renderIntroPages(
+  pdf: jsPDF,
+  project: ExportProject,
+  mode: PdfExportMode,
+  logo: LogoAssets,
+  layout: LayoutMetrics
+) {
+  let y = renderCoverPage(pdf, project, mode, logo, layout);
+  const notesAreas = project.areas.filter((area) => sanitizeText(area.notes));
+  const summary = getProjectIssueSummary(project);
+  const estimatedSummaryHeight = 34 + summary.areas.reduce((total, area) => total + 7 + Math.min(area.sections.length, 4) * 4.5, 0);
+  const estimatedNotesHeight = notesAreas.reduce((total, area) => {
+    const lines = pdf.splitTextToSize(sanitizeText(area.notes), layout.contentWidth - 6) as string[];
+    return total + 14 + lines.length * 4.5;
+  }, 0);
+
+  if (y + estimatedSummaryHeight + estimatedNotesHeight <= layout.contentBottom) {
+    y = renderSummarySection(pdf, project, layout, y);
+    if (notesAreas.length > 0) {
+      renderAreaNotesSection(pdf, project, layout, y + 2);
+    }
+    return;
+  }
+
+  pdf.addPage();
+  y = renderSummarySection(pdf, project, layout, layout.contentTop);
+  renderAreaNotesSection(pdf, project, layout, y + 2);
+}
+
+function renderPhotos(
+  pdf: jsPDF,
+  photos: string[],
+  photoSizes: ImageSize[],
+  startX: number,
+  startY: number,
+  layout: LayoutMetrics
+) {
+  const currentY = startY + 2.5;
+
+  for (let index = 0; index < photos.length; index += 1) {
+    const col = index % layout.photosPerRow;
+    const row = Math.floor(index / layout.photosPerRow);
+    const x = startX + col * (layout.photoWidth + layout.photoGap);
+    const frameY = currentY + row * (layout.photoHeight + 6);
+
+    const fitted = fitImageSize(photoSizes[index] ?? { width: 1, height: 1 }, layout.photoWidth - 2, layout.photoHeight - 2);
+    const imageX = x + (layout.photoWidth - fitted.width) / 2;
+    const imageY = frameY + (layout.photoHeight - fitted.height) / 2;
+
+    try {
+      pdf.addImage(photos[index], 'JPEG', imageX, imageY, fitted.width, fitted.height);
+    } catch {
+      pdf.setFillColor(229, 231, 235);
+      pdf.roundedRect(x, frameY, layout.photoWidth, layout.photoHeight, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
+    }
+  }
+
+  return currentY + Math.ceil(photos.length / layout.photosPerRow) * (layout.photoHeight + 6) + 3;
+}
+
+async function renderCheckpointBlock(
+  pdf: jsPDF,
+  checkpoint: ExportCheckpoint,
+  startX: number,
+  y: number,
+  layout: LayoutMetrics
+) {
+  const noteLines = getCheckpointNotesLines(pdf, checkpoint, layout.detailColumnWidth - BODY_INDENT - 2);
+  const fileLines = getCheckpointFileLines(pdf, checkpoint, layout.detailColumnWidth - BODY_INDENT - 2);
+  const photos = getCheckpointPhotoSources(checkpoint);
+  const photoSizes = await loadPhotoDimensions(photos);
+  const itemX = startX + ITEM_INDENT;
+  const bodyX = startX + BODY_INDENT;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8.75);
+  drawStatusIcon(pdf, checkpoint, itemX, y, layout.statusIconRadius);
+  pdf.text(checkpoint.name, itemX + 4, y);
+  y += 3.6;
+
+  if (noteLines.length > 0) {
+    pdf.setFont('helvetica', 'italic');
+    pdf.setFontSize(7.9);
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(noteLines, bodyX, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    y += noteLines.length * 3.5;
+  }
+
+  if (fileLines.length > 0) {
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(fileLines, bodyX, y);
+    pdf.setTextColor(0, 0, 0);
+    y += fileLines.length * 3.3;
+  }
+
+  if (photos.length > 0) {
+    y = renderPhotos(pdf, photos, photoSizes, itemX + 4, y, layout);
+  }
+
+  return y + ITEM_GAP;
+}
+
+async function renderProjectDetailPages(
+  pdf: jsPDF,
+  project: ExportProject,
+  mode: PdfExportMode,
+  logo: LogoAssets,
+  layout: LayoutMetrics
+) {
+  const coverPage = pdf.getNumberOfPages();
+  const startPage = coverPage;
+
+  renderIntroPages(pdf, project, mode, logo, layout);
+
+  for (const area of project.areas) {
+    if (area.locations.length === 0 && !sanitizeText(area.notes)) {
+      continue;
+    }
+
+    const printableLocations = mode === 'full'
+      ? area.locations.filter((location) => location.items.length > 0 || isGeneralNotesLocation(location))
+      : area.locations.filter((location) => location.items.length > 0);
 
     if (printableLocations.length === 0) {
       continue;
     }
 
-    pdf.addPage();
-    let y = drawAreaHeader(area.name, contentTopMargin);
+    if (mode === 'full') {
+      pdf.addPage();
+      let y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
+
+      for (const location of printableLocations) {
+        const locationHeight = estimateLocationBlockHeight(pdf, location, layout);
+
+        if (y + locationHeight > layout.contentBottom) {
+          pdf.addPage();
+          y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
+        }
+
+        pdf.setFillColor(241, 245, 249);
+        pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
+        pdf.setFillColor(239, 78, 36);
+        pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10.25);
+        pdf.text(location.name, layout.margin + 4, y);
+        y += 9;
+
+        for (const item of location.items) {
+          const itemHeight = estimateItemBlockHeight(pdf, item, layout);
+          if (y + itemHeight > layout.contentBottom) {
+            pdf.addPage();
+            y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
+            pdf.setFillColor(241, 245, 249);
+            pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
+            pdf.setFillColor(239, 78, 36);
+            pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(10.25);
+            pdf.text(location.name, layout.margin + 4, y);
+            y += 9;
+          }
+
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9.1);
+          pdf.text(item.name, layout.margin + GROUP_INDENT, y);
+          y += GROUP_TO_ITEM_GAP;
+
+          for (const checkpoint of item.checkpoints) {
+            const checkpointHeight = estimateCheckpointBlockHeight(pdf, checkpoint, layout, layout.detailColumnWidth - 20);
+            if (y + checkpointHeight > layout.contentBottom) {
+              pdf.addPage();
+              y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
+              pdf.setFillColor(241, 245, 249);
+              pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
+              pdf.setFillColor(239, 78, 36);
+              pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(10.25);
+              pdf.text(location.name, layout.margin + 4, y);
+              y += 9;
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(9.1);
+              pdf.text(item.name, layout.margin + GROUP_INDENT, y);
+              y += GROUP_TO_ITEM_GAP;
+            }
+
+            y = await renderCheckpointBlock(pdf, checkpoint, layout.margin, y, layout);
+          }
+
+          y += GROUP_GAP;
+        }
+
+        y += SECTION_GAP;
+      }
+
+      continue;
+    }
+
+    const getColumnX = (columnIndex: number) => layout.margin + columnIndex * (layout.detailColumnWidth + layout.detailColumnGap);
+    const drawLocationHeader = (name: string, startX: number, y: number) => {
+      pdf.setFillColor(241, 245, 249);
+      pdf.roundedRect(startX, y - 4, layout.detailColumnWidth, 8, 1.5, 1.5, 'F');
+      pdf.setFillColor(239, 78, 36);
+      pdf.roundedRect(startX, y - 4, 1.8, 8, 0.8, 0.8, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10.25);
+      pdf.text(name, startX + 4, y);
+      return y + 9;
+    };
+    const startAreaPage = () => {
+      pdf.addPage();
+      const baseY = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
+      return new Array(layout.detailColumnsPerPage).fill(baseY);
+    };
+    const findColumnWithSpace = (columnYs: number[], neededHeight: number) =>
+      columnYs.findIndex((columnY) => columnY + neededHeight <= layout.contentBottom);
+
+    let columnYs: number[] | null = null;
 
     for (const location of printableLocations) {
-      let locationHeight = 8;
+      if (!columnYs) {
+        columnYs = startAreaPage();
+      }
 
-      for (const item of location.items) {
-        locationHeight += 6;
-
-        for (const checkpoint of item.checkpoints) {
-          locationHeight += 6;
-
-          if (checkpoint.comments) {
-            const commentLines = pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[];
-            locationHeight += commentLines.length * 4;
-          }
-
-          const checkpointFiles = checkpoint.files ?? [];
-          if (checkpointFiles.length > 0) {
-            const fileLines = pdf.splitTextToSize(
-              `Files: ${checkpointFiles.map((file) => file.name).join(', ')}`,
-              contentWidth - 18
-            ) as string[];
-            locationHeight += fileLines.length * 4;
-          }
-
-          locationHeight += estimatePhotoBlockHeight(checkpoint.photos.length);
-          locationHeight += 2;
+      let locationColumnIndex = columnYs.indexOf(Math.min(...columnYs));
+      if (columnYs[locationColumnIndex] + 14 > layout.contentBottom) {
+        const fallbackColumnIndex = findColumnWithSpace(columnYs, 14);
+        if (fallbackColumnIndex >= 0) {
+          locationColumnIndex = fallbackColumnIndex;
+        } else {
+          columnYs = startAreaPage();
+          locationColumnIndex = 0;
         }
       }
 
-      if (y + locationHeight > pageHeight - margin) {
-        pdf.addPage();
-        y = drawAreaHeader(area.name, contentTopMargin);
-      }
-
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(margin, y - 3, contentWidth, 6, 'F');
-      pdf.text(location.name, margin + 2, y);
-      y += 7;
+      const locationStartX = getColumnX(locationColumnIndex);
+      columnYs[locationColumnIndex] = drawLocationHeader(location.name, locationStartX, columnYs[locationColumnIndex]);
 
       for (const item of location.items) {
-        pdf.setFontSize(9);
+        const itemHeight = estimateItemBlockHeight(pdf, item, layout);
+        if (columnYs[locationColumnIndex] + itemHeight > layout.contentBottom) {
+          const fallbackColumnIndex = findColumnWithSpace(columnYs, itemHeight + 8);
+          if (fallbackColumnIndex >= 0) {
+            locationColumnIndex = fallbackColumnIndex;
+          } else {
+            columnYs = startAreaPage();
+            locationColumnIndex = 0;
+          }
+        }
+
+        const itemStartX = getColumnX(locationColumnIndex);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`• ${item.name}`, margin + 2, y);
-        y += 5;
+        pdf.setFontSize(9.1);
+        pdf.text(item.name, itemStartX + GROUP_INDENT, columnYs[locationColumnIndex]);
+        columnYs[locationColumnIndex] += GROUP_TO_ITEM_GAP;
 
         for (const checkpoint of item.checkpoints) {
-          const checkpointPhotos = checkpoint.photos
-            .map((photo) => photo.imageData || photo.thumbnail)
-            .filter((photo): photo is string => Boolean(photo));
-          const checkpointFiles = checkpoint.files ?? [];
-          const commentLines = checkpoint.comments
-            ? (pdf.splitTextToSize(`"${checkpoint.comments}"`, contentWidth - 18) as string[])
-            : [];
-          const fileLines =
-            checkpointFiles.length > 0
-              ? (pdf.splitTextToSize(
-                  `Files: ${checkpointFiles.map((file) => file.name).join(', ')}`,
-                  contentWidth - 18
-                ) as string[])
-              : [];
-
-          const estimatedHeight =
-            5 +
-            commentLines.length * 4 +
-            fileLines.length * 4 +
-            estimatePhotoBlockHeight(checkpointPhotos.length) +
-            2;
-
-          if (y + estimatedHeight > pageHeight - margin) {
-            pdf.addPage();
-            y = drawAreaHeader(area.name, contentTopMargin);
+          const checkpointHeight = estimateCheckpointBlockHeight(pdf, checkpoint, layout, layout.detailColumnWidth - 20);
+          if (columnYs[locationColumnIndex] + checkpointHeight > layout.contentBottom) {
+            const fallbackColumnIndex = findColumnWithSpace(columnYs, checkpointHeight + 13);
+            if (fallbackColumnIndex >= 0) {
+              locationColumnIndex = fallbackColumnIndex;
+            } else {
+              columnYs = startAreaPage();
+              locationColumnIndex = 0;
+            }
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(9.1);
+            pdf.text(item.name, getColumnX(locationColumnIndex) + GROUP_INDENT, columnYs[locationColumnIndex]);
+            columnYs[locationColumnIndex] += GROUP_TO_ITEM_GAP;
           }
 
-          pdf.setFontSize(8);
-          pdf.setFont('helvetica', 'normal');
-          drawStatusIcon('needsReview', margin + 6, y);
-          pdf.text(checkpoint.name, margin + 12, y);
-          y += 4;
-
-          if (commentLines.length > 0) {
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(commentLines, margin + 12, y);
-            y += commentLines.length * 4;
-            pdf.setTextColor(0, 0, 0);
-          }
-
-          if (fileLines.length > 0) {
-            pdf.setTextColor(80, 80, 80);
-            pdf.text(fileLines, margin + 12, y);
-            y += fileLines.length * 4;
-            pdf.setTextColor(0, 0, 0);
-          }
-
-          if (checkpointPhotos.length > 0) {
-            y = renderPhotos(checkpointPhotos, y);
-          }
-
-          y += 3;
+          columnYs[locationColumnIndex] = await renderCheckpointBlock(
+            pdf,
+            checkpoint,
+            getColumnX(locationColumnIndex),
+            columnYs[locationColumnIndex],
+            layout
+          );
         }
 
-        y += 1;
+        columnYs[locationColumnIndex] += GROUP_GAP;
       }
 
-      y += 2;
+      columnYs[locationColumnIndex] += SECTION_GAP;
     }
   }
 
-  addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages());
+  addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages(), layout);
 }
 
-export async function generateProjectPDF(project: Project): Promise<Blob> {
+export async function generateProjectPDF(project: Project, mode: PdfExportMode = 'full'): Promise<Blob> {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const logo = await loadLogoAssets();
-  renderProjectToPdf(pdf, project, logo);
-  addFooter(pdf, 15);
+  const layout = createLayout(pdf);
+  const exportProject = filterProjectForMode(project, mode);
+  const generatedAt = getGeneratedAt();
+
+  await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+  addFooter(pdf, layout, generatedAt);
   return pdf.output('blob');
 }
 
-export async function generateMultiProjectPDF(projects: Project[]): Promise<Blob> {
+export async function generateMultiProjectPDF(projects: Project[], mode: PdfExportMode = 'full'): Promise<Blob> {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const logo = await loadLogoAssets();
+  const layout = createLayout(pdf);
+  const generatedAt = getGeneratedAt();
 
-  projects.forEach((project, index) => {
+  for (const [index, project] of projects.entries()) {
     if (index > 0) {
       pdf.addPage();
     }
-    renderProjectToPdf(pdf, project, logo);
-  });
 
-  addFooter(pdf, 15);
+    const exportProject = filterProjectForMode(project, mode);
+    await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+  }
+
+  addFooter(pdf, layout, generatedAt);
   return pdf.output('blob');
 }
 
