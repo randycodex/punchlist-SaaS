@@ -149,14 +149,14 @@ const ProjectCard = memo(function ProjectCard({
               {project.address || 'No address added'}
             </p>
             <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className={stats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}>
+              <span className={stats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}>
                 {metricsLabel}
               </span>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
                 className={`h-full rounded-full transition-all ${
-                  stats.issues > 0 ? 'bg-red-500/80 dark:bg-red-400/80' : 'bg-gray-900 dark:bg-white'
+                  stats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'
                 } ${!hasContent ? 'opacity-40' : ''}`}
                 style={{ width: `${hasContent ? Math.max(progress, 4) : 4}%` }}
               />
@@ -195,7 +195,7 @@ const ProjectCard = memo(function ProjectCard({
                       onCloseMenu();
                       onDeleteProject(project);
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="accent-text flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -276,12 +276,12 @@ const HomeAreaCard = memo(function HomeAreaCard({
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
               <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">{areaStats.total} items</span>
             </div>
-            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}`}>
               {metricsLabel}
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
-                className={`${areaStats.issues > 0 ? 'bg-red-500/80 dark:bg-red-400/80' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
+                className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
                 style={{ width: `${Math.max(progress, 4)}%` }}
               />
             </div>
@@ -1039,7 +1039,7 @@ export default function ProjectsPage() {
                 }
                 setActionSheet('delete');
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100 dark:bg-red-900/20 disabled:opacity-40"
+              className="accent-text accent-tint hover:accent-tint-strong flex h-10 w-10 items-center justify-center rounded-full transition disabled:opacity-40"
               aria-label={singleProjectMainView ? 'Delete selected areas' : 'Delete selected projects'}
               disabled={singleProjectMainView ? selectedAreaIds.size === 0 : selectedProjectIds.size === 0}
             >
@@ -1247,25 +1247,16 @@ export default function ProjectsPage() {
       {!showTrash && !selectionMode && (
         <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-20 -translate-x-1/2">
           {singleProjectMainView ? (
-            <div className="pointer-events-auto flex items-center gap-3">
-              <button
-                onClick={() => setShowNewProject(true)}
-                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-              >
-                <Plus className="h-4 w-4" />
-                Add Project
-              </button>
-              <button
-                onClick={() => {
-                  setAreaTargetProjectId(singleProject.id);
-                  setShowAddArea(true);
-                }}
-                className="inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-              >
-                <Plus className="h-4 w-4" />
-                Add Area
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setAreaTargetProjectId(singleProject.id);
+                setShowAddArea(true);
+              }}
+              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+            >
+              <Plus className="h-4 w-4" />
+              Add Area
+            </button>
           ) : (
             <button
               onClick={() => setShowNewProject(true)}
@@ -1464,7 +1455,7 @@ export default function ProjectsPage() {
                       }
                       void handleDeleteSelectedProjects();
                     }}
-                    className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"
+                    className="accent-text w-full border-b border-gray-200 py-3 text-center text-[17px] dark:border-gray-700"
                   >
                     Delete
                   </button>

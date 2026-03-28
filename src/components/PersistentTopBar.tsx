@@ -25,7 +25,6 @@ export default function PersistentTopBar() {
   const pathname = usePathname();
   const { isReady, isSignedIn } = useMicrosoftAuth();
   const { status } = useSyncStatus();
-  const [mounted, setMounted] = useState(false);
   const showAuth = pathname === '/';
   const isProjectOverview = /^\/project\/[^/]+$/.test(pathname);
   const showTopMenu = showAuth || isProjectOverview;
@@ -65,10 +64,6 @@ export default function PersistentTopBar() {
     'needs-auth': 'Sign in required to finish syncing',
     error: 'Sync needs attention',
   } as const;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +167,7 @@ export default function PersistentTopBar() {
             />
           </Link>
         </div>
-        {mounted && showTopMenu && isReady && (
+        {showTopMenu && isReady && (
           <div ref={menuRef} className="relative flex items-center gap-2">
             <span
               aria-label={indicatorLabel[status]}
@@ -274,7 +269,7 @@ export default function PersistentTopBar() {
             )}
           </div>
         )}
-        {mounted && !showAuth && !isProjectOverview && projectTitle && (
+        {!showAuth && !isProjectOverview && projectTitle && (
           <div className="max-w-[65vw] flex items-center justify-end gap-2">
             <span
               aria-label={indicatorLabel[status]}

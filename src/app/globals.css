@@ -9,25 +9,31 @@
 }
 
 :root {
-  --background: #f4f4f1;
+  --background: #f6f4ef;
   --foreground: #111827;
-  --surface: rgba(255, 255, 255, 0.94);
-  --surface-strong: #ffffff;
-  --surface-muted: #f7f5f0;
-  --surface-border: rgba(17, 24, 39, 0.08);
-  --surface-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-  --hairline: rgba(17, 24, 39, 0.06);
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-strong: #fbfaf7;
+  --surface-muted: #f2efe8;
+  --surface-border: rgba(17, 24, 39, 0.05);
+  --surface-shadow: 0 14px 36px rgba(15, 23, 42, 0.07);
+  --hairline: rgba(17, 24, 39, 0.04);
+  --accent: #ef4e24;
+  --accent-rgb: 239 78 36;
+  --accent-soft: rgba(239, 78, 36, 0.08);
+  --accent-soft-strong: rgba(239, 78, 36, 0.14);
 }
 
 .dark {
-  --background: #121315;
+  --background: #0d0f11;
   --foreground: #f9fafb;
-  --surface: #181b1f;
-  --surface-strong: #181b1f;
-  --surface-muted: #101215;
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --surface-shadow: 0 20px 54px rgba(0, 0, 0, 0.32);
-  --hairline: rgba(255, 255, 255, 0.06);
+  --surface: #15181b;
+  --surface-strong: #171a1d;
+  --surface-muted: #0b0d10;
+  --surface-border: rgba(255, 255, 255, 0.05);
+  --surface-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+  --hairline: rgba(255, 255, 255, 0.04);
+  --accent-soft: rgba(239, 78, 36, 0.12);
+  --accent-soft-strong: rgba(239, 78, 36, 0.18);
 }
 
 body {
@@ -201,24 +207,44 @@ html:not(.dark) {
 
 .card-surface {
   background: var(--surface);
-  border: 1px solid var(--surface-border);
+  border: 1px solid transparent;
   box-shadow: var(--surface-shadow);
 }
 
 .card-surface-subtle {
   background: var(--surface);
-  border: 1px solid var(--hairline);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  border: 1px solid transparent;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045);
 }
 
 .dark .card-surface-subtle {
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
 .menu-surface {
   background: var(--surface-strong);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow);
+}
+
+.metric-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.3rem;
+}
+
+.metric-primary {
+  color: var(--accent);
+}
+
+.metric-secondary {
+  color: rgb(107 114 128);
+}
+
+.dark .metric-secondary {
+  color: rgb(161 161 170);
 }
 
 .section-eyebrow {
@@ -243,6 +269,22 @@ html:not(.dark) {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
+}
+
+.accent-text {
+  color: var(--accent);
+}
+
+.accent-bg {
+  background-color: var(--accent);
+}
+
+.accent-tint {
+  background-color: var(--accent-soft);
+}
+
+.accent-tint-strong {
+  background-color: var(--accent-soft-strong);
 }
 
 @media (min-width: 640px) {

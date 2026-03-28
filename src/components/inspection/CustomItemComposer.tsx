@@ -1,19 +1,41 @@
 'use client';
 
+import { Plus, X } from 'lucide-react';
+
 type CustomItemComposerProps = {
+  open: boolean;
   value: string;
+  onOpen: () => void;
+  onClose: () => void;
   onChange: (value: string) => void;
   onSubmit: () => void;
 };
 
 export default function CustomItemComposer({
+  open,
   value,
+  onOpen,
+  onClose,
   onChange,
   onSubmit,
 }: CustomItemComposerProps) {
+  if (!open) {
+    return (
+      <div className="px-1 pt-1">
+        <button
+          onClick={onOpen}
+          className="flex w-full items-center gap-2 rounded-[1rem] bg-gray-100/90 px-4 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-900/70 dark:text-gray-200 dark:hover:bg-zinc-800"
+        >
+          <Plus className="h-4 w-4" />
+          Add item
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="card-surface-subtle rounded-[1.5rem] p-4 sm:p-5">
-      <div className="flex gap-3">
+    <div className="px-1 pt-1">
+      <div className="flex items-center gap-3">
         <input
           type="text"
           value={value}
@@ -24,15 +46,23 @@ export default function CustomItemComposer({
               onSubmit();
             }
           }}
-          className="flex-1 rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white"
+          className="flex-1 rounded-[1rem] bg-gray-100/90 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-zinc-900/70 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-[#ef4e24]/25"
           placeholder="Custom item name"
+          autoFocus
         />
         <button
           onClick={onSubmit}
           disabled={!value.trim()}
-          className="rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+          className="rounded-[1rem] bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:hover:bg-zinc-600"
         >
           Add
+        </button>
+        <button
+          onClick={onClose}
+          className="rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+          aria-label="Cancel adding item"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
