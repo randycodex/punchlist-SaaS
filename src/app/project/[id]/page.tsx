@@ -24,7 +24,7 @@ import {
   Plus,
 } from 'lucide-react';
 
-type SortOption = 'name' | 'recent' | 'progress';
+type SortOption = 'alphabetical' | 'issues' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
@@ -98,7 +98,7 @@ const AreaCard = memo(function AreaCard({
       className={`block rounded-2xl border p-4 transition-colors ${
         isSelected
           ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
-          : 'bg-white/90 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-zinc-500'
+          : 'bg-white/90 dark:bg-white/[0.055] border-gray-300 dark:border-white/[0.04] hover:border-gray-400 dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -119,7 +119,7 @@ const AreaCard = memo(function AreaCard({
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
             </div>
             <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/[0.12]">
               <div
                 className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
                 style={{ width: `${Math.max(progress, 4)}%` }}
@@ -137,7 +137,7 @@ const AreaCard = memo(function AreaCard({
               event.preventDefault();
             }
           }}
-          className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:text-gray-200"
+          className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -158,7 +158,7 @@ export default function ProjectDetailPage() {
   const [selectedAreaIds, setSelectedAreaIds] = useState<Set<string>>(new Set());
   const [newAreaForm, setNewAreaForm] = useState(getDefaultAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
-  const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [sortOption, setSortOption] = useState<SortOption>('issues');
   const [showTrash, setShowTrash] = useState(false);
   const [actionSheet, setActionSheet] = useState<'delete' | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -174,7 +174,7 @@ export default function ProjectDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-  const { projectShowOnlyIssues, setProjectShowOnlyIssues, markSyncedNow } = useAppSettings();
+  const { projectShowOnlyIssues, setProjectShowOnlyIssues, quickSort, markSyncedNow } = useAppSettings();
 
   useEffect(() => {
     if (!id) {
@@ -182,9 +182,15 @@ export default function ProjectDetailPage() {
       return;
     }
     // Load saved sort preference
-    const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
-    if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
+    if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
       setSortOption(savedSort);
+    } else if (savedSort === 'name') {
+      setSortOption('alphabetical');
+    } else if (savedSort === 'recent') {
+      setSortOption('issues');
+    } else {
+      setSortOption(quickSort);
     }
     const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
     if (savedRecentAreaTypes) {
@@ -195,7 +201,7 @@ export default function ProjectDetailPage() {
       }
     }
     loadProject();
-  }, [id]);
+  }, [id, quickSort]);
 
   useEffect(() => {
     return () => {
@@ -294,11 +300,14 @@ export default function ProjectDetailPage() {
       : activeAreas;
 
     return [...visibleAreas].sort((a, b) => {
-      if (sortOption === 'name') {
+      if (sortOption === 'alphabetical') {
         return a.name.localeCompare(b.name);
       }
-      if (sortOption === 'recent') {
-        return b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (sortOption === 'issues') {
+        const issuesA = areaMetrics.get(a.id)?.stats.issues ?? 0;
+        const issuesB = areaMetrics.get(b.id)?.stats.issues ?? 0;
+        if (issuesB !== issuesA) return issuesB - issuesA;
+        return a.name.localeCompare(b.name);
       }
       const progressA = areaMetrics.get(a.id)?.progress ?? 0;
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
@@ -724,7 +733,7 @@ export default function ProjectDetailPage() {
         <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-20 -translate-x-1/2">
           <button
             onClick={() => setShowAddArea(true)}
-            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
           >
             <Plus className="h-4 w-4" />
             Add Area

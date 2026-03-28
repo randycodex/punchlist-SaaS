@@ -2,9 +2,8 @@
 
 import Link from 'next/link';
 import { ChevronRight, ChevronLeft, RefreshCw } from 'lucide-react';
-import { useAppSettings, type CameraFacing, type CameraQuality, type DefaultItemState, type DensityMode, type QuickSortOption } from '@/contexts/AppSettingsContext';
+import { useAppSettings, type DefaultItemState, type QuickSortOption } from '@/contexts/AppSettingsContext';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
-import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 function SettingRow({
@@ -86,28 +85,17 @@ export default function SettingsPage() {
   const {
     profileName,
     profileInitials,
-    cameraQuality,
-    autoSaveAfterCapture,
-    defaultCamera,
+    saveCopyToPhotos,
     quickSort,
     defaultItemState,
-    autoExpandNextItem,
-    density,
-    confirmBeforeDelete,
     lastSyncAt,
     setProfileName,
     setProfileInitials,
-    setCameraQuality,
-    setAutoSaveAfterCapture,
-    setDefaultCamera,
+    setSaveCopyToPhotos,
     setQuickSort,
     setDefaultItemState,
-    setAutoExpandNextItem,
-    setDensity,
-    setConfirmBeforeDelete,
   } = useAppSettings();
   const { isSignedIn, signIn, signOut } = useMicrosoftAuth();
-  const { status } = useSyncStatus();
   const { themeMode, setThemeMode } = useTheme();
 
   return (
@@ -152,7 +140,6 @@ export default function SettingsPage() {
                 />
               }
             />
-            <SettingRow label="Connected account" value={isSignedIn ? 'OneDrive connected' : 'Not connected'} />
             <SettingRow
               label={isSignedIn ? 'Sign out' : 'Sign in'}
               action={
@@ -167,27 +154,21 @@ export default function SettingsPage() {
           </Section>
 
           <Section title="Camera & Photos">
-            <SettingRow
-              label="Image quality"
-              action={<Segmented<CameraQuality> value={cameraQuality} onChange={setCameraQuality} options={[{ value: 'high', label: 'High' }, { value: 'medium', label: 'Medium' }, { value: 'low', label: 'Low' }]} />}
-            />
-            <SettingRow label="Auto-save after capture" action={<Toggle checked={autoSaveAfterCapture} onChange={setAutoSaveAfterCapture} />} />
-            <SettingRow
-              label="Default camera"
-              action={<Segmented<CameraFacing> value={defaultCamera} onChange={setDefaultCamera} options={[{ value: 'rear', label: 'Rear' }, { value: 'front', label: 'Front' }]} />}
-            />
+            <SettingRow label="Save copy to Photos" action={<Toggle checked={saveCopyToPhotos} onChange={setSaveCopyToPhotos} />} />
           </Section>
 
           <Section title="Inspection">
             <SettingRow
               label="Default sort"
-              action={<Segmented<QuickSortOption> value={quickSort} onChange={setQuickSort} options={[{ value: 'default', label: 'Default' }, { value: 'issues', label: 'Issues first' }, { value: 'alphabetical', label: 'Alphabetical' }]} />}
+              action={<Segmented<QuickSortOption> value={quickSort} onChange={setQuickSort} options={[{ value: 'issues', label: 'Issues first' }, { value: 'alphabetical', label: 'Alphabetical' }, { value: 'progress', label: 'Progress' }]} />}
             />
             <SettingRow
               label="Default item state"
               action={<Segmented<DefaultItemState> value={defaultItemState} onChange={setDefaultItemState} options={[{ value: 'pending', label: 'Pending' }, { value: 'ok', label: 'OK' }]} />}
             />
-            <SettingRow label="Auto-expand next item" action={<Toggle checked={autoExpandNextItem} onChange={setAutoExpandNextItem} />} />
+            <div className="px-1 text-sm text-gray-500 dark:text-gray-400">
+              Pending means an item still needs review. OK means reviewed items default to accepted unless you flag an issue.
+            </div>
           </Section>
 
           <Section title="Display">
@@ -195,14 +176,9 @@ export default function SettingsPage() {
               label="Theme"
               action={<Segmented<typeof themeMode> value={themeMode} onChange={setThemeMode} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} />}
             />
-            <SettingRow
-              label="Density"
-              action={<Segmented<DensityMode> value={density} onChange={setDensity} options={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }]} />}
-            />
           </Section>
 
-          <Section title="Sync & Backup">
-            <SettingRow label="Sync status" value={status} />
+          <Section title="Sync">
             <SettingRow label="Last sync" value={lastSyncAt ? new Date(lastSyncAt).toLocaleString() : 'No sync yet'} />
             <SettingRow
               label="Manual sync"
@@ -213,19 +189,6 @@ export default function SettingsPage() {
                 </button>
               }
             />
-            <SettingRow
-              label="Backup now"
-              action={<button className="rounded-full bg-black/[0.05] px-3 py-1.5 text-sm font-medium text-gray-700 dark:bg-white/[0.06] dark:text-gray-200">Backup</button>}
-            />
-          </Section>
-
-          <Section title="Trash">
-            <SettingRow label="Confirm before delete" action={<Toggle checked={confirmBeforeDelete} onChange={setConfirmBeforeDelete} />} />
-            <div className="px-1 text-sm text-gray-500 dark:text-gray-400">Deleted projects remain in Trash for 30 days before permanent removal.</div>
-          </Section>
-
-          <Section title="About">
-            <SettingRow label="App version" value="2.0" />
           </Section>
         </div>
       </div>

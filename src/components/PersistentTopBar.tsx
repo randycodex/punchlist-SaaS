@@ -11,8 +11,8 @@ import { getProject } from '@/lib/db';
 import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil, FileDown, Settings2, RefreshCw } from 'lucide-react';
 
 const projectTitleCache = new Map<string, string>();
-type SortOption = 'name' | 'recent' | 'progress';
-type QuickSortOption = 'default' | 'issues' | 'alphabetical';
+type SortOption = 'alphabetical' | 'issues' | 'progress';
+type QuickSortOption = 'issues' | 'alphabetical' | 'progress';
 type HomeMenuState = {
   context?: 'home' | 'project';
   sortOption: SortOption;
@@ -36,7 +36,7 @@ export default function PersistentTopBar() {
   const [showHomeMenu, setShowHomeMenu] = useState(false);
   const [homeMenuState, setHomeMenuState] = useState<HomeMenuState>({
     context: 'home',
-    sortOption: 'name',
+    sortOption: 'alphabetical',
     showTrash: false,
     canAddArea: false,
     isSingleProject: false,
@@ -135,15 +135,15 @@ export default function PersistentTopBar() {
   }, []);
 
   const sortOptions: Array<{ value: SortOption; label: string; icon: typeof ArrowDownAZ }> = [
-    { value: 'name', label: 'Sort: Name', icon: ArrowDownAZ },
-    { value: 'recent', label: 'Sort: Recent', icon: Clock3 },
+    { value: 'alphabetical', label: 'Sort: Alphabetical', icon: ArrowDownAZ },
+    { value: 'issues', label: 'Sort: Issues first', icon: Clock3 },
     { value: 'progress', label: 'Sort: Progress', icon: BarChart3 },
   ];
 
   const quickSortOptions: Array<{ value: QuickSortOption; label: string }> = [
-    { value: 'default', label: 'Default' },
     { value: 'issues', label: 'Issues first' },
     { value: 'alphabetical', label: 'Alphabetical' },
+    { value: 'progress', label: 'Progress' },
   ];
 
   function dispatchHomeAction(action: string, sort?: SortOption) {
@@ -199,23 +199,6 @@ export default function PersistentTopBar() {
                       Quick Settings
                     </div>
                     <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
-                      <button
-                        onClick={() => dispatchHomeAction('toggle-issues-only')}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                      >
-                        <span>Show only issues</span>
-                        <span
-                          className={`relative inline-flex h-6 w-10 items-center rounded-full transition ${
-                            currentShowOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 rounded-full bg-white transition ${
-                              currentShowOnlyIssues ? 'translate-x-5' : 'translate-x-1'
-                            }`}
-                          />
-                        </span>
-                      </button>
                       <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
                         Sort
                       </div>

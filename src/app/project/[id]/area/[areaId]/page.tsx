@@ -32,7 +32,6 @@ import InspectionLocationCard from '@/components/inspection/InspectionLocationCa
 import Link from 'next/link';
 import {
   ArrowLeft,
-  MoreVertical,
   Pencil,
 } from 'lucide-react';
 
@@ -85,7 +84,6 @@ export default function AreaDetailPage() {
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
   const [showCustomItemComposer, setShowCustomItemComposer] = useState(false);
-  const [showAreaMenu, setShowAreaMenu] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -153,19 +151,6 @@ export default function AreaDetailPage() {
   useEffect(() => {
     setAreaForm(getAreaFormValue(area));
   }, [area]);
-
-  useEffect(() => {
-    if (!showAreaMenu) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-area-menu]')) return;
-      setShowAreaMenu(false);
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-    };
-  }, [showAreaMenu]);
 
   const visibleLocations = useMemo(
     () =>
@@ -832,43 +817,18 @@ export default function AreaDetailPage() {
                 {area.name}
               </h1>
             </div>
-            <div className="relative" data-area-menu>
-              <button
-                onClick={() => setShowAreaMenu((current) => !current)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
-                aria-label="Open inspection menu"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-              {showAreaMenu && (
-                <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-30 min-w-[14rem] rounded-2xl py-1">
-                  <div className="px-3 py-2">
-                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
-                      Quick Settings
-                    </div>
-                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
-                      <button
-                        onClick={() => setInspectionShowOnlyIssues(!inspectionShowOnlyIssues)}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                      >
-                        <span>Show only issues</span>
-                        <span
-                          className={`relative inline-flex h-6 w-10 items-center rounded-full transition ${
-                            inspectionShowOnlyIssues ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-zinc-700'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 rounded-full bg-white transition ${
-                              inspectionShowOnlyIssues ? 'translate-x-5' : 'translate-x-1'
-                            }`}
-                          />
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setInspectionShowOnlyIssues(!inspectionShowOnlyIssues)}
+              className={`flex h-10 items-center gap-2 rounded-full px-3 text-sm transition ${
+                inspectionShowOnlyIssues
+                  ? 'accent-tint accent-text'
+                  : 'bg-black/[0.04] text-gray-500 hover:text-gray-900 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:text-white'
+              }`}
+              aria-label={inspectionShowOnlyIssues ? 'Show all items' : 'Show only issues'}
+              aria-pressed={inspectionShowOnlyIssues}
+            >
+              <span className="text-[0.92rem] font-medium">Issues</span>
+            </button>
             <button
               onClick={() => setShowEditArea(true)}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"

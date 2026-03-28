@@ -28,7 +28,7 @@ import {
   Plus,
 } from 'lucide-react';
 
-type SortOption = 'name' | 'recent' | 'progress';
+type SortOption = 'alphabetical' | 'issues' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-projects-sort';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
@@ -121,7 +121,7 @@ const ProjectCard = memo(function ProjectCard({
       className={`select-none rounded-[1.5rem] border p-4 transition-colors [-webkit-touch-callout:none] ${
         isSelected
           ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
-          : 'border-gray-300 bg-white/90 hover:border-gray-400 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-zinc-500'
+          : 'border-gray-300 bg-white/90 hover:border-gray-400 dark:border-white/[0.04] dark:bg-white/[0.055] dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
       } ${selectionMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -141,11 +141,11 @@ const ProjectCard = memo(function ProjectCard({
             <div className="flex items-center gap-2 min-w-0">
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{project.projectName}</h3>
             </div>
-            <p className={`mt-1 truncate text-sm ${project.address ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
+            <p className={`mt-1 truncate text-sm ${project.address ? 'text-gray-500 dark:text-gray-300' : 'text-gray-400 dark:text-gray-400'}`}>
               {project.address || 'No address added'}
             </p>
             <MetadataLine className="mt-3" issues={stats.issues} notes={commentCount} photos={photoCount} />
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/[0.12]">
               <div
                 className={`h-full rounded-full transition-all ${
                   stats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'
@@ -163,7 +163,7 @@ const ProjectCard = memo(function ProjectCard({
                 onToggleMenu(project.id);
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              className="rounded-full p-2 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+              className="rounded-full p-2 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
               aria-label={`Project actions for ${project.projectName}`}
             >
               <MoreVertical className="w-4 h-4" />
@@ -208,7 +208,7 @@ const ProjectCard = memo(function ProjectCard({
               }
             }}
             onPointerDown={(event) => event.stopPropagation()}
-            className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 [-webkit-touch-callout:none]"
+            className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white [-webkit-touch-callout:none]"
             aria-label={`Open ${project.projectName}`}
           >
             <ChevronRight className="w-5 h-5" />
@@ -243,6 +243,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   function clearLongPress() {
     if (longPressRef.current) {
@@ -259,6 +260,10 @@ const HomeAreaCard = memo(function HomeAreaCard({
         }
       }}
       onClick={() => {
+        if (longPressTriggeredRef.current) {
+          longPressTriggeredRef.current = false;
+          return;
+        }
         if (deleteMode) {
           onToggleSelection(area.id);
         }
@@ -266,6 +271,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
       onPointerDown={() => {
         if (!deleteMode) {
           longPressRef.current = setTimeout(() => {
+            longPressTriggeredRef.current = true;
             onLongPressSelect(area.id);
             longPressRef.current = null;
           }, LONG_PRESS_MS);
@@ -299,7 +305,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
               <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">{areaStats.total} items</span>
             </div>
             <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/[0.12]">
               <div
                 className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
                 style={{ width: `${Math.max(progress, 4)}%` }}
@@ -336,7 +342,7 @@ export default function ProjectsPage() {
   const [newProjectAddress, setNewProjectAddress] = useState('');
   const [newProjectInspector, setNewProjectInspector] = useState('');
   const [newProjectGcName, setNewProjectGcName] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [sortOption, setSortOption] = useState<SortOption>('issues');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
@@ -365,14 +371,20 @@ export default function ProjectsPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const { accessToken, signIn, signOut, isSignedIn, ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-  const { homeShowOnlyIssues, quickSort, setHomeShowOnlyIssues, setQuickSort, markSyncedNow } = useAppSettings();
+  const { quickSort, setQuickSort, markSyncedNow } = useAppSettings();
   const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
     // Load saved sort preference
-    const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption;
-    if (savedSort && ['name', 'recent', 'progress'].includes(savedSort)) {
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
+    if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
       setSortOption(savedSort);
+    } else if (savedSort === 'name') {
+      setSortOption('alphabetical');
+    } else if (savedSort === 'recent') {
+      setSortOption('issues');
+    } else {
+      setSortOption(quickSort);
     }
     const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
     if (savedRecentAreaTypes) {
@@ -383,7 +395,7 @@ export default function ProjectsPage() {
       }
     }
     loadProjects();
-  }, []);
+  }, [quickSort]);
 
   useEffect(() => {
     return () => {
@@ -578,31 +590,21 @@ export default function ProjectsPage() {
   );
 
   const sortedProjects = useMemo(() => {
-    const visibleProjects = homeShowOnlyIssues
-      ? activeProjects.filter((project) => (projectMetrics.get(project.id)?.stats.issues ?? 0) > 0)
-      : activeProjects;
-
-    return [...visibleProjects].sort((a, b) => {
-      if (quickSort === 'alphabetical') {
+    return [...activeProjects].sort((a, b) => {
+      if (sortOption === 'alphabetical') {
         return a.projectName.localeCompare(b.projectName);
       }
-      if (quickSort === 'issues') {
+      if (sortOption === 'issues') {
         const issuesA = projectMetrics.get(a.id)?.stats.issues ?? 0;
         const issuesB = projectMetrics.get(b.id)?.stats.issues ?? 0;
         if (issuesB !== issuesA) return issuesB - issuesA;
         return a.projectName.localeCompare(b.projectName);
       }
-      if (sortOption === 'name') {
-        return a.projectName.localeCompare(b.projectName);
-      }
-      if (sortOption === 'recent') {
-        return b.updatedAt.getTime() - a.updatedAt.getTime();
-      }
       const progressA = projectMetrics.get(a.id)?.progress ?? 0;
       const progressB = projectMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeProjects, projectMetrics, quickSort, homeShowOnlyIssues, sortOption]);
+  }, [activeProjects, projectMetrics, sortOption]);
 
   const singleProject = useMemo(
     () => (activeProjects.length === 1 ? activeProjects[0] : null),
@@ -644,31 +646,21 @@ export default function ProjectsPage() {
   }, [singleProject, activeAreas]);
 
   const sortedAreas = useMemo(() => {
-    const visibleAreas = homeShowOnlyIssues
-      ? activeAreas.filter((area) => (areaMetrics.get(area.id)?.stats.issues ?? 0) > 0)
-      : activeAreas;
-
-    return [...visibleAreas].sort((a, b) => {
-      if (quickSort === 'alphabetical') {
+    return [...activeAreas].sort((a, b) => {
+      if (sortOption === 'alphabetical') {
         return a.name.localeCompare(b.name);
       }
-      if (quickSort === 'issues') {
+      if (sortOption === 'issues') {
         const issuesA = areaMetrics.get(a.id)?.stats.issues ?? 0;
         const issuesB = areaMetrics.get(b.id)?.stats.issues ?? 0;
         if (issuesB !== issuesA) return issuesB - issuesA;
         return a.name.localeCompare(b.name);
       }
-      if (sortOption === 'name') {
-        return a.name.localeCompare(b.name);
-      }
-      if (sortOption === 'recent') {
-        return b.updatedAt.getTime() - a.updatedAt.getTime();
-      }
       const progressA = areaMetrics.get(a.id)?.progress ?? 0;
       const progressB = areaMetrics.get(b.id)?.progress ?? 0;
       return progressB - progressA;
     });
-  }, [activeAreas, areaMetrics, quickSort, homeShowOnlyIssues, sortOption]);
+  }, [activeAreas, areaMetrics, sortOption]);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -938,11 +930,6 @@ export default function ProjectsPage() {
         return;
       }
 
-      if (detail.action === 'toggle-issues-only') {
-        setHomeShowOnlyIssues(!homeShowOnlyIssues);
-        return;
-      }
-
       if (detail.action === 'sync-now') {
         void handleSync();
         return;
@@ -950,8 +937,9 @@ export default function ProjectsPage() {
 
       if (detail.action.startsWith('quick-sort:')) {
         const nextQuickSort = detail.action.replace('quick-sort:', '');
-        if (nextQuickSort === 'default' || nextQuickSort === 'issues' || nextQuickSort === 'alphabetical') {
+        if (nextQuickSort === 'issues' || nextQuickSort === 'alphabetical' || nextQuickSort === 'progress') {
           setQuickSort(nextQuickSort);
+          handleSortChange(nextQuickSort);
         }
         return;
       }
@@ -1008,7 +996,7 @@ export default function ProjectsPage() {
     return () => {
       window.removeEventListener('punchlist-home-menu-action', handleHomeMenuAction as EventListener);
     };
-  }, [isSignedIn, homeShowOnlyIssues, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort, setHomeShowOnlyIssues]);
+  }, [isSignedIn, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort]);
 
   useEffect(() => {
     window.dispatchEvent(
@@ -1020,11 +1008,10 @@ export default function ProjectsPage() {
           canAddArea: !!singleProject,
           isSingleProject: !!singleProject,
           singleProjectName: singleProject?.projectName ?? '',
-          showOnlyIssues: homeShowOnlyIssues,
         },
       })
     );
-  }, [sortOption, showTrash, singleProject, homeShowOnlyIssues]);
+  }, [sortOption, showTrash, singleProject]);
 
   function toggleTrashView() {
     setShowTrash((current) => {
@@ -1099,9 +1086,30 @@ export default function ProjectsPage() {
                   </>
                 )}
               </div>
+              {singleProjectMainView && selectionMode && (
+                <div className="ml-3 flex items-center gap-3">
+                  <button
+                    onClick={cancelSelectionMode}
+                    className="text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedAreaIds.size === 0) return;
+                      void handleDeleteSelectedAreas();
+                    }}
+                    className="accent-text accent-tint hover:accent-tint-strong flex h-10 w-10 items-center justify-center rounded-full transition disabled:opacity-40"
+                    aria-label="Delete selected areas"
+                    disabled={selectedAreaIds.size === 0}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
-          {selectionMode && (
+          {selectionMode && !singleProjectMainView && (
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-800 sm:px-5">
             <button
               onClick={cancelSelectionMode}
@@ -1127,10 +1135,16 @@ export default function ProjectsPage() {
               onClick={() => {
                 if (singleProjectMainView) {
                   if (selectedAreaIds.size === 0) return;
+                  void handleDeleteSelectedAreas();
+                  return;
                 } else if (selectedProjectIds.size === 0) {
                   return;
                 }
-                setActionSheet('delete');
+                if (showTrash) {
+                  setActionSheet('delete');
+                  return;
+                }
+                void handleDeleteSelectedProjects();
               }}
               className="accent-text accent-tint hover:accent-tint-strong flex h-10 w-10 items-center justify-center rounded-full transition disabled:opacity-40"
               aria-label={singleProjectMainView ? 'Delete selected areas' : 'Delete selected projects'}
@@ -1341,7 +1355,7 @@ export default function ProjectsPage() {
                 setAreaTargetProjectId(singleProject.id);
                 setShowAddArea(true);
               }}
-              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
             >
               <Plus className="h-4 w-4" />
               Add Area
@@ -1349,7 +1363,7 @@ export default function ProjectsPage() {
           ) : (
             <button
               onClick={() => setShowNewProject(true)}
-              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-700 px-5 text-sm font-semibold text-white shadow-xl shadow-black/20 transition hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
             >
               <Plus className="h-4 w-4" />
               Add Project

@@ -92,7 +92,7 @@ export default function InspectionLocationCard({
               void onToggleLocation(location.id);
             }
           }}
-          className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+          className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
         >
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -114,7 +114,7 @@ export default function InspectionLocationCard({
             className={
               isCustomItemsList
                 ? 'space-y-2.5'
-                : 'relative space-y-2.5 pl-4 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]'
+                : 'space-y-2.5 pl-4'
             }
           >
           {visibleItems.map((item) => {
@@ -176,8 +176,8 @@ export default function InspectionLocationCard({
                   onClick={() => void onToggleItem(item.id)}
                   className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
                     isItemExpanded
-                      ? 'bg-white/90 dark:bg-zinc-900/80'
-                      : 'bg-gray-50/85 hover:bg-white dark:bg-zinc-900/65 dark:hover:bg-zinc-900/85'
+                      ? 'bg-white/90 dark:bg-white/[0.07]'
+                      : 'bg-gray-50/85 hover:bg-white dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -197,7 +197,7 @@ export default function InspectionLocationCard({
                 </button>
 
                 {isItemExpanded && (
-                  <div className="relative space-y-2.5 pl-10 pr-1 pt-2 before:absolute before:bottom-2 before:left-0 before:top-1 before:w-px before:bg-[rgba(0,0,0,0.08)] dark:before:bg-[rgba(255,255,255,0.06)]">
+                  <div className="space-y-2.5 pl-10 pr-1 pt-2">
                     {item.checkpoints
                       .filter((checkpoint) => !showOnlyIssues || getCheckpointIssueState(checkpoint) !== 'none')
                       .map((checkpoint) => {
@@ -282,14 +282,14 @@ function CheckpointRow({
       className={`rounded-[1.35rem] border px-3 py-3 transition ${
         issueState === 'open'
           ? 'border-transparent accent-tint'
-          : 'border-transparent bg-gray-50/85 dark:bg-zinc-900/60'
+          : 'border-transparent bg-gray-50/85 dark:bg-white/[0.04]'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
         <button onClick={onToggleExpand} className="min-w-0 flex-1 text-left">
           <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
           <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
-          {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">{checkpoint.comments}</p>}
+          {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
         </button>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -299,8 +299,8 @@ function CheckpointRow({
             }}
             className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
               expanded || hasRecordedContext
-                ? 'bg-white text-gray-700 shadow-sm dark:bg-zinc-800 dark:text-white'
-                : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-200'
+                ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
             }`}
             aria-label={`Open note editor for ${checkpoint.name}`}
           >
@@ -314,7 +314,7 @@ function CheckpointRow({
             className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
               issueState === 'open'
                 ? 'accent-bg text-white shadow-sm'
-                : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-500 dark:hover:bg-zinc-800'
+                : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
             }`}
             aria-label={`Flag issue for ${checkpoint.name}`}
           >
@@ -370,8 +370,8 @@ function InlineCheckpointEditor({
               onClick={onToggleExpand}
               className={`flex h-9 w-9 items-center justify-center rounded-[0.95rem] transition ${
                 expanded
-                  ? 'bg-white text-gray-700 shadow-sm dark:bg-zinc-800 dark:text-white'
-                  : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-200'
+                  ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                  : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
               }`}
               aria-label={`Toggle note editor for ${checkpoint.name}`}
             >
@@ -384,7 +384,7 @@ function InlineCheckpointEditor({
               className={`flex h-9 w-9 items-center justify-center rounded-[0.95rem] transition ${
                 issueState === 'open'
                   ? 'accent-bg text-white shadow-sm'
-                  : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-500 dark:hover:bg-zinc-800'
+                  : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
               }`}
               aria-label={`Flag issue for ${checkpoint.name}`}
             >
@@ -406,7 +406,7 @@ function InlineCheckpointEditor({
         value={commentText}
         onChange={(e) => onCommentChange(e.target.value)}
         onBlur={(e) => void onCommentBlur(locationId, itemId, checkpoint.id, e.target.value)}
-        className="min-h-[88px] w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-zinc-900/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-[#ef4e24]/25"
+        className="min-h-[88px] w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-[#ef4e24]/25"
         placeholder="Add inspection note"
       />
       {recentComments.length > 0 && (
@@ -415,7 +415,7 @@ function InlineCheckpointEditor({
             <button
               key={comment}
               onClick={() => onCommentChange(comment)}
-              className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-zinc-900 dark:text-gray-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+              className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:bg-white/[0.1] dark:hover:text-white"
             >
               {comment}
             </button>

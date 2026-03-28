@@ -2,7 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
-export type QuickSortOption = 'default' | 'issues' | 'alphabetical';
+export type QuickSortOption = 'issues' | 'alphabetical' | 'progress';
 export type CameraQuality = 'high' | 'medium' | 'low';
 export type CameraFacing = 'rear' | 'front';
 export type DensityMode = 'compact' | 'comfortable';
@@ -21,6 +21,7 @@ type AppSettings = {
   cameraQuality: CameraQuality;
   autoSaveAfterCapture: boolean;
   defaultCamera: CameraFacing;
+  saveCopyToPhotos: boolean;
   defaultItemState: DefaultItemState;
   autoExpandNextItem: boolean;
   density: DensityMode;
@@ -41,6 +42,7 @@ type AppSettingsContextValue = AppSettings & {
   setCameraQuality: (value: CameraQuality) => void;
   setAutoSaveAfterCapture: (value: boolean) => void;
   setDefaultCamera: (value: CameraFacing) => void;
+  setSaveCopyToPhotos: (value: boolean) => void;
   setDefaultItemState: (value: DefaultItemState) => void;
   setAutoExpandNextItem: (value: boolean) => void;
   setDensity: (value: DensityMode) => void;
@@ -57,12 +59,13 @@ const defaultSettings: AppSettings = {
   homeShowOnlyIssues: false,
   projectShowOnlyIssues: false,
   inspectionShowOnlyIssues: false,
-  quickSort: 'default',
+  quickSort: 'issues',
   profileName: '',
   profileInitials: '',
   cameraQuality: 'high',
   autoSaveAfterCapture: true,
   defaultCamera: 'rear',
+  saveCopyToPhotos: false,
   defaultItemState: 'pending',
   autoExpandNextItem: false,
   density: 'comfortable',
@@ -118,6 +121,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       setCameraQuality: (cameraQuality) => setSettings((prev) => ({ ...prev, cameraQuality })),
       setAutoSaveAfterCapture: (autoSaveAfterCapture) => setSettings((prev) => ({ ...prev, autoSaveAfterCapture })),
       setDefaultCamera: (defaultCamera) => setSettings((prev) => ({ ...prev, defaultCamera })),
+      setSaveCopyToPhotos: (saveCopyToPhotos) => setSettings((prev) => ({ ...prev, saveCopyToPhotos })),
       setDefaultItemState: (defaultItemState) => setSettings((prev) => ({ ...prev, defaultItemState })),
       setAutoExpandNextItem: (autoExpandNextItem) => setSettings((prev) => ({ ...prev, autoExpandNextItem })),
       setDensity: (density) => setSettings((prev) => ({ ...prev, density })),
