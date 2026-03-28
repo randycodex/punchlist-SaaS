@@ -19,7 +19,6 @@ import Link from 'next/link';
 import {
   ChevronRight,
   Trash2,
-  CheckCircle,
   FileDown,
   Loader2,
   MoreVertical,
@@ -280,11 +279,12 @@ const HomeAreaCard = memo(function HomeAreaCard({
       onPointerUp={clearLongPress}
       onPointerCancel={clearLongPress}
       onPointerLeave={clearLongPress}
-      className={`card-surface-subtle rounded-[1.5rem] p-4 transition-colors ${
+      className={`card-surface-subtle select-none touch-manipulation [-webkit-touch-callout:none] rounded-[1.5rem] p-4 transition-colors ${
         isSelected
           ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
           : 'hover:border-gray-400 dark:hover:border-zinc-500'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <div className="flex items-start gap-3">
         <Link
@@ -297,7 +297,8 @@ const HomeAreaCard = memo(function HomeAreaCard({
               event.preventDefault();
             }
           }}
-          className="flex-1 min-w-0"
+          className="flex-1 min-w-0 [-webkit-touch-callout:none]"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
@@ -324,7 +325,8 @@ const HomeAreaCard = memo(function HomeAreaCard({
             }
           }}
           onPointerDown={(event) => event.stopPropagation()}
-          className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+          className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 [-webkit-touch-callout:none]"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5" />
@@ -1241,17 +1243,6 @@ export default function ProjectsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          {deleteMode && (
-                            <span
-                              className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
-                                isSelected
-                                  ? 'border-gray-600 bg-gray-600 text-white dark:border-gray-300 dark:bg-gray-300 dark:text-gray-900'
-                                  : 'border-gray-400 text-transparent'
-                              }`}
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            </span>
-                          )}
                           <div className="font-medium text-gray-900 dark:text-white truncate">{project.projectName}</div>
                         </div>
                         <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
