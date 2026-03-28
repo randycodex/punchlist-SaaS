@@ -264,7 +264,7 @@ function drawSectionTitle(pdf: jsPDF, title: string, y: number, layout: LayoutMe
 }
 
 function drawAreaHeader(pdf: jsPDF, areaName: string, y: number, layout: LayoutMetrics) {
-  pdf.setFillColor(71, 85, 105);
+  pdf.setFillColor(100, 116, 139);
   pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 10, 1.5, 1.5, 'F');
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(14);
@@ -645,7 +645,7 @@ async function renderCheckpointBlock(
   }
 
   if (photos.length > 0) {
-    y = renderPhotos(pdf, photos, photoSizes, itemX + 4, y, layout);
+    y = renderPhotos(pdf, photos, photoSizes, bodyX, y, layout);
   }
 
   return y + ITEM_GAP;
@@ -690,8 +690,6 @@ async function renderProjectDetailPages(
 
         pdf.setFillColor(241, 245, 249);
         pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
-        pdf.setFillColor(239, 78, 36);
-        pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(10.25);
         pdf.text(location.name, layout.margin + 4, y);
@@ -704,8 +702,6 @@ async function renderProjectDetailPages(
             y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
             pdf.setFillColor(241, 245, 249);
             pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
-            pdf.setFillColor(239, 78, 36);
-            pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(10.25);
             pdf.text(location.name, layout.margin + 4, y);
@@ -724,8 +720,6 @@ async function renderProjectDetailPages(
               y = drawAreaHeader(pdf, area.name, layout.contentTop, layout);
               pdf.setFillColor(241, 245, 249);
               pdf.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, 'F');
-              pdf.setFillColor(239, 78, 36);
-              pdf.roundedRect(layout.margin, y - 4, 1.8, 8, 0.8, 0.8, 'F');
               pdf.setFont('helvetica', 'bold');
               pdf.setFontSize(10.25);
               pdf.text(location.name, layout.margin + 4, y);
@@ -752,8 +746,6 @@ async function renderProjectDetailPages(
     const drawLocationHeader = (name: string, startX: number, y: number) => {
       pdf.setFillColor(241, 245, 249);
       pdf.roundedRect(startX, y - 4, layout.detailColumnWidth, 8, 1.5, 1.5, 'F');
-      pdf.setFillColor(239, 78, 36);
-      pdf.roundedRect(startX, y - 4, 1.8, 8, 0.8, 0.8, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10.25);
       pdf.text(name, startX + 4, y);
