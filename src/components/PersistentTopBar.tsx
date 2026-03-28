@@ -210,7 +210,7 @@ export default function PersistentTopBar() {
                     </div>
                   )}
                 </div>
-                {homeMenuState.context === 'project' && (
+                {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('edit-project')}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
