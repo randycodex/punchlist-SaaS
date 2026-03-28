@@ -3,38 +3,150 @@ import { Project, Area, Location, Item, Checkpoint, PhotoAttachment, FileAttachm
 import type { AreaTypeKey, ApartmentUnitType } from '@/lib/areas';
 import { v4 as uuidv4 } from 'uuid';
 
+interface CheckpointMediaRecord {
+  checkpointId: string;
+  projectId: string;
+  photos: PhotoAttachment[];
+  files: FileAttachment[];
+}
+
 interface PunchListDB extends DBSchema {
   projects: {
     key: string;
     value: Project;
     indexes: { 'by-name': string; 'by-date': Date };
   };
+  checkpointMedia: {
+    key: string;
+    value: CheckpointMediaRecord;
+    indexes: { 'by-project': string };
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<PunchListDB>> | null = null;
 
-function compactProjectMedia(project: Project) {
-  for (const area of project.areas) {
-    for (const location of area.locations) {
-      for (const item of location.items) {
-        for (const checkpoint of item.checkpoints) {
-          for (const photo of checkpoint.photos) {
-            // Do not persist duplicated thumbnail payloads; the UI can render from imageData.
-            delete photo.thumbnail;
-          }
-        }
-      }
-    }
+function stripPhotoPayload(photo: PhotoAttachment): PhotoAttachment {
+  return {
+    ...photo,
+    imageData: '',
+  };
+}
+
+function stripFilePayload(file: FileAttachment): FileAttachment {
+  return {
+    ...file,
+    data: '',
+  };
+}
+
+function cloneProjectWithoutMediaPayload(project: Project): Project {
+  return {
+    ...project,
+    areas: project.areas.map((area) => ({
+      ...area,
+      locations: area.locations.map((location) => ({
+        ...location,
+        items: location.items.map((item) => ({
+          ...item,
+          checkpoints: item.checkpoints.map((checkpoint) => ({
+            ...checkpoint,
+            photos: checkpoint.photos.map(stripPhotoPayload),
+            files: (checkpoint.files ?? []).map(stripFilePayload),
+          })),
+        })),
+      })),
+    })),
+  };
+}
+
+function serializeProjectForStorage(project: Project): {
+  storedProject: Project;
+  mediaRecords: CheckpointMediaRecord[];
+} {
+  const mediaRecords: CheckpointMediaRecord[] = [];
+
+  const storedProject: Project = {
+    ...project,
+    areas: project.areas.map((area) => ({
+      ...area,
+      locations: area.locations.map((location) => ({
+        ...location,
+        items: location.items.map((item) => ({
+          ...item,
+          checkpoints: item.checkpoints.map((checkpoint) => {
+            const photos = checkpoint.photos.map((photo) => ({
+              ...photo,
+              thumbnail: undefined,
+            }));
+            const files = checkpoint.files ?? [];
+
+            if (photos.length > 0 || files.length > 0) {
+              mediaRecords.push({
+                checkpointId: checkpoint.id,
+                projectId: project.id,
+                photos,
+                files,
+              });
+            }
+
+            return {
+              ...checkpoint,
+              photos: checkpoint.photos.map(stripPhotoPayload),
+              files: files.map(stripFilePayload),
+            };
+          }),
+        })),
+      })),
+    })),
+  };
+
+  return { storedProject, mediaRecords };
+}
+
+function hydrateProjectMedia(project: Project, mediaRecords: CheckpointMediaRecord[]): Project {
+  if (mediaRecords.length === 0) {
+    return project;
   }
+
+  const mediaByCheckpoint = new Map(mediaRecords.map((record) => [record.checkpointId, record]));
+
+  return {
+    ...project,
+    areas: project.areas.map((area) => ({
+      ...area,
+      locations: area.locations.map((location) => ({
+        ...location,
+        items: location.items.map((item) => ({
+          ...item,
+          checkpoints: item.checkpoints.map((checkpoint) => {
+            const media = mediaByCheckpoint.get(checkpoint.id);
+            if (!media) return checkpoint;
+            return {
+              ...checkpoint,
+              photos: media.photos,
+              files: media.files,
+            };
+          }),
+        })),
+      })),
+    })),
+  };
 }
 
 function getDB() {
   if (!dbPromise) {
-    dbPromise = openDB<PunchListDB>('punchlist-db', 1, {
+    dbPromise = openDB<PunchListDB>('punchlist-db', 2, {
       upgrade(db) {
-        const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
-        projectStore.createIndex('by-name', 'projectName');
-        projectStore.createIndex('by-date', 'updatedAt');
+        if (!db.objectStoreNames.contains('projects')) {
+          const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
+          projectStore.createIndex('by-name', 'projectName');
+          projectStore.createIndex('by-date', 'updatedAt');
+        }
+
+        if (!db.objectStoreNames.contains('checkpointMedia')) {
+          const mediaStore = db.createObjectStore('checkpointMedia', { keyPath: 'checkpointId' });
+          mediaStore.createIndex('by-project', 'projectId');
+        }
       },
     });
   }
@@ -44,12 +156,33 @@ function getDB() {
 // Project operations
 export async function getAllProjects(): Promise<Project[]> {
   const db = await getDB();
-  return db.getAll('projects');
+  const projects = await db.getAll('projects');
+  return projects.map(cloneProjectWithoutMediaPayload);
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
   const db = await getDB();
-  return db.get('projects', id);
+  const project = await db.get('projects', id);
+  if (!project) return undefined;
+  const mediaRecords = await db.getAllFromIndex('checkpointMedia', 'by-project', id);
+  return hydrateProjectMedia(project, mediaRecords);
+}
+
+export async function getActiveProjectCount(): Promise<number> {
+  const db = await getDB();
+  const tx = db.transaction('projects');
+  let cursor = await tx.store.openCursor();
+  let activeCount = 0;
+
+  while (cursor) {
+    if (!cursor.value.deletedAt) {
+      activeCount += 1;
+    }
+    cursor = await cursor.continue();
+  }
+
+  await tx.done;
+  return activeCount;
 }
 
 export async function saveProject(project: Project): Promise<void> {
@@ -65,13 +198,34 @@ async function saveProjectInternal(project: Project, options: { touch: boolean }
   if (options.touch) {
     project.updatedAt = new Date();
   }
-  compactProjectMedia(project);
-  await db.put('projects', project);
+  const { storedProject, mediaRecords } = serializeProjectForStorage(project);
+  const tx = db.transaction(['projects', 'checkpointMedia'], 'readwrite');
+  const projectStore = tx.objectStore('projects');
+  const mediaStore = tx.objectStore('checkpointMedia');
+
+  await projectStore.put(storedProject);
+
+  const existingMediaRecords = await mediaStore.index('by-project').getAll(project.id);
+  const nextCheckpointIds = new Set(mediaRecords.map((record) => record.checkpointId));
+
+  await Promise.all(
+    existingMediaRecords
+      .filter((record) => !nextCheckpointIds.has(record.checkpointId))
+      .map((record) => mediaStore.delete(record.checkpointId))
+  );
+
+  await Promise.all(mediaRecords.map((record) => mediaStore.put(record)));
+  await tx.done;
 }
 
 export async function deleteProject(id: string): Promise<void> {
   const db = await getDB();
-  await db.delete('projects', id);
+  const tx = db.transaction(['projects', 'checkpointMedia'], 'readwrite');
+  await tx.objectStore('projects').delete(id);
+  const mediaStore = tx.objectStore('checkpointMedia');
+  const mediaRecords = await mediaStore.index('by-project').getAll(id);
+  await Promise.all(mediaRecords.map((record) => mediaStore.delete(record.checkpointId)));
+  await tx.done;
 }
 
 export function createProject(name: string, address: string = '', inspector: string = ''): Project {

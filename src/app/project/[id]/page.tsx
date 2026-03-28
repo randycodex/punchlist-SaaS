@@ -2,7 +2,7 @@
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Project, getAreaStats, getReviewMetrics } from '@/types';
+import { Project, checkpointHasIssue, getReviewMetrics } from '@/types';
 import { getProject, saveProject, createArea } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
@@ -31,7 +31,7 @@ const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
 const LONG_PRESS_MS = 500;
 
 type AreaMetrics = {
-  stats: ReturnType<typeof getAreaStats>;
+  stats: { total: number; ok: number; issues: number };
   pending: number;
   progress: number;
   okPercent: number;
@@ -223,8 +223,8 @@ export default function ProjectDetailPage() {
     Object.assign(editingProject, updates);
     await saveProject(editingProject);
     scheduleSync(editingProject.id);
+    setProject({ ...editingProject, areas: [...editingProject.areas] });
     setEditingProject(null);
-    await loadProject();
   }
 
   async function loadProject() {
@@ -268,17 +268,23 @@ export default function ProjectDetailPage() {
     if (!project) return metrics;
 
     for (const area of activeAreas) {
+      let total = 0;
+      let ok = 0;
+      let issues = 0;
       let photoCount = 0;
       let commentCount = 0;
       for (const location of area.locations) {
         for (const item of location.items) {
           for (const checkpoint of item.checkpoints) {
+            total += 1;
+            if (checkpoint.status === 'ok') ok += 1;
+            else if (checkpointHasIssue(checkpoint)) issues += 1;
             photoCount += checkpoint.photos.length;
             if (checkpoint.comments.trim()) commentCount += 1;
           }
         }
       }
-      const stats = getAreaStats(area);
+      const stats = { total, ok, issues };
       const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
       metrics.set(area.id, {
         stats,
@@ -343,7 +349,7 @@ export default function ProjectDetailPage() {
     localStorage.setItem(RECENT_AREA_TYPES_STORAGE_KEY, JSON.stringify(nextRecentAreaTypeKeys));
     setNewAreaForm(getDefaultAreaFormValue());
     setShowAddArea(false);
-    loadProject();
+    setProject({ ...project, areas: [...project.areas] });
   }
 
   const toggleAreaSelection = useCallback((areaId: string) => {
@@ -379,7 +385,7 @@ export default function ProjectDetailPage() {
     setSelectedAreaIds(new Set());
     setDeleteMode(false);
     setActionSheet(null);
-    await loadProject();
+    setProject({ ...project, areas: [...project.areas] });
   }
 
   async function handleRestoreArea(areaId: string) {
@@ -389,7 +395,7 @@ export default function ProjectDetailPage() {
     delete area.deletedAt;
     await saveProject(project);
     scheduleSync(project.id);
-    await loadProject();
+    setProject({ ...project, areas: [...project.areas] });
   }
 
   async function handleSync() {

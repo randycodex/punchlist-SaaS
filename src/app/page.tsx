@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
-import { Project, getProjectStats, getAreaStats, getReviewMetrics } from '@/types';
+import { Project, checkpointHasIssue, getReviewMetrics } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject, createArea } from '@/lib/db';
 import { syncProjectsWithOneDrive, pushProjectsToOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF, type PdfExportMode } from '@/lib/pdfExport';
@@ -35,7 +35,7 @@ const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const LONG_PRESS_MS = 500;
 
 type ProjectMetrics = {
-  stats: ReturnType<typeof getProjectStats>;
+  stats: { total: number; ok: number; issues: number; areas: number };
   pending: number;
   progress: number;
   okPercent: number;
@@ -548,12 +548,22 @@ export default function ProjectsPage() {
   const projectMetrics = useMemo(() => {
     const metrics = new Map<string, ProjectMetrics>();
     for (const project of projects) {
+      let total = 0;
+      let ok = 0;
+      let issues = 0;
+      let activeAreaCount = 0;
       let photoCount = 0;
       let commentCount = 0;
+
       for (const area of project.areas) {
+        if (area.deletedAt) continue;
+        activeAreaCount += 1;
         for (const location of area.locations) {
           for (const item of location.items) {
             for (const checkpoint of item.checkpoints) {
+              total += 1;
+              if (checkpoint.status === 'ok') ok += 1;
+              else if (checkpointHasIssue(checkpoint)) issues += 1;
               photoCount += checkpoint.photos.length;
               if (checkpoint.comments.trim()) commentCount += 1;
             }
@@ -561,7 +571,7 @@ export default function ProjectsPage() {
         }
       }
 
-      const stats = getProjectStats(project);
+      const stats = { total, ok, issues, areas: activeAreaCount };
       const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
       metrics.set(project.id, {
         stats,
@@ -624,17 +634,23 @@ export default function ProjectsPage() {
     if (!singleProject) return metrics;
 
     for (const area of activeAreas) {
+      let total = 0;
+      let ok = 0;
+      let issues = 0;
       let photoCount = 0;
       let commentCount = 0;
       for (const location of area.locations) {
         for (const item of location.items) {
           for (const checkpoint of item.checkpoints) {
+            total += 1;
+            if (checkpoint.status === 'ok') ok += 1;
+            else if (checkpointHasIssue(checkpoint)) issues += 1;
             photoCount += checkpoint.photos.length;
             if (checkpoint.comments.trim()) commentCount += 1;
           }
         }
       }
-      const stats = getAreaStats(area);
+      const stats = { total, ok, issues };
       const reviewMetrics = getReviewMetrics(stats.total, stats.ok, stats.issues);
       metrics.set(area.id, {
         stats,
@@ -672,12 +688,12 @@ export default function ProjectsPage() {
     project.gcName = newProjectGcName.trim();
     await saveProject(project);
     scheduleSync(project.id);
+    setProjects((prev) => [...prev, project]);
     setNewProjectName('');
     setNewProjectAddress('');
     setNewProjectInspector('');
     setNewProjectGcName('');
     setShowNewProject(false);
-    await loadProjects();
   }
 
   async function handleAddArea() {
@@ -712,7 +728,11 @@ export default function ProjectsPage() {
     setNewAreaForm(getDefaultAreaFormValue());
     setAreaTargetProjectId(null);
     setShowAddArea(false);
-    await loadProjects();
+    setProjects((prev) =>
+      prev.map((project) =>
+        project.id === targetProject.id ? { ...targetProject, areas: [...targetProject.areas] } : project
+      )
+    );
   }
 
   const toggleProjectSelection = useCallback((id: string) => {
@@ -786,6 +806,7 @@ export default function ProjectsPage() {
         await deleteProject(project.id);
       }
       scheduleSync(undefined, { fullSync: true });
+      setProjects((prev) => prev.filter((project) => !selectedProjectIds.has(project.id)));
     } else {
       const projectsToTrash = activeProjects.filter((project) => selectedProjectIds.has(project.id));
       if (projectsToTrash.length === 0) return;
@@ -796,13 +817,17 @@ export default function ProjectsPage() {
         dirtyProjectIdsRef.current.add(project.id);
       }
       scheduleSync();
+      setProjects((prev) =>
+        prev.map((project) =>
+          selectedProjectIds.has(project.id) ? { ...project, deletedAt: project.deletedAt } : project
+        )
+      );
     }
 
     setSelectedProjectIds(new Set());
     setDeleteMode(false);
     setExportMode(false);
     setActionSheet(null);
-    await loadProjects();
   }
 
   async function handleTrashProject(project: Project) {
@@ -810,7 +835,9 @@ export default function ProjectsPage() {
     await saveProject(project);
     scheduleSync(project.id);
     setShowProjectMenuId(null);
-    await loadProjects();
+    setProjects((prev) =>
+      prev.map((entry) => (entry.id === project.id ? { ...project, areas: [...project.areas] } : entry))
+    );
   }
 
   async function handleDeleteSelectedAreas() {
@@ -839,7 +866,9 @@ export default function ProjectsPage() {
     delete project.deletedAt;
     await saveProject(project);
     scheduleSync(project.id);
-    await loadProjects();
+    setProjects((prev) =>
+      prev.map((entry) => (entry.id === project.id ? { ...project, areas: [...project.areas] } : entry))
+    );
   }
 
   function handleExportSelectedConfirm() {
@@ -910,8 +939,12 @@ export default function ProjectsPage() {
     Object.assign(editingProject, updates);
     await saveProject(editingProject);
     scheduleSync(editingProject.id);
+    setProjects((prev) =>
+      prev.map((project) =>
+        project.id === editingProject.id ? { ...editingProject, areas: [...editingProject.areas] } : project
+      )
+    );
     setEditingProject(null);
-    await loadProjects();
   }
 
   function cancelSelectionMode() {

@@ -267,23 +267,22 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       return;
     }
 
-    if (remote) {
-      const localUpdatedAt = getProjectUpdatedAt(project);
-      let remoteUpdatedAt = timestampMs(remote.lastModifiedDateTime);
-      const remoteProject = await downloadRemoteProject(token, remote.id);
-      if (remoteProject) {
-        remoteUpdatedAt = Math.max(remoteUpdatedAt, getProjectUpdatedAt(remoteProject));
-      }
-      if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
-        return;
-      }
+    const localUpdatedAt = getProjectUpdatedAt(project);
+    const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
+    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+      return;
+    }
+
+    const fullProject = await getProject(project.id);
+    if (!fullProject) {
+      return;
     }
 
     try {
       await uploadProjectFile(
         token,
         filename,
-        JSON.stringify(project),
+        JSON.stringify(fullProject),
         remote?.eTag
       );
     } catch (error) {
@@ -317,13 +316,7 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
 
     const filename = projectFilename(projectId);
     const remote = await getProjectFileMetadata(token, filename);
-    let remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
-    if (remote?.id) {
-      const remoteProject = await downloadRemoteProject(token, remote.id);
-      if (remoteProject) {
-        remoteUpdatedAt = Math.max(remoteUpdatedAt, getProjectUpdatedAt(remoteProject));
-      }
-    }
+    const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
     const localUpdatedAt = getProjectUpdatedAt(localProject);
 
     if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {

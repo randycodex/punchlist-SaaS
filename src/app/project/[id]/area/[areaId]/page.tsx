@@ -11,7 +11,7 @@ import {
   isAreaInspectionComplete,
   type IssueState,
 } from '@/types';
-import { getAllProjects, getProject, saveProject, createPhotoAttachment, createFileAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
+import { getActiveProjectCount, getProject, saveProject, createPhotoAttachment, createFileAttachment, createLocation, createItem, createCheckpoint } from '@/lib/db';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
 import AreaEditorModal from '@/components/AreaEditorModal';
 import {
@@ -181,9 +181,11 @@ export default function AreaDetailPage() {
   async function loadData() {
     if (!id || !areaId) return;
     try {
-      const allProjects = await getAllProjects();
-      setReturnToHome(allProjects.filter((entry) => !entry.deletedAt).length === 1);
-      const projectData = await getProject(id);
+      const [activeProjectCount, projectData] = await Promise.all([
+        getActiveProjectCount(),
+        getProject(id),
+      ]);
+      setReturnToHome(activeProjectCount === 1);
       if (projectData) {
         if (projectData.deletedAt) {
           router.push('/');

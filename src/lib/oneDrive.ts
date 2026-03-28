@@ -1,4 +1,5 @@
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
+let ensuredFolderIds: { projectsId: string; exportsId: string } | null = null;
 
 type DriveItem = {
   id: string;
@@ -104,10 +105,14 @@ async function ensureFolder(token: string, path: string): Promise<DriveItem> {
 }
 
 export async function ensurePunchListFolders(token: string) {
+  if (ensuredFolderIds) {
+    return ensuredFolderIds;
+  }
   await ensureFolder(token, 'PunchList');
   const projects = await ensureFolder(token, 'PunchList/projects');
   const exports = await ensureFolder(token, 'PunchList/exports');
-  return { projectsId: projects.id, exportsId: exports.id };
+  ensuredFolderIds = { projectsId: projects.id, exportsId: exports.id };
+  return ensuredFolderIds;
 }
 
 export async function listProjectFiles(token: string) {
