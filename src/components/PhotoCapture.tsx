@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, RotateCcw, X, Paperclip, Images } from 'lucide-react';
+import { Camera, Minus, Paperclip, Plus, X } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -26,12 +26,11 @@ export default function PhotoCapture({
   compactActions = false,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [viewerZoom, setViewerZoom] = useState(1);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const libraryInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const maxImageSize = 1280;
@@ -122,10 +121,6 @@ export default function PhotoCapture({
     closeCamera(true);
   }
 
-  function removeCaptured(index: number) {
-    setCapturedBatch((prev) => prev.filter((_, i) => i !== index));
-  }
-
   function fileToPhotoPayload(file: File): Promise<{ imageData: string; thumbnail?: string } | null> {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -177,41 +172,6 @@ export default function PhotoCapture({
 
     // Reset inputs
     if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (libraryInputRef.current) libraryInputRef.current.value = '';
-  }
-
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files ?? []);
-    if (selected.length === 0) return;
-
-    const imageFiles = selected.filter((file) => file.type.startsWith('image/'));
-    const nonImageFiles = selected.filter((file) => !file.type.startsWith('image/'));
-
-    if (imageFiles.length > 0) {
-      const processedPhotos = await Promise.all(imageFiles.map((file) => fileToPhotoPayload(file)));
-      const readyPhotos = processedPhotos.filter(
-        (photo): photo is { imageData: string; thumbnail?: string } => photo !== null
-      );
-      if (readyPhotos.length > 0) {
-        if (onAddPhotos) {
-          onAddPhotos(readyPhotos);
-        } else {
-          readyPhotos.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
-        }
-      }
-    }
-
-    if (nonImageFiles.length > 0 && onAddFiles) {
-      const processedFiles = await Promise.all(nonImageFiles.map((file) => fileToAttachmentPayload(file)));
-      const readyFiles = processedFiles.filter(
-        (file): file is { data: string; name: string; mimeType: string; size: number } => file !== null
-      );
-      if (readyFiles.length > 0) {
-        onAddFiles(readyFiles);
-      }
-    }
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   useEffect(() => {
@@ -231,12 +191,18 @@ export default function PhotoCapture({
   return (
     <div className="space-y-3">
       {photos.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <div className="-mx-1 overflow-x-auto pb-1">
+          <div className={`flex gap-2 px-1 ${compactActions ? '' : 'sm:gap-2.5'}`}>
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="group relative aspect-square overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-900"
-              onClick={() => setSelectedPhoto(photo.imageData)}
+              className={`group relative shrink-0 overflow-hidden bg-gray-100 dark:bg-zinc-900 ${
+                compactActions ? 'h-16 w-16 rounded-xl' : 'h-24 w-24 rounded-[1.1rem] sm:h-28 sm:w-28'
+              }`}
+              onClick={() => {
+                setSelectedPhoto(photo.imageData);
+                setViewerZoom(1);
+              }}
             >
               <img
                 src={photo.thumbnail || photo.imageData}
@@ -248,23 +214,26 @@ export default function PhotoCapture({
                   e.stopPropagation();
                   onDeletePhoto(photo.id);
                 }}
-                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white opacity-100 transition group-hover:bg-red-600"
+                className={`absolute flex items-center justify-center rounded-full bg-black/55 text-white transition ${
+                  compactActions ? 'right-1 top-1 h-5 w-5' : 'right-1.5 top-1.5 h-6 w-6'
+                }`}
               >
-                <X className="w-3.5 h-3.5" />
+                <X className={compactActions ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
               </button>
             </div>
           ))}
+          </div>
         </div>
       )}
 
       {files.length > 0 && (
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
           {files.map((file) => (
             <div
               key={file.id}
-              className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 px-3 py-2 text-xs"
+              className={`flex items-center gap-2 rounded-full bg-gray-100 text-xs dark:bg-zinc-900 ${compactActions ? 'pr-1 pl-2 py-1.5' : 'border border-gray-200 dark:border-zinc-700 px-3 py-2'}`}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
                 <Paperclip className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                 <a
                   href={file.data}
@@ -279,7 +248,7 @@ export default function PhotoCapture({
               </div>
               <button
                 onClick={() => onDeleteFile(file.id)}
-                className="ml-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                className={`flex items-center justify-center rounded-full text-gray-400 transition hover:bg-black/[0.04] hover:text-[var(--accent)] dark:hover:bg-white/[0.06] ${compactActions ? 'h-5 w-5' : 'ml-2 h-7 w-7'}`}
                 aria-label={`Delete ${file.name}`}
               >
                 <X className="w-3 h-3" />
@@ -289,41 +258,16 @@ export default function PhotoCapture({
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 p-3">
-        <div className={`flex flex-wrap gap-2 ${compactActions ? 'justify-center' : ''}`}>
-          <button
-            onClick={openCamera}
-            className={
-              compactActions
-                ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-900 text-white transition hover:bg-gray-800 dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600'
-                : 'flex items-center gap-2 rounded-xl bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
-            }
-            aria-label="Take photo"
-          >
-            <Camera className="w-4 h-4" />
-            {!compactActions && 'Take photo'}
-          </button>
-          {!compactActions && (
-            <>
-              <button
-                onClick={() => libraryInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
-                aria-label="Open photo library"
-              >
-                <Images className="w-4 h-4" />
-                Photo library
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-xl border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-zinc-700"
-                aria-label="Add file"
-              >
-                <Paperclip className="w-4 h-4" />
-                Files
-              </button>
-            </>
-          )}
-        </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={openCamera}
+          className={`flex items-center justify-center rounded-[1rem] bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 ${
+            compactActions ? 'h-10 w-10' : 'h-11 w-11'
+          }`}
+          aria-label="Take photo"
+        >
+          <Camera className={compactActions ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
+        </button>
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
 
         <input
@@ -334,84 +278,65 @@ export default function PhotoCapture({
           onChange={handlePhotoSelect}
           className="hidden"
         />
-        <input
-          ref={libraryInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handlePhotoSelect}
-          className="hidden"
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-        />
       </div>
 
       {cameraOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 p-3 border-b border-white/15">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black">
+          <video ref={videoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" />
+
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
             <button
               onClick={() => closeCamera(true)}
-              className="justify-self-start text-white/90 text-sm px-2 py-1 rounded border border-white/30"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm"
+              aria-label="Close camera"
             >
-              Cancel
+              <X className="h-5 w-5" />
             </button>
-            <span className="text-white text-sm">
-              {capturedBatch.length} photo{capturedBatch.length === 1 ? '' : 's'}
-            </span>
-            <div className="justify-self-end flex items-center gap-2">
-              <button
-                onClick={() => setCapturedBatch([])}
-                disabled={capturedBatch.length === 0}
-                className="px-2 py-1 rounded border border-white/35 text-white text-sm disabled:opacity-40 flex items-center gap-1"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Clear
-              </button>
-              <button
-                onClick={addCapturedBatch}
-                disabled={capturedBatch.length === 0}
-                className="text-white text-sm px-2 py-1 rounded border border-gray-400 disabled:opacity-40"
-              >
-                Add All
-              </button>
-            </div>
+            <div className="h-10 w-10" />
           </div>
 
-          <div className="flex-1 flex items-center justify-center p-2">
-            <video ref={videoRef} autoPlay playsInline className="w-full max-h-full object-contain rounded-lg" />
-          </div>
-
-          {capturedBatch.length > 0 && (
-            <div className="px-3 pb-2 overflow-x-auto">
-              <div className="flex gap-2">
-                {capturedBatch.map((photo, index) => (
-                  <div key={`${photo.imageData.slice(0, 32)}-${index}`} className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden">
-                    <img src={photo.thumbnail || photo.imageData} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => removeCaptured(index)}
-                      className="absolute top-0 right-0 bg-black/70 text-white rounded-bl px-1"
-                      aria-label={`Remove captured photo ${index + 1}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+          <div className="absolute inset-x-0 bottom-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-6">
+            <div className="grid grid-cols-[64px_1fr_64px] items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center">
+                {capturedBatch.length > 0 ? (
+                  <button
+                    onClick={() => {
+                      const latest = capturedBatch[capturedBatch.length - 1];
+                      setSelectedPhoto(latest.imageData);
+                      setViewerZoom(1);
+                    }}
+                    className="h-14 w-14 overflow-hidden rounded-[1rem] bg-white/10 backdrop-blur-sm"
+                    aria-label="Open last captured photo"
+                  >
+                    <img
+                      src={capturedBatch[capturedBatch.length - 1]?.thumbnail || capturedBatch[capturedBatch.length - 1]?.imageData}
+                      alt="Last captured photo"
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ) : null}
               </div>
-            </div>
-          )}
 
-          <div className="p-3 border-t border-white/15">
-            <div className="flex items-center justify-center">
-              <button
-                onClick={captureFromVideo}
-                className="w-16 h-16 rounded-full bg-white border-4 border-white/90 shadow-[0_0_0_2px_rgba(255,255,255,0.25)]"
-                aria-label="Capture photo"
-              />
+              <div className="flex items-center justify-center">
+                <button
+                  onClick={captureFromVideo}
+                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/90 bg-white/18 shadow-[0_0_0_1px_rgba(255,255,255,0.28)] backdrop-blur-sm transition active:scale-95"
+                  aria-label="Capture photo"
+                >
+                  <span className="h-14 w-14 rounded-full bg-[#ef4e24]" />
+                </button>
+              </div>
+
+              <div className="flex h-16 w-16 items-center justify-center">
+                {capturedBatch.length > 0 ? (
+                  <button
+                    onClick={addCapturedBatch}
+                    className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-900"
+                  >
+                    Done
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
@@ -420,20 +345,54 @@ export default function PhotoCapture({
       {/* Full photo viewer */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 bg-black/95"
           onClick={() => setSelectedPhoto(null)}
         >
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img
-            src={selectedPhoto}
-            alt="Full size"
-            className="max-w-full max-h-full object-contain"
-          />
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                setViewerZoom((zoom) => Math.max(1, zoom - 0.5));
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
+              aria-label="Zoom out"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                setViewerZoom((zoom) => Math.min(3, zoom + 0.5));
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
+              aria-label="Zoom in"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedPhoto(null);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
+              aria-label="Close photo viewer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="h-full overflow-auto p-6" onClick={(event) => event.stopPropagation()}>
+            <div className="flex min-h-full items-center justify-center">
+              <img
+                src={selectedPhoto}
+                alt="Full size"
+                className="max-w-none rounded-2xl object-contain"
+                style={{
+                  width: viewerZoom === 1 ? 'auto' : `${viewerZoom * 80}vw`,
+                  maxHeight: viewerZoom === 1 ? '88vh' : 'none',
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

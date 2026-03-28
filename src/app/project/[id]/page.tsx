@@ -90,12 +90,12 @@ const AreaCard = memo(function AreaCard({
             <div className="min-w-0 flex items-center gap-2">
               <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
             </div>
-            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+            <div className={`mt-2 text-sm ${areaStats.issues > 0 ? 'accent-text' : 'text-gray-500 dark:text-gray-400'}`}>
               {metricsLabel}
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-700">
               <div
-                className={`${areaStats.issues > 0 ? 'bg-red-500/80 dark:bg-red-400/80' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
+                className={`${areaStats.issues > 0 ? 'accent-bg' : 'bg-gray-900 dark:bg-white'} h-full rounded-full transition-all`}
                 style={{ width: `${Math.max(progress, 4)}%` }}
               />
             </div>
@@ -571,7 +571,7 @@ export default function ProjectDetailPage() {
                   setActionSheet('delete');
                 }}
                 disabled={selectedAreaIds.size === 0}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100 dark:bg-red-900/20 disabled:opacity-40"
+                className="accent-text accent-tint hover:accent-tint-strong flex h-10 w-10 items-center justify-center rounded-full transition disabled:opacity-40"
                 aria-label="Delete selected areas"
               >
                 <Trash2 className="w-4 h-4" />
@@ -708,7 +708,7 @@ export default function ProjectDetailPage() {
             <div className="menu-surface overflow-hidden rounded-[1.75rem]">
               <button
                 onClick={() => void handleDeleteSelectedAreas()}
-                className="w-full py-3 text-center text-[17px] text-red-600 border-b border-gray-200 dark:border-gray-700"
+                className="accent-text w-full border-b border-gray-200 py-3 text-center text-[17px] dark:border-gray-700"
               >
                 Delete
               </button>

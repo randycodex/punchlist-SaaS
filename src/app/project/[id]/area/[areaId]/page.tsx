@@ -7,7 +7,6 @@ import {
   Area,
   Checkpoint,
   getReviewMetrics,
-  getCheckpointIssueState,
   checkpointHasIssue,
   isAreaInspectionComplete,
   type IssueState,
@@ -72,7 +71,7 @@ export default function AreaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [editingCheckpoint, setEditingCheckpoint] = useState<{
+  const [expandedCheckpoint, setExpandedCheckpoint] = useState<{
     locationId: string;
     itemId: string;
     checkpointId: string;
@@ -83,6 +82,7 @@ export default function AreaDetailPage() {
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
+  const [showCustomItemComposer, setShowCustomItemComposer] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -334,21 +334,25 @@ export default function AreaDetailPage() {
     setArea({ ...area });
   }
 
-  async function saveCheckpointChanges() {
-    if (!project || !area || !editingCheckpoint) return;
+  async function persistCheckpointComment(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    value: string
+  ) {
+    if (!project || !area) return;
 
-    const checkpoint = findCheckpoint(
-      editingCheckpoint.locationId,
-      editingCheckpoint.itemId,
-      editingCheckpoint.checkpointId
-    );
+    const checkpoint = findCheckpoint(locationId, itemId, checkpointId);
     if (!checkpoint) return;
+    if (checkpoint.comments === value) return;
 
-    checkpoint.comments = commentText;
+    checkpoint.comments = value;
     checkpoint.updatedAt = new Date();
+    syncAreaCompletion(area);
     await saveProject(project);
     scheduleSync(project.id);
-    const trimmedComment = commentText.trim();
+
+    const trimmedComment = value.trim();
     if (trimmedComment) {
       const nextRecentComments = [
         trimmedComment,
@@ -357,9 +361,7 @@ export default function AreaDetailPage() {
       setRecentComments(nextRecentComments);
       localStorage.setItem(RECENT_COMMENTS_STORAGE_KEY, JSON.stringify(nextRecentComments));
     }
-    setEditingCheckpoint(null);
-    setCommentText('');
-    syncAreaCompletion(area);
+
     setArea({ ...area });
   }
 
@@ -441,7 +443,7 @@ export default function AreaDetailPage() {
     scheduleSync(project.id);
 
     setCustomItemName('');
-    setExpandedItems(new Set([item.id]));
+    setShowCustomItemComposer(false);
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
   }
@@ -692,13 +694,25 @@ export default function AreaDetailPage() {
     }, 800);
   }
 
-  function toggleLocation(locationId: string) {
+  async function closeExpandedCheckpoint() {
+    if (!expandedCheckpoint) return;
+    await persistCheckpointComment(
+      expandedCheckpoint.locationId,
+      expandedCheckpoint.itemId,
+      expandedCheckpoint.checkpointId,
+      commentText
+    );
+    setExpandedCheckpoint(null);
+    setCommentText('');
+  }
+
+  async function toggleLocation(locationId: string) {
     if (expandedLocations.has(locationId)) {
-      // Collapse this location
+      await closeExpandedCheckpoint();
       setExpandedLocations(new Set());
       setExpandedItems(new Set());
     } else {
-      // Expand only this location, collapse others
+      await closeExpandedCheckpoint();
       setExpandedLocations(new Set([locationId]));
       setExpandedItems(new Set());
       requestAnimationFrame(() => {
@@ -712,12 +726,12 @@ export default function AreaDetailPage() {
     }
   }
 
-  function toggleItem(itemId: string) {
+  async function toggleItem(itemId: string) {
     if (expandedItems.has(itemId)) {
-      // Collapse this item
+      await closeExpandedCheckpoint();
       setExpandedItems(new Set());
     } else {
-      // Expand only this item, collapse others
+      await closeExpandedCheckpoint();
       setExpandedItems(new Set([itemId]));
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -728,6 +742,27 @@ export default function AreaDetailPage() {
         });
       });
     }
+  }
+
+  async function toggleCheckpoint(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    comments: string
+  ) {
+    const isSameCheckpoint =
+      expandedCheckpoint?.locationId === locationId &&
+      expandedCheckpoint?.itemId === itemId &&
+      expandedCheckpoint?.checkpointId === checkpointId;
+
+    await closeExpandedCheckpoint();
+
+    if (isSameCheckpoint) {
+      return;
+    }
+
+    setExpandedCheckpoint({ locationId, itemId, checkpointId });
+    setCommentText(comments);
   }
 
   if (loading) {
@@ -742,37 +777,7 @@ export default function AreaDetailPage() {
     return null;
   }
 
-  const editingCheckpointData = editingCheckpoint
-    ? findCheckpoint(editingCheckpoint.locationId, editingCheckpoint.itemId, editingCheckpoint.checkpointId)
-    : null;
   const supportsCustomItems = !isApartmentArea(area);
-
-  function closeCheckpointEditor() {
-    if (
-      editingCheckpointData &&
-      commentText !== editingCheckpointData.comments &&
-      !window.confirm('Discard unsaved comment changes?')
-    ) {
-      return;
-    }
-    setEditingCheckpoint(null);
-    setCommentText('');
-  }
-
-  function openCheckpointEditor(locationId: string, itemId: string, checkpointId: string, comments: string) {
-    const isSameCheckpoint =
-      editingCheckpoint?.locationId === locationId &&
-      editingCheckpoint?.itemId === itemId &&
-      editingCheckpoint?.checkpointId === checkpointId;
-
-    if (isSameCheckpoint) {
-      closeCheckpointEditor();
-      return;
-    }
-
-    setEditingCheckpoint({ locationId, itemId, checkpointId });
-    setCommentText(comments);
-  }
 
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
@@ -809,7 +814,7 @@ export default function AreaDetailPage() {
       {/* Inspection Items */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+4rem)] sm:px-5"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+3rem)] sm:px-5"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
@@ -828,65 +833,66 @@ export default function AreaDetailPage() {
               hideHeader
               onToggleLocation={toggleLocation}
               onToggleItem={toggleItem}
-              onOpenCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
-                openCheckpointEditor(locationId, itemId, checkpointId, comments)
+              onToggleCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
+                void toggleCheckpoint(locationId, itemId, checkpointId, comments)
+              }
+              onCommentBlur={(locationId, itemId, checkpointId, value) =>
+                void persistCheckpointComment(locationId, itemId, checkpointId, value)
               }
               onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
                 void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
               }
-              editingCheckpointId={editingCheckpoint?.checkpointId ?? null}
+              expandedCheckpointId={expandedCheckpoint?.checkpointId ?? null}
               commentText={commentText}
               recentComments={recentComments}
-              onCloseEditor={closeCheckpointEditor}
               onCommentChange={setCommentText}
-              onSaveEditor={() => void saveCheckpointChanges()}
               onAddPhoto={(imageData, thumbnail) =>
-                editingCheckpoint
+                expandedCheckpoint
                   ? handleAddPhoto(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
+                      expandedCheckpoint.locationId,
+                      expandedCheckpoint.itemId,
+                      expandedCheckpoint.checkpointId,
                       imageData,
                       thumbnail
                     )
                   : Promise.resolve()
               }
               onAddPhotos={(photos) =>
-                editingCheckpoint
+                expandedCheckpoint
                   ? handleAddPhotos(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
+                      expandedCheckpoint.locationId,
+                      expandedCheckpoint.itemId,
+                      expandedCheckpoint.checkpointId,
                       photos
                     )
                   : Promise.resolve()
               }
               onAddFiles={(files) =>
-                editingCheckpoint
+                expandedCheckpoint
                   ? handleAddFiles(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
+                      expandedCheckpoint.locationId,
+                      expandedCheckpoint.itemId,
+                      expandedCheckpoint.checkpointId,
                       files
                     )
                   : Promise.resolve()
               }
               onDeletePhoto={(photoId) =>
-                editingCheckpoint
+                expandedCheckpoint
                   ? handleDeletePhoto(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
+                      expandedCheckpoint.locationId,
+                      expandedCheckpoint.itemId,
+                      expandedCheckpoint.checkpointId,
                       photoId
                     )
                   : Promise.resolve()
               }
               onDeleteFile={(fileId) =>
-                editingCheckpoint
+                expandedCheckpoint
                   ? handleDeleteFile(
-                      editingCheckpoint.locationId,
-                      editingCheckpoint.itemId,
-                      editingCheckpoint.checkpointId,
+                      expandedCheckpoint.locationId,
+                      expandedCheckpoint.itemId,
+                      expandedCheckpoint.checkpointId,
                       fileId
                     )
                   : Promise.resolve()
@@ -911,65 +917,66 @@ export default function AreaDetailPage() {
                 isExpanded={expandedLocations.has(location.id)}
                 onToggleLocation={toggleLocation}
                 onToggleItem={toggleItem}
-                onOpenCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
-                  openCheckpointEditor(locationId, itemId, checkpointId, comments)
+                onToggleCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
+                  void toggleCheckpoint(locationId, itemId, checkpointId, comments)
+                }
+                onCommentBlur={(locationId, itemId, checkpointId, value) =>
+                  void persistCheckpointComment(locationId, itemId, checkpointId, value)
                 }
                 onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
                   void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
                 }
-                editingCheckpointId={editingCheckpoint?.checkpointId ?? null}
+                expandedCheckpointId={expandedCheckpoint?.checkpointId ?? null}
                 commentText={commentText}
                 recentComments={recentComments}
-                onCloseEditor={closeCheckpointEditor}
                 onCommentChange={setCommentText}
-                onSaveEditor={() => void saveCheckpointChanges()}
                 onAddPhoto={(imageData, thumbnail) =>
-                  editingCheckpoint
+                  expandedCheckpoint
                     ? handleAddPhoto(
-                        editingCheckpoint.locationId,
-                        editingCheckpoint.itemId,
-                        editingCheckpoint.checkpointId,
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
                         imageData,
                         thumbnail
                       )
                     : Promise.resolve()
                 }
                 onAddPhotos={(photos) =>
-                  editingCheckpoint
+                  expandedCheckpoint
                     ? handleAddPhotos(
-                        editingCheckpoint.locationId,
-                        editingCheckpoint.itemId,
-                        editingCheckpoint.checkpointId,
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
                         photos
                       )
                     : Promise.resolve()
                 }
                 onAddFiles={(files) =>
-                  editingCheckpoint
+                  expandedCheckpoint
                     ? handleAddFiles(
-                        editingCheckpoint.locationId,
-                        editingCheckpoint.itemId,
-                        editingCheckpoint.checkpointId,
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
                         files
                       )
                     : Promise.resolve()
                 }
                 onDeletePhoto={(photoId) =>
-                  editingCheckpoint
+                  expandedCheckpoint
                     ? handleDeletePhoto(
-                        editingCheckpoint.locationId,
-                        editingCheckpoint.itemId,
-                        editingCheckpoint.checkpointId,
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
                         photoId
                       )
                     : Promise.resolve()
                 }
                 onDeleteFile={(fileId) =>
-                  editingCheckpoint
+                  expandedCheckpoint
                     ? handleDeleteFile(
-                        editingCheckpoint.locationId,
-                        editingCheckpoint.itemId,
-                        editingCheckpoint.checkpointId,
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
                         fileId
                       )
                     : Promise.resolve()
@@ -993,12 +1000,18 @@ export default function AreaDetailPage() {
           />
           {supportsCustomItems && (
             <CustomItemComposer
+              open={showCustomItemComposer}
               value={customItemName}
+              onOpen={() => setShowCustomItemComposer(true)}
+              onClose={() => {
+                setShowCustomItemComposer(false);
+                setCustomItemName('');
+              }}
               onChange={setCustomItemName}
               onSubmit={() => void handleAddCustomItem()}
             />
           )}
-          <div className="mt-auto pt-2" />
+          <div className="mt-auto pt-1" />
         </div>
       </main>
 
