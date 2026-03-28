@@ -231,7 +231,9 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     coverY += 8;
   }
 
-  const inspectedAreaNames = project.areas
+  const activeAreas = project.areas.filter((area) => !area.deletedAt);
+
+  const inspectedAreaNames = activeAreas
     .map((area) => area.name.trim())
     .filter((name) => name.length > 0);
 
@@ -252,7 +254,7 @@ function renderProjectToPdf(pdf: jsPDF, project: Project, logo: LogoAssets) {
     coverY += 2;
   }
 
-  for (const area of project.areas) {
+  for (const area of activeAreas) {
     const printableLocations = area.locations
       .filter((location) => !isGeneralNotesLocation(location))
       .map((location) => ({
