@@ -187,6 +187,11 @@ export async function listProjectPhotoFiles(token: string, projectId: string): P
   return listFolderChildrenByPath(token, `PunchList/photos/${projectId}`);
 }
 
+export async function listPhotoProjectFolders(token: string): Promise<DriveItem[]> {
+  await ensurePunchListFolders(token);
+  return listFolderChildrenByPath(token, 'PunchList/photos');
+}
+
 export async function uploadProjectPhotoFile(
   token: string,
   projectId: string,
