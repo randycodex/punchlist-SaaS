@@ -8,7 +8,7 @@ import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { getProject } from '@/lib/db';
-import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, ChevronRight, Pencil, FileDown, Settings2, RefreshCw } from 'lucide-react';
+import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, Pencil, FileDown, RefreshCw } from 'lucide-react';
 
 const projectTitleCache = new Map<string, string>();
 type SortOption = 'alphabetical' | 'issues' | 'progress';
@@ -195,9 +195,6 @@ export default function PersistentTopBar() {
               <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[14rem] rounded-2xl py-1">
                 {showAuth && (
                   <div className="px-3 py-2">
-                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
-                      Quick Settings
-                    </div>
                     <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
                       <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
                         Sort
@@ -217,22 +214,12 @@ export default function PersistentTopBar() {
                           </button>
                         ))}
                       </div>
-                      <button
-                        onClick={() => dispatchHomeAction('sync-now')}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                      >
-                        <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin text-[var(--accent)]' : ''}`} />
-                        Sync now
-                      </button>
                     </div>
                   </div>
                 )}
                 {!showAuth && (
                   <>
                   <div className="px-3 py-2">
-                    <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
-                      Quick Settings
-                    </div>
                     <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
                       <button
                         onClick={() => dispatchHomeAction('toggle-issues-only')}
@@ -277,6 +264,13 @@ export default function PersistentTopBar() {
                   </div>
                   </>
                 )}
+                <button
+                  onClick={() => dispatchHomeAction('sync-now')}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin text-[var(--accent)]' : ''}`} />
+                  Sync now
+                </button>
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('edit-project')}
@@ -341,19 +335,6 @@ export default function PersistentTopBar() {
                     Sign out
                   </button>
                 )}
-                <div className="mt-1 border-t border-gray-200 dark:border-zinc-700">
-                  <Link
-                    href="/settings"
-                    onClick={() => setShowHomeMenu(false)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    <span className="flex items-center gap-3">
-                      <Settings2 className="h-4 w-4" />
-                      Settings
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </div>
               </div>
             )}
           </div>

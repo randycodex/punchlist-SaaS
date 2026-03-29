@@ -500,26 +500,11 @@ export default function AreaDetailPage() {
   }
 
   async function handleEditCustomItem(locationId: string, itemId: string, currentName: string) {
-    if (!project || !area) return;
-
-    const nextName = window.prompt('Edit item name', currentName)?.trim();
-    if (!nextName || nextName === currentName) return;
-
-    const targetArea = project.areas.find((entry) => entry.id === area.id);
-    const targetLocation = targetArea?.locations.find((location) => location.id === locationId);
-    const targetItem = targetLocation?.items.find((item) => item.id === itemId);
-    if (!targetArea || !targetLocation || !targetItem) return;
-
-    targetItem.name = nextName;
-    syncAreaCompletion(targetArea);
-    await saveProject(project);
-    scheduleSync(project.id);
-
-    setEditingCustomItem(null);
-    setCustomItemName('');
-    setShowCustomItemComposer(false);
-    setProject({ ...project, areas: [...project.areas] });
-    setArea({ ...targetArea });
+    void project;
+    void area;
+    setEditingCustomItem({ locationId, itemId });
+    setCustomItemName(currentName);
+    setShowCustomItemComposer(true);
   }
 
   async function handleDeleteCustomItem(locationId: string, itemId: string) {

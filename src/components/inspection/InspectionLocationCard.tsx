@@ -198,12 +198,12 @@ export default function InspectionLocationCard({
                         {openCustomItemMenuId === item.id && (
                           <div
                             className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                            onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => event.stopPropagation()}
                           >
                             <button
                               type="button"
-                              onPointerDown={async (event) => {
-                                event.preventDefault();
+                              onClick={async (event) => {
                                 event.stopPropagation();
                                 setOpenCustomItemMenuId(null);
                                 await onEditCustomItem?.(location.id, item.id, item.name);
@@ -215,8 +215,7 @@ export default function InspectionLocationCard({
                             </button>
                             <button
                               type="button"
-                              onPointerDown={async (event) => {
-                                event.preventDefault();
+                              onClick={async (event) => {
                                 event.stopPropagation();
                                 setOpenCustomItemMenuId(null);
                                 await onDeleteCustomItem?.(location.id, item.id);
