@@ -947,6 +947,16 @@ export default function ProjectsPage() {
     setEditingProject(null);
   }
 
+  async function handleDeleteEditingProject() {
+    if (!editingProject) return;
+    const projectToDelete = editingProject;
+    if (!window.confirm(`Delete "${projectToDelete.projectName}"? You can restore it later from Trash.`)) {
+      return;
+    }
+    setEditingProject(null);
+    await handleTrashProject(projectToDelete);
+  }
+
   function cancelSelectionMode() {
     setDeleteMode(false);
     setExportMode(false);
@@ -1544,6 +1554,7 @@ export default function ProjectsPage() {
         <ProjectEditModal
           project={editingProject}
           onSave={handleEditProject}
+          onDelete={singleProjectMainView ? () => void handleDeleteEditingProject() : undefined}
           onClose={() => setEditingProject(null)}
         />
       )}

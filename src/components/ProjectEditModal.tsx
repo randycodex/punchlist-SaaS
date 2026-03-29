@@ -7,10 +7,11 @@ import { X } from 'lucide-react';
 interface ProjectEditModalProps {
   project: Project;
   onSave: (updates: Partial<Project>) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
-export default function ProjectEditModal({ project, onSave, onClose }: ProjectEditModalProps) {
+export default function ProjectEditModal({ project, onSave, onDelete, onClose }: ProjectEditModalProps) {
   function toDateInputValue(value: Date) {
     const date = new Date(value);
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -107,20 +108,30 @@ export default function ProjectEditModal({ project, onSave, onClose }: ProjectEd
           </div>
         </div>
 
-        <div className="sticky sticky-surface bottom-0 flex gap-3 border-t p-5">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!projectName.trim()}
-            className="flex-1 rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-          >
-            Save
-          </button>
+        <div className="sticky sticky-surface bottom-0 space-y-3 border-t p-5">
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!projectName.trim()}
+              className="flex-1 rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            >
+              Save
+            </button>
+          </div>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="accent-text block w-full text-center text-sm font-medium transition hover:opacity-80"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>
