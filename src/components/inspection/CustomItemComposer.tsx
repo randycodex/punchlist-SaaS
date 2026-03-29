@@ -1,10 +1,11 @@
 'use client';
 
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 type CustomItemComposerProps = {
   open: boolean;
   value: string;
+  submitLabel?: string;
   onOpen: () => void;
   onClose: () => void;
   onChange: (value: string) => void;
@@ -14,6 +15,7 @@ type CustomItemComposerProps = {
 export default function CustomItemComposer({
   open,
   value,
+  submitLabel = 'Add',
   onOpen,
   onClose,
   onChange,
@@ -24,9 +26,8 @@ export default function CustomItemComposer({
       <div className="px-1 pt-1">
         <button
           onClick={onOpen}
-          className="flex w-full items-center gap-2 rounded-[1rem] bg-gray-100/90 px-4 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-900/70 dark:text-gray-200 dark:hover:bg-zinc-800"
+          className="flex w-full items-center rounded-[1rem] px-6 py-3 text-left text-sm font-medium text-gray-700 transition dark:text-gray-200"
         >
-          <Plus className="h-4 w-4" />
           Add item
         </button>
       </div>
@@ -55,7 +56,7 @@ export default function CustomItemComposer({
           disabled={!value.trim()}
           className="rounded-[1rem] bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:hover:bg-zinc-600"
         >
-          Add
+          {submitLabel}
         </button>
         <button
           onClick={onClose}

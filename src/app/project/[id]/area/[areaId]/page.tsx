@@ -84,6 +84,7 @@ export default function AreaDetailPage() {
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
   const [showCustomItemComposer, setShowCustomItemComposer] = useState(false);
+  const [editingCustomItem, setEditingCustomItem] = useState<{ locationId: string; itemId: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -438,13 +439,31 @@ export default function AreaDetailPage() {
     setShowEditArea(false);
   }
 
-  async function handleAddCustomItem() {
+  async function handleSubmitCustomItem() {
     if (!project || !area || !customItemName.trim() || isApartmentArea(area)) return;
 
     const targetArea = project.areas.find((entry) => entry.id === area.id);
     if (!targetArea) return;
 
     const trimmedName = customItemName.trim();
+    if (editingCustomItem) {
+      const targetLocation = targetArea.locations.find((location) => location.id === editingCustomItem.locationId);
+      const targetItem = targetLocation?.items.find((item) => item.id === editingCustomItem.itemId);
+      if (!targetLocation || !targetItem) return;
+
+      targetItem.name = trimmedName;
+      syncAreaCompletion(targetArea);
+      await saveProject(project);
+      scheduleSync(project.id);
+
+      setCustomItemName('');
+      setEditingCustomItem(null);
+      setShowCustomItemComposer(false);
+      setProject({ ...project, areas: [...project.areas] });
+      setArea({ ...targetArea });
+      return;
+    }
+
     let customItemsLocation = targetArea.locations.find((location) => location.name === CUSTOM_ITEMS_LOCATION_NAME);
 
     if (!customItemsLocation) {
@@ -457,6 +476,9 @@ export default function AreaDetailPage() {
 
     const item = createItem(customItemsLocation.id, trimmedName, customItemsLocation.items.length);
     const checkpoint = createCheckpoint(item.id, 'Notes', 0);
+    checkpoint.issueState = 'open';
+    checkpoint.status = 'needsReview';
+    checkpoint.fixStatus = 'pending';
     item.checkpoints.push(checkpoint);
     customItemsLocation.items.push(item);
     syncAreaCompletion(targetArea);
@@ -465,7 +487,69 @@ export default function AreaDetailPage() {
     scheduleSync(project.id);
 
     setCustomItemName('');
+    setEditingCustomItem(null);
     setShowCustomItemComposer(false);
+    setExpandedCheckpoint({
+      locationId: customItemsLocation.id,
+      itemId: item.id,
+      checkpointId: checkpoint.id,
+    });
+    setCommentText(checkpoint.comments);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleEditCustomItem(locationId: string, itemId: string, currentName: string) {
+    if (!project || !area) return;
+
+    const nextName = window.prompt('Edit item name', currentName)?.trim();
+    if (!nextName || nextName === currentName) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    const targetLocation = targetArea?.locations.find((location) => location.id === locationId);
+    const targetItem = targetLocation?.items.find((item) => item.id === itemId);
+    if (!targetArea || !targetLocation || !targetItem) return;
+
+    targetItem.name = nextName;
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    setEditingCustomItem(null);
+    setCustomItemName('');
+    setShowCustomItemComposer(false);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleDeleteCustomItem(locationId: string, itemId: string) {
+    if (!project || !area) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    const targetLocation = targetArea?.locations.find((location) => location.id === locationId);
+    if (!targetArea || !targetLocation) return;
+
+    targetLocation.items = targetLocation.items.filter((item) => item.id !== itemId);
+    if (targetLocation.items.length === 0 && targetLocation.name === CUSTOM_ITEMS_LOCATION_NAME) {
+      targetArea.locations = targetArea.locations.filter((location) => location.id !== targetLocation.id);
+      targetArea.locations.forEach((location, index) => {
+        location.sortOrder = index;
+      });
+    }
+
+    if (expandedCheckpoint?.itemId === itemId) {
+      setExpandedCheckpoint(null);
+      setCommentText('');
+    }
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
   }
@@ -857,6 +941,21 @@ export default function AreaDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
+          {supportsCustomItems && (
+            <CustomItemComposer
+              open={showCustomItemComposer}
+              value={customItemName}
+              submitLabel={editingCustomItem ? 'Save' : 'Add'}
+              onOpen={() => setShowCustomItemComposer(true)}
+              onClose={() => {
+                setShowCustomItemComposer(false);
+                setCustomItemName('');
+                setEditingCustomItem(null);
+              }}
+              onChange={setCustomItemName}
+              onSubmit={() => void handleSubmitCustomItem()}
+            />
+          )}
           {supportsCustomItems && filteredCustomItemsLocation && (
             <InspectionLocationCard
               key={filteredCustomItemsLocation.id}
@@ -937,6 +1036,8 @@ export default function AreaDetailPage() {
               registerItemRef={(itemId, node) => {
                 itemRefs.current.set(itemId, node);
               }}
+              onEditCustomItem={handleEditCustomItem}
+              onDeleteCustomItem={handleDeleteCustomItem}
             />
           )}
           {filteredStandardLocations.map((location) => (
@@ -1022,6 +1123,8 @@ export default function AreaDetailPage() {
                 registerItemRef={(itemId, node) => {
                   itemRefs.current.set(itemId, node);
                 }}
+                onEditCustomItem={handleEditCustomItem}
+                onDeleteCustomItem={handleDeleteCustomItem}
               />
             </div>
           ))}
@@ -1036,19 +1139,6 @@ export default function AreaDetailPage() {
               void persistGeneralNotes(value);
             }}
           />
-          {supportsCustomItems && (
-            <CustomItemComposer
-              open={showCustomItemComposer}
-              value={customItemName}
-              onOpen={() => setShowCustomItemComposer(true)}
-              onClose={() => {
-                setShowCustomItemComposer(false);
-                setCustomItemName('');
-              }}
-              onChange={setCustomItemName}
-              onSubmit={() => void handleAddCustomItem()}
-            />
-          )}
           <div className="mt-auto pt-1" />
         </div>
       </main>

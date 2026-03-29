@@ -5,7 +5,11 @@ import {
   ChevronDown,
   ChevronRight,
   MessageSquare,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -49,6 +53,8 @@ type InspectionLocationCardProps = {
   onDeletePhoto: (photoId: string) => void | Promise<void>;
   onDeleteFile: (fileId: string) => void | Promise<void>;
   registerItemRef: (itemId: string, node: HTMLDivElement | null) => void;
+  onEditCustomItem?: (locationId: string, itemId: string, currentName: string) => void | Promise<void>;
+  onDeleteCustomItem?: (locationId: string, itemId: string) => void | Promise<void>;
 };
 
 export default function InspectionLocationCard({
@@ -75,13 +81,32 @@ export default function InspectionLocationCard({
   onDeletePhoto,
   onDeleteFile,
   registerItemRef,
+  onEditCustomItem,
+  onDeleteCustomItem,
 }: InspectionLocationCardProps) {
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const isCustomItemsList =
     hideHeader && alwaysExpanded && location.name.trim().toLowerCase() === 'custom items';
+  const [openCustomItemMenuId, setOpenCustomItemMenuId] = useState<string | null>(null);
+  const customMenuRef = useRef<HTMLDivElement | null>(null);
   const visibleItems = showOnlyIssues
     ? location.items.filter((item) => (itemMetrics.get(item.id)?.stats.issues ?? 0) > 0)
     : location.items;
+
+  useEffect(() => {
+    if (!openCustomItemMenuId) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!customMenuRef.current?.contains(event.target as Node)) {
+        setOpenCustomItemMenuId(null);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [openCustomItemMenuId]);
 
   return (
     <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
@@ -147,6 +172,63 @@ export default function InspectionLocationCard({
                         customCheckpoint.id,
                         customIssueState === 'open' ? 'pending' : 'open'
                       )
+                    }
+                    extraActions={
+                      <div
+                        ref={openCustomItemMenuId === item.id ? customMenuRef : null}
+                        className="relative"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setOpenCustomItemMenuId((current) => (current === item.id ? null : item.id));
+                          }}
+                          className="flex h-12 w-12 items-center justify-center rounded-[1.15rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                          aria-label={`More actions for ${item.name}`}
+                        >
+                          <MoreVertical className="h-5 w-5" />
+                        </button>
+                        {openCustomItemMenuId === item.id && (
+                          <div
+                            className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onPointerDown={async (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setOpenCustomItemMenuId(null);
+                                await onEditCustomItem?.(location.id, item.id, item.name);
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Edit item
+                            </button>
+                            <button
+                              type="button"
+                              onPointerDown={async (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setOpenCustomItemMenuId(null);
+                                await onDeleteCustomItem?.(location.id, item.id);
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete item
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     }
                   />
                   {isExpandedCustomCheckpoint && (
@@ -265,6 +347,7 @@ function CheckpointRow({
   expanded,
   onToggleExpand,
   onToggleIssue,
+  extraActions,
 }: {
   checkpoint: Checkpoint;
   label?: string;
@@ -272,6 +355,7 @@ function CheckpointRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIssue: () => void;
+  extraActions?: ReactNode;
 }) {
   const noteCount = checkpoint.comments.trim() ? 1 : 0;
   const photoCount = checkpoint.photos.length;
@@ -320,6 +404,7 @@ function CheckpointRow({
           >
             <AlertTriangle className="w-5 h-5" />
           </button>
+          {extraActions}
         </div>
       </div>
     </div>
