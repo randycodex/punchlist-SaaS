@@ -110,7 +110,9 @@ function buildRemoteProjectFileIndex(remoteFiles: Array<{ id: string; name: stri
   return remoteById;
 }
 
-function pickPrimaryRemoteProjectFile(remoteFiles: Array<{ lastModifiedDateTime?: string }>) {
+function pickPrimaryRemoteProjectFile<
+  T extends { id: string; name: string; lastModifiedDateTime?: string; eTag?: string }
+>(remoteFiles: T[]): T | undefined {
   return [...remoteFiles].sort(
     (left, right) => timestampMs(right.lastModifiedDateTime) - timestampMs(left.lastModifiedDateTime)
   )[0];
@@ -406,6 +408,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   const pullQueue = [...remoteFilesById.entries()];
   await runWithConcurrency(pullQueue, 4, async ([projectId, remoteEntries]) => {
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
+    if (!remote) return;
     if (!remote.name.endsWith('.json') || !remote.id) return;
     const deletedAt = mergedDeletions[projectId];
     if (deletedAt && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
