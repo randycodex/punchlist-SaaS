@@ -1,4 +1,4 @@
-import { Project } from '@/types';
+import { PhotoAttachment, Project } from '@/types';
 import {
   getAllProjects,
   getProject,
@@ -11,7 +11,10 @@ import {
   listProjectFiles,
   downloadProjectFile,
   uploadProjectFile,
+  listProjectPhotoFiles,
+  uploadProjectPhotoFile,
   deleteDriveItem,
+  deleteProjectPhotoFolder,
   downloadDeletionLog,
   uploadDeletionLog,
 } from '@/lib/oneDrive';
@@ -69,6 +72,53 @@ async function runWithConcurrency<T>(
 
 function projectFilename(projectId: string) {
   return `${projectId}.json`;
+}
+
+function projectPhotoFilename(photo: Pick<PhotoAttachment, 'id' | 'checkpointId'>) {
+  return `${photo.checkpointId}__${photo.id}.jpg`;
+}
+
+function getProjectPhotos(project: Project) {
+  const photos: PhotoAttachment[] = [];
+  for (const area of project.areas ?? []) {
+    for (const location of area.locations ?? []) {
+      for (const item of location.items ?? []) {
+        for (const checkpoint of item.checkpoints ?? []) {
+          photos.push(...(checkpoint.photos ?? []));
+        }
+      }
+    }
+  }
+  return photos;
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+async function syncProjectPhotosToOneDrive(token: string, project: Project): Promise<void> {
+  const localPhotos = getProjectPhotos(project);
+  const expectedNames = new Set(localPhotos.map((photo) => projectPhotoFilename(photo)));
+  const remotePhotos = await listProjectPhotoFiles(token, project.id);
+  const remoteNames = new Set(remotePhotos.map((photo) => photo.name));
+
+  await runWithConcurrency(localPhotos, 3, async (photo) => {
+    const filename = projectPhotoFilename(photo);
+    if (remoteNames.has(filename) || !photo.imageData) {
+      return;
+    }
+    const blob = await dataUrlToBlob(photo.imageData);
+    await uploadProjectPhotoFile(token, project.id, filename, blob);
+  });
+
+  await runWithConcurrency(
+    remotePhotos.filter((photo) => !expectedNames.has(photo.name) && photo.id),
+    3,
+    async (photo) => {
+      await deleteDriveItem(token, photo.id);
+    }
+  );
 }
 
 function isConflictError(error: unknown) {
@@ -206,6 +256,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   );
   const localProjectMap = new Map(localProjects.map((project) => [project.id, project]));
   const remoteDeleteQueue: string[] = [];
+  const remotePhotoDeleteQueue: string[] = [];
   const localDeleteQueue: string[] = [];
 
   // Apply deletions from the merged tombstone log.
@@ -215,6 +266,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
 
     if (remote && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
       remoteDeleteQueue.push(remote.id);
+      remotePhotoDeleteQueue.push(projectId);
       remoteById.delete(projectId);
     }
 
@@ -226,6 +278,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
 
   await Promise.all([
     runWithConcurrency(remoteDeleteQueue, 4, (remoteId) => deleteDriveItem(token, remoteId)),
+    runWithConcurrency(remotePhotoDeleteQueue, 2, (projectId) => deleteProjectPhotoFolder(token, projectId)),
     runWithConcurrency(localDeleteQueue, 4, (projectId) => deleteProjectFromDb(projectId)),
   ]);
 
@@ -267,14 +320,15 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       return;
     }
 
-    const localUpdatedAt = getProjectUpdatedAt(project);
-    const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
-    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+    const fullProject = await getProject(project.id);
+    if (!fullProject) {
       return;
     }
 
-    const fullProject = await getProject(project.id);
-    if (!fullProject) {
+    const localUpdatedAt = getProjectUpdatedAt(project);
+    const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
+    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+      await syncProjectPhotosToOneDrive(token, fullProject);
       return;
     }
 
@@ -285,6 +339,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         JSON.stringify(fullProject),
         remote?.eTag
       );
+      await syncProjectPhotosToOneDrive(token, fullProject);
     } catch (error) {
       if (isConflictError(error)) {
         addConflict(project.id, project.projectName);
@@ -325,6 +380,7 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
 
     try {
       await uploadProjectFile(token, filename, JSON.stringify(localProject), remote?.eTag);
+      await syncProjectPhotosToOneDrive(token, localProject);
     } catch (error) {
       // Background push should not interrupt the editing flow; full sync can resolve conflicts.
       if (isConflictError(error)) {

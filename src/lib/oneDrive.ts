@@ -1,7 +1,7 @@
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
-let ensuredFolderIds: { projectsId: string; exportsId: string } | null = null;
+let ensuredFolderIds: { projectsId: string; exportsId: string; photosId: string } | null = null;
 
-type DriveItem = {
+export type DriveItem = {
   id: string;
   name: string;
   eTag?: string;
@@ -111,8 +111,32 @@ export async function ensurePunchListFolders(token: string) {
   await ensureFolder(token, 'PunchList');
   const projects = await ensureFolder(token, 'PunchList/projects');
   const exports = await ensureFolder(token, 'PunchList/exports');
-  ensuredFolderIds = { projectsId: projects.id, exportsId: exports.id };
+  const photos = await ensureFolder(token, 'PunchList/photos');
+  ensuredFolderIds = { projectsId: projects.id, exportsId: exports.id, photosId: photos.id };
   return ensuredFolderIds;
+}
+
+async function listFolderChildrenByPath(token: string, path: string): Promise<DriveItem[]> {
+  try {
+    const result = await graphFetch<{ value: DriveItem[] }>(
+      token,
+      `/me/drive/root:/${encodeURI(path)}:/children?$select=id,name,lastModifiedDateTime,eTag,folder`
+    );
+    return result.value ?? [];
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (
+        error.message.includes('itemNotFound') ||
+        error.message.includes('404') ||
+        error.message.includes('The resource could not be found') ||
+        error.message.includes('resource could not be found')
+      )
+    ) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function listProjectFiles(token: string) {
@@ -156,6 +180,41 @@ export async function uploadProjectFile(
     headers,
     body: content,
   });
+}
+
+export async function listProjectPhotoFiles(token: string, projectId: string): Promise<DriveItem[]> {
+  await ensurePunchListFolders(token);
+  return listFolderChildrenByPath(token, `PunchList/photos/${projectId}`);
+}
+
+export async function uploadProjectPhotoFile(
+  token: string,
+  projectId: string,
+  filename: string,
+  blob: Blob
+) {
+  await ensurePunchListFolders(token);
+  await ensureFolder(token, `PunchList/photos/${projectId}`);
+  return graphFetch<DriveItem>(
+    token,
+    `/me/drive/root:/PunchList/photos/${encodeURIComponent(projectId)}/${encodeURI(filename)}:/content`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': blob.type || 'image/jpeg',
+      },
+      body: blob,
+    }
+  );
+}
+
+export async function deleteProjectPhotoFolder(token: string, projectId: string): Promise<void> {
+  await ensurePunchListFolders(token);
+  const folder = await getItemByPath(token, `PunchList/photos/${projectId}`);
+  if (!folder?.id) {
+    return;
+  }
+  await deleteDriveItem(token, folder.id);
 }
 
 export async function uploadPdfToOneDrive(token: string, filename: string, blob: Blob) {
