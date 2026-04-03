@@ -146,16 +146,35 @@ function fitImageSize(size: ImageSize, maxWidth: number, maxHeight: number): Ima
   return { width: size.width * scale, height: size.height * scale };
 }
 
-async function loadPhotoDimensions(photos: string[]) {
-  return Promise.all(
-    photos.map(async (photo) => {
+async function normalizePhotoForPdf(source: string): Promise<{ src: string; size: ImageSize }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
       try {
-        return await getImageDimensions(photo);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, img.width);
+        canvas.height = Math.max(1, img.height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ src: source, size: { width: img.width, height: img.height } });
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve({
+          src: canvas.toDataURL('image/jpeg', 0.82),
+          size: { width: img.width, height: img.height },
+        });
       } catch {
-        return { width: 1, height: 1 };
+        resolve({ src: source, size: { width: img.width, height: img.height } });
       }
-    })
-  );
+    };
+    img.onerror = () => resolve({ src: source, size: { width: 1, height: 1 } });
+    img.src = source;
+  });
+}
+
+async function preparePdfPhotos(photos: string[]) {
+  return Promise.all(photos.map((photo) => normalizePhotoForPdf(photo)));
 }
 
 function drawStatusIcon(pdf: jsPDF, checkpoint: Checkpoint, x: number, y: number, radius: number) {
@@ -577,8 +596,7 @@ function renderIntroPages(
 
 function renderPhotos(
   pdf: jsPDF,
-  photos: string[],
-  photoSizes: ImageSize[],
+  photos: Array<{ src: string; size: ImageSize }>,
   startX: number,
   startY: number,
   layout: LayoutMetrics
@@ -591,12 +609,12 @@ function renderPhotos(
     const x = startX + col * (layout.photoWidth + layout.photoGap);
     const frameY = currentY + row * (layout.photoHeight + 6);
 
-    const fitted = fitImageSize(photoSizes[index] ?? { width: 1, height: 1 }, layout.photoWidth - 2, layout.photoHeight - 2);
+    const fitted = fitImageSize(photos[index]?.size ?? { width: 1, height: 1 }, layout.photoWidth - 2, layout.photoHeight - 2);
     const imageX = x + (layout.photoWidth - fitted.width) / 2;
     const imageY = frameY + (layout.photoHeight - fitted.height) / 2;
 
     try {
-      pdf.addImage(photos[index], 'JPEG', imageX, imageY, fitted.width, fitted.height);
+      pdf.addImage(photos[index].src, 'JPEG', imageX, imageY, fitted.width, fitted.height);
     } catch {
       pdf.setFillColor(229, 231, 235);
       pdf.roundedRect(x, frameY, layout.photoWidth, layout.photoHeight, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
@@ -615,8 +633,7 @@ async function renderCheckpointBlock(
 ) {
   const noteLines = getCheckpointNotesLines(pdf, checkpoint, layout.detailColumnWidth - BODY_INDENT - 2);
   const fileLines = getCheckpointFileLines(pdf, checkpoint, layout.detailColumnWidth - BODY_INDENT - 2);
-  const photos = getCheckpointPhotoSources(checkpoint);
-  const photoSizes = await loadPhotoDimensions(photos);
+  const photos = await preparePdfPhotos(getCheckpointPhotoSources(checkpoint));
   const itemX = startX + ITEM_INDENT;
   const bodyX = startX + BODY_INDENT;
 
@@ -645,7 +662,7 @@ async function renderCheckpointBlock(
   }
 
   if (photos.length > 0) {
-    y = renderPhotos(pdf, photos, photoSizes, bodyX, y, layout);
+    y = renderPhotos(pdf, photos, bodyX, y, layout);
   }
 
   return y + ITEM_GAP;
