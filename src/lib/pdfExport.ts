@@ -42,6 +42,16 @@ type SummaryArea = {
   sections: Array<{ sectionName: string; issueCount: number }>;
 };
 
+type AppendixPhoto = {
+  referenceId: string;
+  src: string;
+  size: ImageSize;
+  areaName: string;
+  locationName: string;
+  itemName: string;
+  checkpointName: string;
+};
+
 async function loadLogoBase64(): Promise<string | null> {
   try {
     const response = await fetch('/uai-logo.png');
@@ -311,12 +321,6 @@ function isGeneralNotesLocation(location: Location | ExportLocation) {
   return item.checkpoints.length === 1 && item.checkpoints[0].name.trim().toLowerCase() === 'notes';
 }
 
-function estimatePhotoBlockHeight(photoCount: number, layout: LayoutMetrics) {
-  if (photoCount === 0) return 0;
-  const rows = Math.ceil(photoCount / layout.photosPerRow);
-  return 3 + rows * (layout.photoHeight + 6) + 3;
-}
-
 function getCheckpointNotesLines(pdf: jsPDF, checkpoint: Checkpoint, textWidth: number) {
   const notes = sanitizeText(checkpoint.comments);
   return notes ? (pdf.splitTextToSize(notes, textWidth) as string[]) : [];
@@ -337,7 +341,10 @@ function estimateCheckpointBlockHeight(pdf: jsPDF, checkpoint: Checkpoint, layou
   const notesLines = getCheckpointNotesLines(pdf, checkpoint, textWidth);
   const fileLines = getCheckpointFileLines(pdf, checkpoint, textWidth);
   const photoCount = getCheckpointPhotoSources(checkpoint).length;
-  return 4.8 + notesLines.length * 3.5 + fileLines.length * 3.4 + estimatePhotoBlockHeight(photoCount, layout) + ITEM_GAP;
+  const referenceLines = photoCount > 0
+    ? (pdf.splitTextToSize(`Photos: ${Array.from({ length: photoCount }, (_, index) => `IMG-${String(index + 1).padStart(3, '0')}`).join(', ')}`, textWidth) as string[]).length
+    : 0;
+  return 4.8 + notesLines.length * 3.5 + fileLines.length * 3.4 + referenceLines * 3.3 + ITEM_GAP;
 }
 
 function estimateItemBlockHeight(pdf: jsPDF, item: ExportItem, layout: LayoutMetrics) {
@@ -594,39 +601,16 @@ function renderIntroPages(
   renderAreaNotesSection(pdf, project, layout, y + 2);
 }
 
-function renderPhotos(
-  pdf: jsPDF,
-  photos: Array<{ src: string; size: ImageSize }>,
-  startX: number,
-  startY: number,
-  layout: LayoutMetrics
-) {
-  const currentY = startY + 2.5;
-
-  for (let index = 0; index < photos.length; index += 1) {
-    const col = index % layout.photosPerRow;
-    const row = Math.floor(index / layout.photosPerRow);
-    const x = startX + col * (layout.photoWidth + layout.photoGap);
-    const frameY = currentY + row * (layout.photoHeight + 6);
-
-    const fitted = fitImageSize(photos[index]?.size ?? { width: 1, height: 1 }, layout.photoWidth - 2, layout.photoHeight - 2);
-    const imageX = x + (layout.photoWidth - fitted.width) / 2;
-    const imageY = frameY + (layout.photoHeight - fitted.height) / 2;
-
-    try {
-      pdf.addImage(photos[index].src, 'JPEG', imageX, imageY, fitted.width, fitted.height);
-    } catch {
-      pdf.setFillColor(229, 231, 235);
-      pdf.roundedRect(x, frameY, layout.photoWidth, layout.photoHeight, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
-    }
-  }
-
-  return currentY + Math.ceil(photos.length / layout.photosPerRow) * (layout.photoHeight + 6) + 3;
-}
-
 async function renderCheckpointBlock(
   pdf: jsPDF,
   checkpoint: ExportCheckpoint,
+  appendixPhotos: AppendixPhoto[],
+  photoCounter: { value: number },
+  context: {
+    areaName: string;
+    locationName: string;
+    itemName: string;
+  },
   startX: number,
   y: number,
   layout: LayoutMetrics
@@ -662,10 +646,79 @@ async function renderCheckpointBlock(
   }
 
   if (photos.length > 0) {
-    y = renderPhotos(pdf, photos, bodyX, y, layout);
+    const photoReferences = photos.map((photo) => {
+      photoCounter.value += 1;
+      const referenceId = `IMG-${String(photoCounter.value).padStart(3, '0')}`;
+      appendixPhotos.push({
+        referenceId,
+        src: photo.src,
+        size: photo.size,
+        areaName: context.areaName,
+        locationName: context.locationName,
+        itemName: context.itemName,
+        checkpointName: checkpoint.name,
+      });
+      return referenceId;
+    });
+    const referenceLines = pdf.splitTextToSize(`Photos: ${photoReferences.join(', ')}`, layout.detailColumnWidth - BODY_INDENT - 2) as string[];
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(referenceLines, bodyX, y);
+    pdf.setTextColor(0, 0, 0);
+    y += referenceLines.length * 3.3;
   }
 
   return y + ITEM_GAP;
+}
+
+function renderProjectPhotoAppendix(
+  pdf: jsPDF,
+  photos: AppendixPhoto[],
+  layout: LayoutMetrics
+) {
+  if (photos.length === 0) return;
+
+  const imageMaxWidth = layout.contentWidth;
+  const imageMaxHeight = 110;
+  let y = 0;
+
+  const startAppendixPage = () => {
+    pdf.addPage();
+    return drawSectionTitle(pdf, 'Photos', layout.contentTop, layout);
+  };
+
+  for (const photo of photos) {
+    const fitted = fitImageSize(photo.size, imageMaxWidth, imageMaxHeight);
+    const caption = `${photo.areaName} / ${photo.locationName} / ${photo.itemName} / ${photo.checkpointName}`;
+    const captionLines = pdf.splitTextToSize(caption, layout.contentWidth) as string[];
+    const blockHeight = 5 + captionLines.length * 3.8 + 2 + fitted.height + 6;
+
+    if (y === 0 || y + blockHeight > layout.contentBottom) {
+      y = startAppendixPage();
+    }
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(71, 85, 105);
+    pdf.text(photo.referenceId, layout.margin, y);
+    y += 5;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(captionLines, layout.margin, y);
+    y += captionLines.length * 3.8 + 2;
+
+    const imageX = layout.margin + (layout.contentWidth - fitted.width) / 2;
+    try {
+      pdf.addImage(photo.src, 'JPEG', imageX, y, fitted.width, fitted.height);
+    } catch {
+      pdf.setFillColor(229, 231, 235);
+      pdf.roundedRect(imageX, y, fitted.width, fitted.height, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
+    }
+
+    y += fitted.height + 6;
+    pdf.setTextColor(0, 0, 0);
+  }
 }
 
 async function renderProjectDetailPages(
@@ -677,6 +730,8 @@ async function renderProjectDetailPages(
 ) {
   const coverPage = pdf.getNumberOfPages();
   const startPage = coverPage;
+  const appendixPhotos: AppendixPhoto[] = [];
+  const photoCounter = { value: 0 };
 
   renderIntroPages(pdf, project, mode, logo, layout);
 
@@ -747,7 +802,16 @@ async function renderProjectDetailPages(
               y += GROUP_TO_ITEM_GAP;
             }
 
-            y = await renderCheckpointBlock(pdf, checkpoint, layout.margin, y, layout);
+            y = await renderCheckpointBlock(
+              pdf,
+              checkpoint,
+              appendixPhotos,
+              photoCounter,
+              { areaName: area.name, locationName: location.name, itemName: item.name },
+              layout.margin,
+              y,
+              layout
+            );
           }
 
           y += GROUP_GAP;
@@ -834,6 +898,9 @@ async function renderProjectDetailPages(
           columnYs[locationColumnIndex] = await renderCheckpointBlock(
             pdf,
             checkpoint,
+            appendixPhotos,
+            photoCounter,
+            { areaName: area.name, locationName: location.name, itemName: item.name },
             getColumnX(locationColumnIndex),
             columnYs[locationColumnIndex],
             layout
@@ -846,6 +913,8 @@ async function renderProjectDetailPages(
       columnYs[locationColumnIndex] += SECTION_GAP;
     }
   }
+
+  renderProjectPhotoAppendix(pdf, appendixPhotos, layout);
 
   addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages(), layout);
 }
