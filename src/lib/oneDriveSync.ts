@@ -303,6 +303,55 @@ export function markProjectDeleted(projectId: string, deletedAt = new Date()) {
   setLocalDeletions(deletions);
 }
 
+export function unmarkProjectDeleted(projectId: string) {
+  const deletions = getLocalDeletions();
+  if (!(projectId in deletions)) {
+    return;
+  }
+  delete deletions[projectId];
+  setLocalDeletions(deletions);
+}
+
+function pruneRestoredProjectDeletions(
+  deletions: Record<string, string>,
+  localProjectMap: Map<string, Project>,
+  remoteFilesById: Map<string, Array<{ id: string; name: string; eTag?: string; lastModifiedDateTime?: string }>>
+) {
+  const next: Record<string, string> = {};
+  const restoredProjectIds = new Set<string>();
+
+  for (const [projectId, deletedAt] of Object.entries(deletions)) {
+    const deletedAtMs = timestampMs(deletedAt);
+    const localProject = localProjectMap.get(projectId);
+    if (
+      localProject &&
+      !localProject.deletedAt &&
+      getProjectUpdatedAt(localProject) > deletedAtMs + CLOCK_SKEW_TOLERANCE_MS
+    ) {
+      restoredProjectIds.add(projectId);
+      continue;
+    }
+
+    const remote = pickPrimaryRemoteProjectFile(remoteFilesById.get(projectId) ?? []);
+    if (remote) {
+      // If a project file reappears in the live OneDrive projects folder after deletion,
+      // treat that as an explicit restore from OneDrive trash and clear the tombstone.
+      if (!localProject || !localProject.deletedAt) {
+        restoredProjectIds.add(projectId);
+        continue;
+      }
+      if (timestampMs(remote.lastModifiedDateTime) > deletedAtMs + CLOCK_SKEW_TOLERANCE_MS) {
+        restoredProjectIds.add(projectId);
+        continue;
+      }
+    }
+
+    next[projectId] = deletedAt;
+  }
+
+  return { deletions: next, restoredProjectIds };
+}
+
 function reviveProjectDates(project: Project): Project {
   return {
     ...project,
@@ -365,20 +414,24 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     downloadDeletionLog(token),
   ]);
   const localDeletions = getLocalDeletions();
-  const mergedDeletions = mergeDeletions(localDeletions, remoteDeletions);
-  setLocalDeletions(mergedDeletions);
-  if (!deletionMapsEqual(mergedDeletions, remoteDeletions)) {
-    await uploadDeletionLog(token, mergedDeletions);
-  }
-
-  const remoteFilesById = buildRemoteProjectFileIndex(remoteFiles);
   const localProjectMap = new Map(localProjects.map((project) => [project.id, project]));
+  const remoteFilesById = buildRemoteProjectFileIndex(remoteFiles);
+  const mergedDeletions = mergeDeletions(localDeletions, remoteDeletions);
+  const { deletions: resolvedDeletions, restoredProjectIds } = pruneRestoredProjectDeletions(
+    mergedDeletions,
+    localProjectMap,
+    remoteFilesById
+  );
+  setLocalDeletions(resolvedDeletions);
+  if (!deletionMapsEqual(resolvedDeletions, remoteDeletions)) {
+    await uploadDeletionLog(token, resolvedDeletions);
+  }
   const remoteDeleteQueue: string[] = [];
   const remotePhotoDeleteQueue: string[] = [];
   const localDeleteQueue: string[] = [];
 
   // Apply deletions from the merged tombstone log.
-  for (const [projectId, deletedAt] of Object.entries(mergedDeletions)) {
+  for (const [projectId, deletedAt] of Object.entries(resolvedDeletions)) {
     const remoteEntries = remoteFilesById.get(projectId) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     const local = localProjectMap.get(projectId);
@@ -410,7 +463,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     if (!remote) return;
     if (!remote.name.endsWith('.json') || !remote.id) return;
-    const deletedAt = mergedDeletions[projectId];
+    const deletedAt = resolvedDeletions[projectId];
     if (deletedAt && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
       return;
     }
@@ -418,6 +471,9 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remoteProject = await downloadRemoteProject(token, remote.id);
     if (!remoteProject) {
       return;
+    }
+    if (restoredProjectIds.has(projectId)) {
+      delete remoteProject.deletedAt;
     }
     const remoteUpdatedAt = getProjectUpdatedAt(remoteProject);
 
@@ -440,7 +496,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const filename = projectJsonFilename(project);
     const remoteEntries = remoteFilesById.get(project.id) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
-    const deletedAt = mergedDeletions[project.id];
+    const deletedAt = resolvedDeletions[project.id];
     if (deletedAt && new Date(deletedAt).getTime() >= project.updatedAt.getTime()) {
       return;
     }

@@ -3,7 +3,13 @@
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { Project, checkpointHasIssue, getReviewMetrics } from '@/types';
 import { getAllProjects, saveProject, deleteProject, createProject, createArea } from '@/lib/db';
-import { syncProjectsWithOneDrive, pushProjectsToOneDrive, SyncConflict, markProjectDeleted } from '@/lib/oneDriveSync';
+import {
+  syncProjectsWithOneDrive,
+  pushProjectsToOneDrive,
+  SyncConflict,
+  markProjectDeleted,
+  unmarkProjectDeleted,
+} from '@/lib/oneDriveSync';
 import { generateMultiProjectPDF, downloadPDF, type PdfExportMode } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
@@ -864,8 +870,9 @@ export default function ProjectsPage() {
     const project = projects.find((entry) => entry.id === projectId);
     if (!project) return;
     delete project.deletedAt;
+    unmarkProjectDeleted(project.id);
     await saveProject(project);
-    scheduleSync(project.id);
+    scheduleSync(project.id, { fullSync: true });
     setProjects((prev) =>
       prev.map((entry) => (entry.id === project.id ? { ...project, areas: [...project.areas] } : entry))
     );
