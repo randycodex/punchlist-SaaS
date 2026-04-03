@@ -9,6 +9,7 @@ import {
   ensurePunchListFolders,
   listProjectFiles,
   downloadProjectFile,
+  downloadDriveItemAsDataUrl,
   uploadProjectFile,
   listPhotoProjectFolders,
   listProjectPhotoFiles,
@@ -184,6 +185,11 @@ function getProjectFolderIdFromName(name: string) {
   return match?.[1] ?? null;
 }
 
+function getPhotoIdFromFilename(name: string) {
+  const match = name.match(/_([0-9a-f-]{36})\.jpg$/i);
+  return match?.[1] ?? null;
+}
+
 function getProjectPhotos(project: Project) {
   const photos: PhotoAttachment[] = [];
   for (const area of project.areas ?? []) {
@@ -196,6 +202,91 @@ function getProjectPhotos(project: Project) {
     }
   }
   return photos;
+}
+
+function normalizeProjectPhotos(project: Project): Project {
+  return {
+    ...project,
+    areas: (project.areas ?? []).map((area) => ({
+      ...area,
+      locations: (area.locations ?? []).map((location) => ({
+        ...location,
+        items: (location.items ?? []).map((item) => ({
+          ...item,
+          checkpoints: (item.checkpoints ?? []).map((checkpoint) => {
+            const photoMap = new Map<string, PhotoAttachment>();
+            for (const photo of checkpoint.photos ?? []) {
+              const existing = photoMap.get(photo.id);
+              if (!existing) {
+                photoMap.set(photo.id, photo);
+                continue;
+              }
+              if (!existing.imageData && photo.imageData) {
+                photoMap.set(photo.id, photo);
+              }
+            }
+            return {
+              ...checkpoint,
+              photos: [...photoMap.values()],
+            };
+          }),
+        })),
+      })),
+    })),
+  };
+}
+
+async function hydrateProjectPhotosFromOneDrive(token: string, project: Project): Promise<Project> {
+  const normalizedProject = normalizeProjectPhotos(project);
+  const remoteFolders = await listPhotoProjectFolders(token);
+  const preferredFolderName = projectPhotoFolderName(normalizedProject);
+  const folder =
+    remoteFolders.find((entry) => entry.name === preferredFolderName) ??
+    remoteFolders.find((entry) => {
+      const folderProjectId = getProjectFolderIdFromName(entry.name);
+      return folderProjectId === normalizedProject.id || getLegacyPhotoFolderNames(normalizedProject.id).includes(entry.name);
+    });
+
+  if (!folder) {
+    return normalizedProject;
+  }
+
+  const remotePhotos = await listProjectPhotoFiles(token, folder.name);
+  const remotePhotoById = new Map(
+    remotePhotos
+      .map((photo) => {
+        const photoId = getPhotoIdFromFilename(photo.name);
+        return photoId ? [photoId, photo] : null;
+      })
+      .filter((entry): entry is [string, typeof remotePhotos[number]] => entry !== null)
+  );
+
+  const missingPhotos: Array<{ photo: PhotoAttachment; driveItemId: string }> = [];
+  for (const area of normalizedProject.areas ?? []) {
+    for (const location of area.locations ?? []) {
+      for (const item of location.items ?? []) {
+        for (const checkpoint of item.checkpoints ?? []) {
+          for (const photo of checkpoint.photos ?? []) {
+            if (photo.imageData) {
+              continue;
+            }
+            const driveItem = remotePhotoById.get(photo.id);
+            if (!driveItem?.id) {
+              continue;
+            }
+            missingPhotos.push({ photo, driveItemId: driveItem.id });
+          }
+        }
+      }
+    }
+  }
+
+  await runWithConcurrency(missingPhotos, 3, async ({ photo, driveItemId }) => {
+    const dataUrl = await downloadDriveItemAsDataUrl(token, driveItemId);
+    photo.imageData = dataUrl;
+  });
+
+  return normalizedProject;
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
@@ -412,6 +503,7 @@ function reviveProjectDates(project: Project): Project {
       ...area,
       createdAt: new Date(area.createdAt),
       updatedAt: new Date(area.updatedAt),
+      deletedAt: area.deletedAt ? new Date(area.deletedAt) : undefined,
       locations: (area.locations ?? []).map((location) => ({
         ...location,
         createdAt: new Date(location.createdAt),
@@ -525,27 +617,28 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     if (!remoteProject) {
       return;
     }
+    const hydratedRemoteProject = await hydrateProjectPhotosFromOneDrive(token, remoteProject);
     if (syncState?.status === 'active') {
-      delete remoteProject.deletedAt;
+      delete hydratedRemoteProject.deletedAt;
     }
-    const remoteUpdatedAt = getProjectUpdatedAt(remoteProject);
+    const remoteUpdatedAt = getProjectUpdatedAt(hydratedRemoteProject);
 
     if (!localProject) {
-      await saveProjectPreserveTimestamps(remoteProject);
-      localProjectMap.set(projectId, remoteProject);
+      await saveProjectPreserveTimestamps(hydratedRemoteProject);
+      localProjectMap.set(projectId, hydratedRemoteProject);
       return;
     }
 
     if (syncState?.status === 'active' && localProject.deletedAt) {
-      await saveProjectPreserveTimestamps(remoteProject);
-      localProjectMap.set(projectId, remoteProject);
+      await saveProjectPreserveTimestamps(hydratedRemoteProject);
+      localProjectMap.set(projectId, hydratedRemoteProject);
       return;
     }
 
     const localUpdatedAt = getProjectUpdatedAt(localProject);
     if (remoteUpdatedAt > localUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
-      await saveProjectPreserveTimestamps(remoteProject);
-      localProjectMap.set(projectId, remoteProject);
+      await saveProjectPreserveTimestamps(hydratedRemoteProject);
+      localProjectMap.set(projectId, hydratedRemoteProject);
     }
   });
 

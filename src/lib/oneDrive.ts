@@ -163,6 +163,31 @@ export async function downloadProjectFile(token: string, id: string): Promise<st
   return response.text();
 }
 
+export async function downloadDriveItemAsDataUrl(token: string, id: string): Promise<string> {
+  const response = await fetch(`${GRAPH_API}/me/drive/items/${id}/content`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Drive download failed: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error('Drive download produced a non-string result.'));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Drive download failed.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function uploadProjectFile(
   token: string,
   filename: string,
