@@ -1,9 +1,10 @@
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
 const PUNCHLIST_ROOT = 'PunchList';
+const TRASH_BIN_ROOT = `${PUNCHLIST_ROOT}/Trash Bin`;
 const SHARED_EXPORTS_PATH = `${PUNCHLIST_ROOT}/exports`;
 const LEGACY_PROJECTS_PATH = `${PUNCHLIST_ROOT}/projects`;
 const LEGACY_PHOTOS_PATH = `${PUNCHLIST_ROOT}/photos`;
-const RESERVED_PUNCHLIST_FOLDER_NAMES = new Set(['exports', 'projects', 'photos']);
+const RESERVED_PUNCHLIST_FOLDER_NAMES = new Set(['exports', 'projects', 'photos', 'Trash Bin']);
 let hasEnsuredPunchListFolders = false;
 
 export type DriveItem = {
@@ -111,24 +112,32 @@ async function ensureFolder(token: string, path: string): Promise<DriveItem> {
   }
 }
 
-function getProjectRootPath(projectFolderName: string) {
-  return `${PUNCHLIST_ROOT}/${projectFolderName}`;
+function getProjectContainerRoot(trashed = false) {
+  return trashed ? TRASH_BIN_ROOT : PUNCHLIST_ROOT;
 }
 
-function getProjectFilePath(projectFolderName: string, filename: string) {
-  return `${getProjectRootPath(projectFolderName)}/${filename}`;
+function getProjectRootPath(projectFolderName: string, trashed = false) {
+  return `${getProjectContainerRoot(trashed)}/${projectFolderName}`;
 }
 
-function getProjectPhotosPath(projectFolderName: string) {
-  return `${getProjectRootPath(projectFolderName)}/photos`;
+function getProjectFilePath(projectFolderName: string, filename: string, trashed = false) {
+  return `${getProjectRootPath(projectFolderName, trashed)}/${filename}`;
 }
 
-function getProjectExportsPath(projectFolderName: string) {
-  return `${getProjectRootPath(projectFolderName)}/exports`;
+function getProjectPhotosPath(projectFolderName: string, trashed = false) {
+  return `${getProjectRootPath(projectFolderName, trashed)}/photos`;
 }
 
-async function listProjectRootFolders(token: string): Promise<DriveItem[]> {
-  const children = await listFolderChildrenByPath(token, PUNCHLIST_ROOT);
+function getProjectExportsPath(projectFolderName: string, trashed = false) {
+  return `${getProjectRootPath(projectFolderName, trashed)}/exports`;
+}
+
+function isDriveItemInTrash(item: Pick<DriveItem, 'punchlistPath'>) {
+  return item.punchlistPath?.startsWith(`${TRASH_BIN_ROOT}/`) ?? false;
+}
+
+async function listProjectRootFolders(token: string, trashed = false): Promise<DriveItem[]> {
+  const children = await listFolderChildrenByPath(token, getProjectContainerRoot(trashed));
   return children.filter(
     (item) => item.folder && !RESERVED_PUNCHLIST_FOLDER_NAMES.has(item.name)
   );
@@ -159,6 +168,7 @@ export async function ensurePunchListFolders(token: string) {
     return;
   }
   await ensureFolder(token, PUNCHLIST_ROOT);
+  await ensureFolder(token, TRASH_BIN_ROOT);
   hasEnsuredPunchListFolders = true;
 }
 
@@ -187,21 +197,30 @@ async function listFolderChildrenByPath(token: string, path: string): Promise<Dr
 
 export async function listProjectFiles(token: string) {
   await ensurePunchListFolders(token);
-  const [legacyFiles, projectFolders] = await Promise.all([
+  const [legacyFiles, activeProjectFolders, trashedProjectFolders] = await Promise.all([
     listFolderChildrenByPath(token, LEGACY_PROJECTS_PATH),
-    listProjectRootFolders(token),
+    listProjectRootFolders(token, false),
+    listProjectRootFolders(token, true),
   ]);
   const nestedFiles = await Promise.all(
-    projectFolders.map((folder) => listFolderChildrenByPath(token, getProjectRootPath(folder.name)))
+    [...activeProjectFolders, ...trashedProjectFolders].map((folder) =>
+      listFolderChildrenByPath(token, folder.punchlistPath ?? getProjectRootPath(folder.name, isDriveItemInTrash(folder)))
+    )
   );
   return [...legacyFiles, ...nestedFiles.flat()].filter((item) => item.name.endsWith('.json'));
 }
 
 export async function getProjectFileMetadata(token: string, filename: string): Promise<DriveItem | null> {
   await ensurePunchListFolders(token);
-  const projectFolders = await listProjectRootFolders(token);
+  const projectFolders = [
+    ...(await listProjectRootFolders(token, false)),
+    ...(await listProjectRootFolders(token, true)),
+  ];
   for (const folder of projectFolders) {
-    const match = await getItemByPath(token, getProjectFilePath(folder.name, filename));
+    const match = await getItemByPath(
+      token,
+      getProjectFilePath(folder.name, filename, isDriveItemInTrash(folder))
+    );
     if (match) return match;
   }
   return getItemByPath(token, `${LEGACY_PROJECTS_PATH}/${filename}`);
@@ -249,62 +268,72 @@ export async function uploadProjectFile(
   projectFolderName: string,
   filename: string,
   content: string,
+  trashed = false,
   etag?: string
 ) {
   await ensurePunchListFolders(token);
-  await ensureFolder(token, getProjectRootPath(projectFolderName));
+  await ensureFolder(token, getProjectRootPath(projectFolderName, trashed));
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   if (etag) {
     headers['If-Match'] = etag;
   }
-  return graphFetch<DriveItem>(token, `/me/drive/root:/${encodeURI(getProjectFilePath(projectFolderName, filename))}:/content`, {
+  return graphFetch<DriveItem>(token, `/me/drive/root:/${encodeURI(getProjectFilePath(projectFolderName, filename, trashed))}:/content`, {
     method: 'PUT',
     headers,
     body: content,
   });
 }
 
-export async function listProjectPhotoFiles(token: string, projectFolderName: string): Promise<DriveItem[]> {
+export async function listProjectPhotoFiles(
+  token: string,
+  projectFolderName: string,
+  trashed = false,
+  includeFallback = false
+): Promise<DriveItem[]> {
   await ensurePunchListFolders(token);
-  const [projectFolderPhotos, legacyPhotos] = await Promise.all([
-    listFolderChildrenByPath(token, getProjectPhotosPath(projectFolderName)),
-    listFolderChildrenByPath(token, `${LEGACY_PHOTOS_PATH}/${projectFolderName}`),
-  ]);
-  return dedupeDriveItems([...projectFolderPhotos, ...legacyPhotos]);
+  const paths = [getProjectPhotosPath(projectFolderName, trashed)];
+  if (includeFallback) {
+    paths.push(getProjectPhotosPath(projectFolderName, !trashed), `${LEGACY_PHOTOS_PATH}/${projectFolderName}`);
+  }
+  const photoSets = await Promise.all(paths.map((path) => listFolderChildrenByPath(token, path)));
+  return dedupeDriveItems(photoSets.flat());
 }
 
 export async function listPhotoProjectFolders(token: string): Promise<DriveItem[]> {
   await ensurePunchListFolders(token);
-  const [projectFolders, legacyPhotoFolders] = await Promise.all([
-    listProjectRootFolders(token),
+  const [activeProjectFolders, trashedProjectFolders, legacyPhotoFolders] = await Promise.all([
+    listProjectRootFolders(token, false),
+    listProjectRootFolders(token, true),
     listFolderChildrenByPath(token, LEGACY_PHOTOS_PATH),
   ]);
-  const byName = new Map<string, DriveItem>();
-  for (const folder of projectFolders) {
-    byName.set(folder.name, folder);
+  const byKey = new Map<string, DriveItem>();
+  for (const folder of [...activeProjectFolders, ...trashedProjectFolders]) {
+    byKey.set(`${folder.name}:${isDriveItemInTrash(folder) ? 'trash' : 'active'}`, folder);
   }
   for (const folder of legacyPhotoFolders.filter((item) => item.folder)) {
-    if (!byName.has(folder.name)) {
-      byName.set(folder.name, folder);
+    const key = `${folder.name}:legacy`;
+    if (!byKey.has(key)) {
+      byKey.set(key, folder);
     }
   }
-  return [...byName.values()];
+  return [...byKey.values()];
 }
 
 export async function uploadProjectPhotoFile(
   token: string,
   projectFolderName: string,
   filename: string,
-  blob: Blob
+  blob: Blob,
+  trashed = false
 ) {
   await ensurePunchListFolders(token);
-  await ensureFolder(token, getProjectRootPath(projectFolderName));
-  await ensureFolder(token, getProjectPhotosPath(projectFolderName));
+  await ensureFolder(token, getProjectRootPath(projectFolderName, trashed));
+  await ensureFolder(token, getProjectPhotosPath(projectFolderName, trashed));
   return graphFetch<DriveItem>(
     token,
-    `/me/drive/root:/${encodeURI(getProjectPhotosPath(projectFolderName))}/${encodeURI(filename)}:/content`,
+    `/me/drive/root:/${encodeURI(getProjectPhotosPath(projectFolderName, trashed))}/${encodeURI(filename)}:/content`,
     {
       method: 'PUT',
       headers: {
@@ -317,12 +346,15 @@ export async function uploadProjectPhotoFile(
 
 export async function deleteProjectPhotoFolder(token: string, projectFolderName: string): Promise<void> {
   await ensurePunchListFolders(token);
-  const [projectFolderPhotos, legacyFolder] = await Promise.all([
-    getItemByPath(token, getProjectPhotosPath(projectFolderName)),
+  const [activeProjectFolderPhotos, trashedProjectFolderPhotos, legacyFolder] = await Promise.all([
+    getItemByPath(token, getProjectPhotosPath(projectFolderName, false)),
+    getItemByPath(token, getProjectPhotosPath(projectFolderName, true)),
     getItemByPath(token, `${LEGACY_PHOTOS_PATH}/${projectFolderName}`),
   ]);
   const folders = dedupeDriveItems(
-    [projectFolderPhotos, legacyFolder].filter((item): item is DriveItem => !!item?.id)
+    [activeProjectFolderPhotos, trashedProjectFolderPhotos, legacyFolder].filter(
+      (item): item is DriveItem => !!item?.id
+    )
   );
   for (const folder of folders) {
     await deleteDriveItem(token, folder.id);
@@ -331,9 +363,17 @@ export async function deleteProjectPhotoFolder(token: string, projectFolderName:
 
 export async function deleteProjectFolder(token: string, projectFolderName: string): Promise<void> {
   await ensurePunchListFolders(token);
-  const folder = await getItemByPath(token, getProjectRootPath(projectFolderName));
-  if (!folder?.id) return;
-  await deleteDriveItem(token, folder.id);
+  const folders = dedupeDriveItems(
+    (
+      await Promise.all([
+        getItemByPath(token, getProjectRootPath(projectFolderName, false)),
+        getItemByPath(token, getProjectRootPath(projectFolderName, true)),
+      ])
+    ).filter((item): item is DriveItem => !!item?.id)
+  );
+  for (const folder of folders) {
+    await deleteDriveItem(token, folder.id);
+  }
 }
 
 export async function uploadPdfToOneDrive(
