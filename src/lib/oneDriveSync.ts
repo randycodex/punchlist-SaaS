@@ -30,6 +30,15 @@ export type PushSyncResult = {
   conflicts: SyncConflict[];
 };
 
+type ProjectSyncStatus = 'active' | 'deleted';
+
+type ProjectSyncState = {
+  status: ProjectSyncStatus;
+  updatedAt: string;
+};
+
+type ProjectSyncStateMap = Record<string, ProjectSyncState>;
+
 const STORAGE_KEY = 'punchlist-onedrive-last-sync';
 const DELETIONS_KEY = 'punchlist-onedrive-deletions';
 // Allow a small clock-skew window between devices/Graph timestamps,
@@ -247,19 +256,51 @@ function isConflictError(error: unknown) {
   return error instanceof Error && error.message.includes('Precondition Failed');
 }
 
-function getLocalDeletions(): Record<string, string> {
+function normalizeSyncStateMap(raw: unknown): ProjectSyncStateMap {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+
+  const normalized: ProjectSyncStateMap = {};
+
+  for (const [projectId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') {
+      normalized[projectId] = {
+        status: 'deleted',
+        updatedAt: value,
+      };
+      continue;
+    }
+
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+
+    const status =
+      (value as { status?: unknown }).status === 'active' ? 'active' : (value as { status?: unknown }).status === 'deleted' ? 'deleted' : null;
+    const updatedAt = (value as { updatedAt?: unknown }).updatedAt;
+    if (!status || typeof updatedAt !== 'string') {
+      continue;
+    }
+
+    normalized[projectId] = { status, updatedAt };
+  }
+
+  return normalized;
+}
+
+function getLocalSyncStates(): ProjectSyncStateMap {
   try {
     const raw = localStorage.getItem(DELETIONS_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed ?? {};
+    return normalizeSyncStateMap(JSON.parse(raw));
   } catch {
     return {};
   }
 }
 
-function setLocalDeletions(deletions: Record<string, string>) {
-  localStorage.setItem(DELETIONS_KEY, JSON.stringify(deletions));
+function setLocalSyncStates(syncStates: ProjectSyncStateMap) {
+  localStorage.setItem(DELETIONS_KEY, JSON.stringify(syncStates));
 }
 
 function isAfterOrEqual(left: string, right: string | undefined) {
@@ -267,89 +308,96 @@ function isAfterOrEqual(left: string, right: string | undefined) {
   return new Date(left).getTime() >= new Date(right).getTime();
 }
 
-function mergeDeletions(
-  localDeletions: Record<string, string>,
-  remoteDeletions: Record<string, string>
+function mergeSyncStates(
+  localSyncStates: ProjectSyncStateMap,
+  remoteSyncStates: ProjectSyncStateMap
 ) {
-  const merged: Record<string, string> = { ...remoteDeletions };
-  for (const [id, localTs] of Object.entries(localDeletions)) {
-    const remoteTs = remoteDeletions[id];
-    if (!remoteTs || new Date(localTs).getTime() > new Date(remoteTs).getTime()) {
-      merged[id] = localTs;
+  const merged: ProjectSyncStateMap = { ...remoteSyncStates };
+
+  for (const [projectId, localState] of Object.entries(localSyncStates)) {
+    const remoteState = remoteSyncStates[projectId];
+    if (!remoteState || timestampMs(localState.updatedAt) >= timestampMs(remoteState.updatedAt)) {
+      merged[projectId] = localState;
     }
   }
-  for (const [id, remoteTs] of Object.entries(remoteDeletions)) {
-    const localTs = localDeletions[id];
-    if (!localTs || new Date(remoteTs).getTime() > new Date(localTs).getTime()) {
-      merged[id] = remoteTs;
+
+  for (const [projectId, remoteState] of Object.entries(remoteSyncStates)) {
+    const localState = localSyncStates[projectId];
+    if (!localState || timestampMs(remoteState.updatedAt) > timestampMs(localState.updatedAt)) {
+      merged[projectId] = remoteState;
     }
   }
+
   return merged;
 }
 
-function deletionMapsEqual(left: Record<string, string>, right: Record<string, string>) {
+function syncStateMapsEqual(left: ProjectSyncStateMap, right: ProjectSyncStateMap) {
   const leftEntries = Object.entries(left);
   const rightEntries = Object.entries(right);
   if (leftEntries.length !== rightEntries.length) return false;
-  for (const [id, value] of leftEntries) {
-    if (right[id] !== value) return false;
+  for (const [projectId, state] of leftEntries) {
+    const rightState = right[projectId];
+    if (!rightState) return false;
+    if (rightState.status !== state.status || rightState.updatedAt !== state.updatedAt) return false;
   }
   return true;
 }
 
 export function markProjectDeleted(projectId: string, deletedAt = new Date()) {
-  const deletions = getLocalDeletions();
-  deletions[projectId] = deletedAt.toISOString();
-  setLocalDeletions(deletions);
+  const syncStates = getLocalSyncStates();
+  syncStates[projectId] = {
+    status: 'deleted',
+    updatedAt: deletedAt.toISOString(),
+  };
+  setLocalSyncStates(syncStates);
 }
 
-export function unmarkProjectDeleted(projectId: string) {
-  const deletions = getLocalDeletions();
-  if (!(projectId in deletions)) {
-    return;
-  }
-  delete deletions[projectId];
-  setLocalDeletions(deletions);
+export function unmarkProjectDeleted(projectId: string, restoredAt = new Date()) {
+  const syncStates = getLocalSyncStates();
+  syncStates[projectId] = {
+    status: 'active',
+    updatedAt: restoredAt.toISOString(),
+  };
+  setLocalSyncStates(syncStates);
 }
 
-function pruneRestoredProjectDeletions(
-  deletions: Record<string, string>,
+function resolveProjectSyncStates(
+  syncStates: ProjectSyncStateMap,
   localProjectMap: Map<string, Project>,
   remoteFilesById: Map<string, Array<{ id: string; name: string; eTag?: string; lastModifiedDateTime?: string }>>
 ) {
-  const next: Record<string, string> = {};
-  const restoredProjectIds = new Set<string>();
+  const next: ProjectSyncStateMap = {};
 
-  for (const [projectId, deletedAt] of Object.entries(deletions)) {
-    const deletedAtMs = timestampMs(deletedAt);
+  for (const [projectId, syncState] of Object.entries(syncStates)) {
+    const stateUpdatedAtMs = timestampMs(syncState.updatedAt);
     const localProject = localProjectMap.get(projectId);
     if (
       localProject &&
       !localProject.deletedAt &&
-      getProjectUpdatedAt(localProject) > deletedAtMs + CLOCK_SKEW_TOLERANCE_MS
+      getProjectUpdatedAt(localProject) > stateUpdatedAtMs + CLOCK_SKEW_TOLERANCE_MS
     ) {
-      restoredProjectIds.add(projectId);
+      next[projectId] = {
+        status: 'active',
+        updatedAt: localProject.updatedAt.toISOString(),
+      };
       continue;
     }
 
     const remote = pickPrimaryRemoteProjectFile(remoteFilesById.get(projectId) ?? []);
     if (remote) {
-      // If a project file reappears in the live OneDrive projects folder after deletion,
-      // treat that as an explicit restore from OneDrive trash and clear the tombstone.
-      if (!localProject || !localProject.deletedAt) {
-        restoredProjectIds.add(projectId);
-        continue;
-      }
-      if (timestampMs(remote.lastModifiedDateTime) > deletedAtMs + CLOCK_SKEW_TOLERANCE_MS) {
-        restoredProjectIds.add(projectId);
+      if (timestampMs(remote.lastModifiedDateTime) > stateUpdatedAtMs + CLOCK_SKEW_TOLERANCE_MS) {
+        next[projectId] = {
+          status: 'active',
+          updatedAt: remote.lastModifiedDateTime ?? syncState.updatedAt,
+        };
         continue;
       }
     }
 
-    next[projectId] = deletedAt;
+    next[projectId] = syncState;
   }
 
-  return { deletions: next, restoredProjectIds };
+  return next;
 }
 
 function reviveProjectDates(project: Project): Project {
@@ -413,36 +461,40 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     getAllProjects(),
     downloadDeletionLog(token),
   ]);
-  const localDeletions = getLocalDeletions();
+  const localSyncStates = getLocalSyncStates();
   const localProjectMap = new Map(localProjects.map((project) => [project.id, project]));
   const remoteFilesById = buildRemoteProjectFileIndex(remoteFiles);
-  const mergedDeletions = mergeDeletions(localDeletions, remoteDeletions);
-  const { deletions: resolvedDeletions, restoredProjectIds } = pruneRestoredProjectDeletions(
-    mergedDeletions,
+  const remoteSyncStates = normalizeSyncStateMap(remoteDeletions);
+  const mergedSyncStates = mergeSyncStates(localSyncStates, remoteSyncStates);
+  const resolvedSyncStates = resolveProjectSyncStates(
+    mergedSyncStates,
     localProjectMap,
     remoteFilesById
   );
-  setLocalDeletions(resolvedDeletions);
-  if (!deletionMapsEqual(resolvedDeletions, remoteDeletions)) {
-    await uploadDeletionLog(token, resolvedDeletions);
+  setLocalSyncStates(resolvedSyncStates);
+  if (!syncStateMapsEqual(resolvedSyncStates, remoteSyncStates)) {
+    await uploadDeletionLog(token, resolvedSyncStates);
   }
   const remoteDeleteQueue: string[] = [];
   const remotePhotoDeleteQueue: string[] = [];
   const localDeleteQueue: string[] = [];
 
-  // Apply deletions from the merged tombstone log.
-  for (const [projectId, deletedAt] of Object.entries(resolvedDeletions)) {
+  // Apply explicit hard-delete states.
+  for (const [projectId, syncState] of Object.entries(resolvedSyncStates)) {
+    if (syncState.status !== 'deleted') {
+      continue;
+    }
     const remoteEntries = remoteFilesById.get(projectId) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     const local = localProjectMap.get(projectId);
 
-    if (remote && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
+    if (remote && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
       remoteDeleteQueue.push(...remoteEntries.map((entry) => entry.id));
       remotePhotoDeleteQueue.push(projectId);
       remoteFilesById.delete(projectId);
     }
 
-    if (local && new Date(deletedAt).getTime() >= local.updatedAt.getTime()) {
+    if (local && timestampMs(syncState.updatedAt) >= local.updatedAt.getTime()) {
       localDeleteQueue.push(projectId);
       localProjectMap.delete(projectId);
     }
@@ -463,8 +515,8 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     if (!remote) return;
     if (!remote.name.endsWith('.json') || !remote.id) return;
-    const deletedAt = resolvedDeletions[projectId];
-    if (deletedAt && isAfterOrEqual(deletedAt, remote.lastModifiedDateTime)) {
+    const syncState = resolvedSyncStates[projectId];
+    if (syncState?.status === 'deleted' && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
       return;
     }
     const localProject = localProjectMap.get(projectId);
@@ -472,12 +524,18 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     if (!remoteProject) {
       return;
     }
-    if (restoredProjectIds.has(projectId)) {
+    if (syncState?.status === 'active') {
       delete remoteProject.deletedAt;
     }
     const remoteUpdatedAt = getProjectUpdatedAt(remoteProject);
 
     if (!localProject) {
+      await saveProjectPreserveTimestamps(remoteProject);
+      localProjectMap.set(projectId, remoteProject);
+      return;
+    }
+
+    if (syncState?.status === 'active' && localProject.deletedAt) {
       await saveProjectPreserveTimestamps(remoteProject);
       localProjectMap.set(projectId, remoteProject);
       return;
@@ -496,8 +554,8 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const filename = projectJsonFilename(project);
     const remoteEntries = remoteFilesById.get(project.id) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
-    const deletedAt = resolvedDeletions[project.id];
-    if (deletedAt && new Date(deletedAt).getTime() >= project.updatedAt.getTime()) {
+    const syncState = resolvedSyncStates[project.id];
+    if (syncState?.status === 'deleted' && timestampMs(syncState.updatedAt) >= project.updatedAt.getTime()) {
       return;
     }
 
@@ -541,13 +599,14 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
   if (projectIds.length === 0) return { conflicts: [] };
 
   await ensurePunchListFolders(token);
-  const deletionMap = getLocalDeletions();
+  const syncStates = getLocalSyncStates();
   const uniqueProjectIds = [...new Set(projectIds)];
   const conflictsById = new Map<string, SyncConflict>();
   const remoteFilesById = buildRemoteProjectFileIndex(await listProjectFiles(token));
 
   await runWithConcurrency(uniqueProjectIds, 2, async (projectId) => {
-    if (deletionMap[projectId]) return;
+    const syncState = syncStates[projectId];
+    if (syncState?.status === 'deleted') return;
 
     const localProject = await getProject(projectId);
     if (!localProject) return;

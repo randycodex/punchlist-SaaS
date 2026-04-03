@@ -280,7 +280,7 @@ export async function deleteDriveItem(token: string, id: string): Promise<void> 
   });
 }
 
-export async function downloadDeletionLog(token: string): Promise<Record<string, string>> {
+export async function downloadDeletionLog(token: string): Promise<Record<string, unknown>> {
   try {
     const response = await fetch(`${GRAPH_API}/me/drive/root:/PunchList/deletions.json:/content`, {
       headers: {
@@ -292,7 +292,7 @@ export async function downloadDeletionLog(token: string): Promise<Record<string,
     }
     const text = await response.text();
     if (!text) return {};
-    const parsed = JSON.parse(text) as Record<string, string>;
+    const parsed = JSON.parse(text) as Record<string, unknown>;
     return parsed ?? {};
   } catch {
     return {};
@@ -301,7 +301,7 @@ export async function downloadDeletionLog(token: string): Promise<Record<string,
 
 export async function uploadDeletionLog(
   token: string,
-  data: Record<string, string>
+  data: Record<string, unknown>
 ): Promise<DriveItem> {
   return graphFetch<DriveItem>(token, '/me/drive/root:/PunchList/deletions.json:/content', {
     method: 'PUT',
