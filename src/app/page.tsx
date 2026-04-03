@@ -2,7 +2,7 @@
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { Project, checkpointHasIssue, getReviewMetrics } from '@/types';
-import { getAllProjects, saveProject, deleteProject, createProject, createArea } from '@/lib/db';
+import { getAllProjects, getProject, saveProject, deleteProject, createProject, createArea } from '@/lib/db';
 import {
   syncProjectsWithOneDrive,
   pushProjectsToOneDrive,
@@ -898,18 +898,30 @@ export default function ProjectsPage() {
     setActionSheet('export');
   }
 
+  async function loadProjectsForExport() {
+    const selectedProjects = [...sortedProjects]
+      .filter((project) => selectedProjectIds.has(project.id))
+      .sort((a, b) => a.projectName.localeCompare(b.projectName));
+
+    const hydratedProjects = await Promise.all(
+      selectedProjects.map(async (project) => {
+        const fullProject = await getProject(project.id);
+        return fullProject ?? project;
+      })
+    );
+
+    return hydratedProjects.map((project) => ({
+      ...project,
+      areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  }
+
   async function handleExportSelectedLocal() {
     if (exportingSelected || selectedProjectIds.size === 0) return;
     setActionSheet(null);
     setExportingSelected(true);
     try {
-      const projectsToExport = [...sortedProjects]
-        .filter((project) => selectedProjectIds.has(project.id))
-        .sort((a, b) => a.projectName.localeCompare(b.projectName));
-      const projectsForExport = projectsToExport.map((project) => ({
-        ...project,
-        areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
-      }));
+      const projectsForExport = await loadProjectsForExport();
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
       const filename = exportType === 'issues' ? 'PunchList_Issues_Report.pdf' : 'PunchList_Full_Report.pdf';
       downloadPDF(blob, filename);
@@ -936,10 +948,7 @@ export default function ProjectsPage() {
       const projectsToExport = [...sortedProjects]
         .filter((project) => selectedProjectIds.has(project.id))
         .sort((a, b) => a.projectName.localeCompare(b.projectName));
-      const projectsForExport = projectsToExport.map((project) => ({
-        ...project,
-        areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
-      }));
+      const projectsForExport = await loadProjectsForExport();
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
       const exportProject =
         projectsToExport.length === 1 ? projectsToExport[0] : null;
