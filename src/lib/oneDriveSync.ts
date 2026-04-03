@@ -385,13 +385,14 @@ function resolveProjectSyncStates(
 
     const remote = pickPrimaryRemoteProjectFile(remoteFilesById.get(projectId) ?? []);
     if (remote) {
-      if (timestampMs(remote.lastModifiedDateTime) > stateUpdatedAtMs + CLOCK_SKEW_TOLERANCE_MS) {
-        next[projectId] = {
-          status: 'active',
-          updatedAt: remote.lastModifiedDateTime ?? syncState.updatedAt,
-        };
-        continue;
-      }
+      // A project file present in the live OneDrive projects folder is treated as restored/active.
+      // OneDrive restores do not reliably give us a "newer than delete" timestamp, so presence
+      // in the active folder must beat stale delete state from another device.
+      next[projectId] = {
+        status: 'active',
+        updatedAt: remote.lastModifiedDateTime ?? syncState.updatedAt,
+      };
+      continue;
     }
 
     next[projectId] = syncState;
