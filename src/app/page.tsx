@@ -40,6 +40,21 @@ const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const LONG_PRESS_MS = 500;
 
+function sanitizeOneDriveProjectFolderPart(value: string | undefined, fallback: string) {
+  const cleaned = (value ?? '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return cleaned || fallback;
+}
+
+function getOneDriveProjectFolderName(project: Pick<Project, 'id' | 'projectName'>) {
+  return `${sanitizeOneDriveProjectFolderPart(project.projectName, 'project')}_${project.id}`;
+}
+
 type ProjectMetrics = {
   stats: { total: number; ok: number; issues: number; areas: number };
   pending: number;
@@ -926,11 +941,18 @@ export default function ProjectsPage() {
         areas: [...project.areas].sort((a, b) => a.name.localeCompare(b.name)),
       }));
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
+      const exportProject =
+        projectsToExport.length === 1 ? projectsToExport[0] : null;
+      const exportProjectFolderName = exportProject
+        ? getOneDriveProjectFolderName(exportProject)
+        : undefined;
       const filename = await getNextOneDriveExportFilename(
         token,
-        projectsToExport.map((project) => `${project.projectName}_${exportType === 'issues' ? 'Issues' : 'Full'}`)
+        projectsToExport.map((project) => `${project.projectName}_${exportType === 'issues' ? 'Issues' : 'Full'}`),
+        new Date(),
+        exportProjectFolderName
       );
-      await uploadPdfToOneDrive(token, filename, blob);
+      await uploadPdfToOneDrive(token, filename, blob, exportProjectFolderName);
     } catch (error) {
       console.error('Failed to export selected projects to OneDrive:', error);
       alert('Failed to export selected projects to OneDrive. Please try again.');

@@ -16,6 +16,7 @@ import {
   uploadProjectPhotoFile,
   deleteDriveItem,
   deleteProjectPhotoFolder,
+  deleteProjectFolder,
   downloadDeletionLog,
   uploadDeletionLog,
 } from '@/lib/oneDrive';
@@ -31,10 +32,7 @@ export type PushSyncResult = {
   conflicts: SyncConflict[];
 };
 
-type ProjectSyncStatus = 'active' | 'deleted';
-
 type ProjectSyncState = {
-  status: ProjectSyncStatus;
   updatedAt: string;
 };
 
@@ -102,6 +100,10 @@ function projectPhotoFolderName(project: Pick<Project, 'id' | 'projectName'>) {
 function getProjectIdFromFilename(name: string) {
   const match = name.match(/([0-9a-f-]{36})\.json$/i);
   return match?.[1] ?? null;
+}
+
+function getProjectFolderNameFromRemoteFile(name: string) {
+  return name.endsWith('.json') ? name.slice(0, -5) : null;
 }
 
 function buildRemoteProjectFileIndex(remoteFiles: Array<{ id: string; name: string; eTag?: string; lastModifiedDateTime?: string }>) {
@@ -336,13 +338,6 @@ async function syncProjectPhotosToOneDrive(token: string, project: Project): Pro
   );
 }
 
-async function deleteProjectPhotosFromOneDrive(token: string, project: Pick<Project, 'id' | 'projectName'>) {
-  const folderNames = [projectPhotoFolderName(project), ...getLegacyPhotoFolderNames(project.id)];
-  await runWithConcurrency(folderNames, 2, async (folderName) => {
-    await deleteProjectPhotoFolder(token, folderName);
-  });
-}
-
 function isConflictError(error: unknown) {
   return error instanceof Error && error.message.includes('Precondition Failed');
 }
@@ -357,7 +352,6 @@ function normalizeSyncStateMap(raw: unknown): ProjectSyncStateMap {
   for (const [projectId, value] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof value === 'string') {
       normalized[projectId] = {
-        status: 'deleted',
         updatedAt: value,
       };
       continue;
@@ -367,14 +361,12 @@ function normalizeSyncStateMap(raw: unknown): ProjectSyncStateMap {
       continue;
     }
 
-    const status =
-      (value as { status?: unknown }).status === 'active' ? 'active' : (value as { status?: unknown }).status === 'deleted' ? 'deleted' : null;
     const updatedAt = (value as { updatedAt?: unknown }).updatedAt;
-    if (!status || typeof updatedAt !== 'string') {
+    if (typeof updatedAt !== 'string') {
       continue;
     }
 
-    normalized[projectId] = { status, updatedAt };
+    normalized[projectId] = { updatedAt };
   }
 
   return normalized;
@@ -429,7 +421,7 @@ function syncStateMapsEqual(left: ProjectSyncStateMap, right: ProjectSyncStateMa
   for (const [projectId, state] of leftEntries) {
     const rightState = right[projectId];
     if (!rightState) return false;
-    if (rightState.status !== state.status || rightState.updatedAt !== state.updatedAt) return false;
+    if (rightState.updatedAt !== state.updatedAt) return false;
   }
   return true;
 }
@@ -437,18 +429,14 @@ function syncStateMapsEqual(left: ProjectSyncStateMap, right: ProjectSyncStateMa
 export function markProjectDeleted(projectId: string, deletedAt = new Date()) {
   const syncStates = getLocalSyncStates();
   syncStates[projectId] = {
-    status: 'deleted',
     updatedAt: deletedAt.toISOString(),
   };
   setLocalSyncStates(syncStates);
 }
 
-export function unmarkProjectDeleted(projectId: string, restoredAt = new Date()) {
+export function unmarkProjectDeleted(projectId: string) {
   const syncStates = getLocalSyncStates();
-  syncStates[projectId] = {
-    status: 'active',
-    updatedAt: restoredAt.toISOString(),
-  };
+  delete syncStates[projectId];
   setLocalSyncStates(syncStates);
 }
 
@@ -457,39 +445,29 @@ function resolveProjectSyncStates(
   localProjectMap: Map<string, Project>,
   remoteFilesById: Map<string, Array<{ id: string; name: string; eTag?: string; lastModifiedDateTime?: string }>>
 ) {
-  const next: ProjectSyncStateMap = {};
+  const next: ProjectSyncStateMap = { ...syncStates };
+  const revivedRemoteProjectIds = new Set<string>();
 
   for (const [projectId, syncState] of Object.entries(syncStates)) {
     const stateUpdatedAtMs = timestampMs(syncState.updatedAt);
     const localProject = localProjectMap.get(projectId);
-    if (
-      localProject &&
-      !localProject.deletedAt &&
-      getProjectUpdatedAt(localProject) > stateUpdatedAtMs + CLOCK_SKEW_TOLERANCE_MS
-    ) {
-      next[projectId] = {
-        status: 'active',
-        updatedAt: localProject.updatedAt.toISOString(),
-      };
+    if (localProject && getProjectUpdatedAt(localProject) > stateUpdatedAtMs + CLOCK_SKEW_TOLERANCE_MS) {
+      delete next[projectId];
       continue;
     }
 
     const remote = pickPrimaryRemoteProjectFile(remoteFilesById.get(projectId) ?? []);
     if (remote) {
-      // A project file present in the live OneDrive projects folder is treated as restored/active.
-      // OneDrive restores do not reliably give us a "newer than delete" timestamp, so presence
-      // in the active folder must beat stale delete state from another device.
-      next[projectId] = {
-        status: 'active',
-        updatedAt: remote.lastModifiedDateTime ?? syncState.updatedAt,
-      };
+      // A project file reappearing in the live OneDrive folder cancels any stale hard-delete
+      // tombstone, but the project payload itself still decides whether the project is active
+      // or sitting in the app trash via its own deletedAt + updatedAt fields.
+      revivedRemoteProjectIds.add(projectId);
+      delete next[projectId];
       continue;
     }
-
-    next[projectId] = syncState;
   }
 
-  return next;
+  return { syncStates: next, revivedRemoteProjectIds };
 }
 
 function reviveProjectDates(project: Project): Project {
@@ -559,7 +537,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   const remoteFilesById = buildRemoteProjectFileIndex(remoteFiles);
   const remoteSyncStates = normalizeSyncStateMap(remoteDeletions);
   const mergedSyncStates = mergeSyncStates(localSyncStates, remoteSyncStates);
-  const resolvedSyncStates = resolveProjectSyncStates(
+  const { syncStates: resolvedSyncStates, revivedRemoteProjectIds } = resolveProjectSyncStates(
     mergedSyncStates,
     localProjectMap,
     remoteFilesById
@@ -569,36 +547,47 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     await uploadDeletionLog(token, resolvedSyncStates);
   }
   const remoteDeleteQueue: string[] = [];
-  const remotePhotoDeleteQueue: string[] = [];
+  const remoteProjectFolderDeleteQueue = new Set<string>();
+  const remotePhotoDeleteQueue = new Set<string>();
   const localDeleteQueue: string[] = [];
 
   // Apply explicit hard-delete states.
   for (const [projectId, syncState] of Object.entries(resolvedSyncStates)) {
-    if (syncState.status !== 'deleted') {
-      continue;
-    }
     const remoteEntries = remoteFilesById.get(projectId) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     const local = localProjectMap.get(projectId);
+    const folderName =
+      getProjectFolderNameFromRemoteFile(remote?.name ?? '') ??
+      (local ? projectPhotoFolderName(local) : null);
+    let shouldDeleteRemoteStorage = false;
 
     if (remote && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
       remoteDeleteQueue.push(...remoteEntries.map((entry) => entry.id));
-      remotePhotoDeleteQueue.push(projectId);
       remoteFilesById.delete(projectId);
+      shouldDeleteRemoteStorage = true;
     }
 
     if (local && timestampMs(syncState.updatedAt) >= local.updatedAt.getTime()) {
       localDeleteQueue.push(projectId);
       localProjectMap.delete(projectId);
+      shouldDeleteRemoteStorage = true;
+    }
+
+    if (folderName && shouldDeleteRemoteStorage) {
+      remoteProjectFolderDeleteQueue.add(folderName);
+      remotePhotoDeleteQueue.add(folderName);
+      remotePhotoDeleteQueue.add(projectId);
     }
   }
 
   await Promise.all([
     runWithConcurrency(remoteDeleteQueue, 4, (remoteId) => deleteDriveItem(token, remoteId)),
-    runWithConcurrency(remotePhotoDeleteQueue, 2, async (projectId) => {
-      const project = localProjectMap.get(projectId) ?? { id: projectId, projectName: 'project' };
-      await deleteProjectPhotosFromOneDrive(token, project);
-    }),
+    runWithConcurrency([...remoteProjectFolderDeleteQueue], 2, (folderName) =>
+      deleteProjectFolder(token, folderName)
+    ),
+    runWithConcurrency([...remotePhotoDeleteQueue], 2, (folderName) =>
+      deleteProjectPhotoFolder(token, folderName)
+    ),
     runWithConcurrency(localDeleteQueue, 4, (projectId) => deleteProjectFromDb(projectId)),
   ]);
 
@@ -609,7 +598,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     if (!remote) return;
     if (!remote.name.endsWith('.json') || !remote.id) return;
     const syncState = resolvedSyncStates[projectId];
-    if (syncState?.status === 'deleted' && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
+    if (syncState && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
       return;
     }
     const localProject = localProjectMap.get(projectId);
@@ -618,9 +607,6 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       return;
     }
     const hydratedRemoteProject = await hydrateProjectPhotosFromOneDrive(token, remoteProject);
-    if (syncState?.status === 'active') {
-      delete hydratedRemoteProject.deletedAt;
-    }
     const remoteUpdatedAt = getProjectUpdatedAt(hydratedRemoteProject);
 
     if (!localProject) {
@@ -629,13 +615,17 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
       return;
     }
 
-    if (syncState?.status === 'active' && localProject.deletedAt) {
+    const localUpdatedAt = getProjectUpdatedAt(localProject);
+    const staleDeleteUpdatedAt = timestampMs(mergedSyncStates[projectId]?.updatedAt);
+    if (
+      revivedRemoteProjectIds.has(projectId) &&
+      localUpdatedAt <= staleDeleteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS
+    ) {
       await saveProjectPreserveTimestamps(hydratedRemoteProject);
       localProjectMap.set(projectId, hydratedRemoteProject);
       return;
     }
 
-    const localUpdatedAt = getProjectUpdatedAt(localProject);
     if (remoteUpdatedAt > localUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
       await saveProjectPreserveTimestamps(hydratedRemoteProject);
       localProjectMap.set(projectId, hydratedRemoteProject);
@@ -649,7 +639,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remoteEntries = remoteFilesById.get(project.id) ?? [];
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     const syncState = resolvedSyncStates[project.id];
-    if (syncState?.status === 'deleted' && timestampMs(syncState.updatedAt) >= project.updatedAt.getTime()) {
+    if (syncState && timestampMs(syncState.updatedAt) >= project.updatedAt.getTime()) {
       return;
     }
 
@@ -668,6 +658,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     try {
       await uploadProjectFile(
         token,
+        projectPhotoFolderName(fullProject),
         filename,
         JSON.stringify(fullProject),
         remote?.eTag
@@ -700,10 +691,10 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
 
   await runWithConcurrency(uniqueProjectIds, 2, async (projectId) => {
     const syncState = syncStates[projectId];
-    if (syncState?.status === 'deleted') return;
 
     const localProject = await getProject(projectId);
     if (!localProject) return;
+    if (syncState && timestampMs(syncState.updatedAt) >= localProject.updatedAt.getTime()) return;
 
     const filename = projectJsonFilename(localProject);
     const remoteEntries = remoteFilesById.get(projectId) ?? [];
@@ -716,7 +707,13 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
     }
 
     try {
-      await uploadProjectFile(token, filename, JSON.stringify(localProject), remote?.eTag);
+      await uploadProjectFile(
+        token,
+        projectPhotoFolderName(localProject),
+        filename,
+        JSON.stringify(localProject),
+        remote?.eTag
+      );
       await deleteStaleRemoteProjectFiles(token, localProject, remoteEntries);
       await syncProjectPhotosToOneDrive(token, localProject);
     } catch (error) {
