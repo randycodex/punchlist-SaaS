@@ -12,6 +12,7 @@ export type DriveItem = {
   eTag?: string;
   lastModifiedDateTime?: string;
   folder?: { childCount: number };
+  punchlistPath?: string;
 };
 
 async function graphFetch<T>(token: string, path: string, options?: RequestInit): Promise<T> {
@@ -42,10 +43,11 @@ async function graphFetch<T>(token: string, path: string, options?: RequestInit)
 
 async function getItemByPath(token: string, path: string): Promise<DriveItem | null> {
   try {
-    return await graphFetch<DriveItem>(
+    const item = await graphFetch<DriveItem>(
       token,
       `/me/drive/root:/${encodeURI(path)}?$select=id,name,eTag,lastModifiedDateTime,folder`
     );
+    return { ...item, punchlistPath: path };
   } catch (error) {
     if (
       error instanceof Error &&
@@ -132,6 +134,13 @@ async function listProjectRootFolders(token: string): Promise<DriveItem[]> {
   );
 }
 
+function attachPunchlistPaths(items: DriveItem[], parentPath: string) {
+  return items.map((item) => ({
+    ...item,
+    punchlistPath: `${parentPath}/${item.name}`,
+  }));
+}
+
 function dedupeDriveItems(items: DriveItem[]) {
   const seenIds = new Set<string>();
   const deduped: DriveItem[] = [];
@@ -150,7 +159,6 @@ export async function ensurePunchListFolders(token: string) {
     return;
   }
   await ensureFolder(token, PUNCHLIST_ROOT);
-  await ensureFolder(token, SHARED_EXPORTS_PATH);
   hasEnsuredPunchListFolders = true;
 }
 
@@ -160,7 +168,7 @@ async function listFolderChildrenByPath(token: string, path: string): Promise<Dr
       token,
       `/me/drive/root:/${encodeURI(path)}:/children?$select=id,name,lastModifiedDateTime,eTag,folder`
     );
-    return result.value ?? [];
+    return attachPunchlistPaths(result.value ?? [], path);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -341,6 +349,8 @@ export async function uploadPdfToOneDrive(
   if (projectFolderName) {
     await ensureFolder(token, getProjectRootPath(projectFolderName));
     await ensureFolder(token, exportPath);
+  } else {
+    await ensureFolder(token, SHARED_EXPORTS_PATH);
   }
   return graphFetch<DriveItem>(token, `/me/drive/root:/${encodeURI(exportPath)}/${encodeURI(filename)}:/content`, {
     method: 'PUT',
@@ -383,6 +393,8 @@ export async function getNextOneDriveExportFilename(
   if (projectFolderName) {
     await ensureFolder(token, getProjectRootPath(projectFolderName));
     await ensureFolder(token, exportPath);
+  } else {
+    await ensureFolder(token, SHARED_EXPORTS_PATH);
   }
   const existingFiles = await graphFetch<{ value: DriveItem[] }>(
     token,
@@ -436,4 +448,17 @@ export async function uploadDeletionLog(
     },
     body: JSON.stringify(data),
   });
+}
+
+export async function cleanupLegacyPunchListFolders(token: string): Promise<void> {
+  await ensurePunchListFolders(token);
+
+  for (const path of [LEGACY_PROJECTS_PATH, LEGACY_PHOTOS_PATH]) {
+    const folder = await getItemByPath(token, path);
+    if (!folder?.id) continue;
+    const children = await listFolderChildrenByPath(token, path);
+    if (children.length === 0) {
+      await deleteDriveItem(token, folder.id);
+    }
+  }
 }

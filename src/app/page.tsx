@@ -52,7 +52,7 @@ function sanitizeOneDriveProjectFolderPart(value: string | undefined, fallback: 
 }
 
 function getOneDriveProjectFolderName(project: Pick<Project, 'id' | 'projectName'>) {
-  return `${sanitizeOneDriveProjectFolderPart(project.projectName, 'project')}_${project.id}`;
+  return sanitizeOneDriveProjectFolderPart(project.projectName, 'project');
 }
 
 type ProjectMetrics = {
