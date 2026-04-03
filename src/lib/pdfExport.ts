@@ -678,9 +678,15 @@ function renderProjectPhotoAppendix(
 ) {
   if (photos.length === 0) return;
 
-  const imageMaxWidth = layout.contentWidth;
-  const imageMaxHeight = 110;
+  const columns = 2;
+  const columnGap = 8;
+  const cellWidth = (layout.contentWidth - columnGap * (columns - 1)) / columns;
+  const imageMaxWidth = cellWidth;
+  const imageMaxHeight = 48;
+  const rowGap = 8;
   let y = 0;
+  let rowHeight = 0;
+  let columnIndex = 0;
 
   const startAppendixPage = () => {
     pdf.addPage();
@@ -689,34 +695,50 @@ function renderProjectPhotoAppendix(
 
   for (const photo of photos) {
     const fitted = fitImageSize(photo.size, imageMaxWidth, imageMaxHeight);
-    const caption = `${photo.areaName} / ${photo.locationName} / ${photo.itemName} / ${photo.checkpointName}`;
-    const captionLines = pdf.splitTextToSize(caption, layout.contentWidth) as string[];
-    const blockHeight = 5 + captionLines.length * 3.8 + 2 + fitted.height + 6;
+    const caption = `${photo.referenceId}  ${photo.locationName} / ${photo.itemName} / ${photo.checkpointName}`;
+    const captionLines = pdf.splitTextToSize(caption, cellWidth) as string[];
+    const blockHeight = 4.5 + captionLines.length * 3.2 + 2 + fitted.height;
 
-    if (y === 0 || y + blockHeight > layout.contentBottom) {
+    if (y === 0) {
       y = startAppendixPage();
+      rowHeight = 0;
+      columnIndex = 0;
     }
+
+    if (columnIndex === 0 && y + blockHeight > layout.contentBottom) {
+      y = startAppendixPage();
+      rowHeight = 0;
+      columnIndex = 0;
+    }
+
+    const cellX = layout.margin + columnIndex * (cellWidth + columnGap);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
+    pdf.setFontSize(8.25);
     pdf.setTextColor(71, 85, 105);
-    pdf.text(photo.referenceId, layout.margin, y);
-    y += 5;
+    pdf.text(photo.referenceId, cellX, y);
 
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(7.2);
     pdf.setTextColor(100, 100, 100);
-    pdf.text(captionLines, layout.margin, y);
-    y += captionLines.length * 3.8 + 2;
+    pdf.text(captionLines.slice(0, 2), cellX, y + 4.2);
+    const captionHeight = Math.min(captionLines.length, 2) * 3.2;
 
-    const imageX = layout.margin + (layout.contentWidth - fitted.width) / 2;
+    const imageY = y + 4.5 + captionHeight + 2;
+    const imageX = cellX + (cellWidth - fitted.width) / 2;
     try {
-      pdf.addImage(photo.src, 'JPEG', imageX, y, fitted.width, fitted.height);
+      pdf.addImage(photo.src, 'JPEG', imageX, imageY, fitted.width, fitted.height);
     } catch {
       pdf.setFillColor(229, 231, 235);
-      pdf.roundedRect(imageX, y, fitted.width, fitted.height, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
+      pdf.roundedRect(imageX, imageY, fitted.width, fitted.height, IMAGE_RADIUS, IMAGE_RADIUS, 'F');
     }
 
-    y += fitted.height + 6;
+    rowHeight = Math.max(rowHeight, blockHeight);
+    columnIndex += 1;
+    if (columnIndex >= columns) {
+      columnIndex = 0;
+      y += rowHeight + rowGap;
+      rowHeight = 0;
+    }
     pdf.setTextColor(0, 0, 0);
   }
 }
