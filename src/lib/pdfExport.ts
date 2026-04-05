@@ -477,7 +477,7 @@ function renderCoverPage(
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(18);
   pdf.setTextColor(71, 85, 105);
-  const titleLines = pdf.splitTextToSize(`PunchList Report - ${project.projectName}`, layout.pageWidth - titleX - layout.margin) as string[];
+  const titleLines = pdf.splitTextToSize(`UAI PUNCHLIST APP Report - ${project.projectName}`, layout.pageWidth - titleX - layout.margin) as string[];
   const titleBaselineY = contentTopY + 5.5;
   pdf.text(titleLines, titleX, titleBaselineY);
   y = titleBaselineY + titleLines.length * 6.5 - 1.5;

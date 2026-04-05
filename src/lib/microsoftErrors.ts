@@ -15,7 +15,7 @@ export function getMicrosoftErrorMessage(error: unknown, fallback: string): stri
   }
 
   if (message.includes('access_denied')) {
-    return 'Microsoft blocked this account from using PunchList. Contact UAI IT.';
+    return 'Microsoft blocked this account from using UAI PUNCHLIST APP. Contact UAI IT.';
   }
 
   if (message.includes('consent') || message.includes('interaction_required')) {

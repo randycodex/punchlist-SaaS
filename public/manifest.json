@@ -1,6 +1,6 @@
 {
-  "name": "PunchList",
-  "short_name": "PunchList",
+  "name": "UAI PUNCHLIST APP",
+  "short_name": "UAI PUNCHLIST APP",
   "description": "Construction inspection app for architects",
   "start_url": "/",
   "display": "standalone",

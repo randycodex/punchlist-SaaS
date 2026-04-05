@@ -923,7 +923,7 @@ export default function ProjectsPage() {
     try {
       const projectsForExport = await loadProjectsForExport();
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
-      const filename = exportType === 'issues' ? 'PunchList_Issues_Report.pdf' : 'PunchList_Full_Report.pdf';
+      const filename = exportType === 'issues' ? 'UAI_PUNCHLIST_APP_Issues_Report.pdf' : 'UAI_PUNCHLIST_APP_Full_Report.pdf';
       downloadPDF(blob, filename);
     } catch (error) {
       console.error('Failed to export selected projects:', error);
