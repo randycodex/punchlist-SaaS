@@ -16,8 +16,39 @@ export type DriveItem = {
   punchlistPath?: string;
 };
 
+type DriveChildrenResponse = {
+  value: DriveItem[];
+  '@odata.nextLink'?: string;
+};
+
 async function graphFetch<T>(token: string, path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${GRAPH_API}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(options?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    let message = '';
+    try {
+      const data = await response.json();
+      message = data?.error?.message ?? '';
+    } catch {
+      message = '';
+    }
+    throw new Error(message || `Graph request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return {} as T;
+  }
+  return response.json() as Promise<T>;
+}
+
+async function graphFetchAbsolute<T>(token: string, url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -174,11 +205,20 @@ export async function ensurePunchListFolders(token: string) {
 
 async function listFolderChildrenByPath(token: string, path: string): Promise<DriveItem[]> {
   try {
-    const result = await graphFetch<{ value: DriveItem[] }>(
-      token,
-      `/me/drive/root:/${encodeURI(path)}:/children?$select=id,name,lastModifiedDateTime,eTag,folder`
-    );
-    return attachPunchlistPaths(result.value ?? [], path);
+    const items: DriveItem[] = [];
+    let nextUrl: string | null =
+      `${GRAPH_API}/me/drive/root:/${encodeURI(path)}:/children?$select=id,name,lastModifiedDateTime,eTag,folder`;
+
+    while (nextUrl) {
+      const result: DriveChildrenResponse = await graphFetchAbsolute<DriveChildrenResponse>(
+        token,
+        nextUrl
+      );
+      items.push(...(result.value ?? []));
+      nextUrl = result['@odata.nextLink'] ?? null;
+    }
+
+    return attachPunchlistPaths(items, path);
   } catch (error) {
     if (
       error instanceof Error &&
