@@ -673,6 +673,7 @@ async function renderCheckpointBlock(
 
 function renderProjectPhotoAppendix(
   pdf: jsPDF,
+  areaName: string,
   photos: AppendixPhoto[],
   layout: LayoutMetrics
 ) {
@@ -690,7 +691,7 @@ function renderProjectPhotoAppendix(
 
   const startAppendixPage = () => {
     pdf.addPage();
-    return drawSectionTitle(pdf, 'Photos', layout.contentTop, layout);
+    return drawSectionTitle(pdf, `${areaName} Photos`, layout.contentTop, layout);
   };
 
   for (const photo of photos) {
@@ -752,12 +753,13 @@ async function renderProjectDetailPages(
 ) {
   const coverPage = pdf.getNumberOfPages();
   const startPage = coverPage;
-  const appendixPhotos: AppendixPhoto[] = [];
   const photoCounter = { value: 0 };
 
   renderIntroPages(pdf, project, mode, logo, layout);
 
   for (const area of project.areas) {
+    const areaAppendixPhotos: AppendixPhoto[] = [];
+
     if (area.locations.length === 0 && !sanitizeText(area.notes)) {
       continue;
     }
@@ -827,7 +829,7 @@ async function renderProjectDetailPages(
             y = await renderCheckpointBlock(
               pdf,
               checkpoint,
-              appendixPhotos,
+              areaAppendixPhotos,
               photoCounter,
               { areaName: area.name, locationName: location.name, itemName: item.name },
               layout.margin,
@@ -842,6 +844,7 @@ async function renderProjectDetailPages(
         y += SECTION_GAP;
       }
 
+      renderProjectPhotoAppendix(pdf, area.name, areaAppendixPhotos, layout);
       continue;
     }
 
@@ -920,7 +923,7 @@ async function renderProjectDetailPages(
           columnYs[locationColumnIndex] = await renderCheckpointBlock(
             pdf,
             checkpoint,
-            appendixPhotos,
+            areaAppendixPhotos,
             photoCounter,
             { areaName: area.name, locationName: location.name, itemName: item.name },
             getColumnX(locationColumnIndex),
@@ -934,9 +937,9 @@ async function renderProjectDetailPages(
 
       columnYs[locationColumnIndex] += SECTION_GAP;
     }
-  }
 
-  renderProjectPhotoAppendix(pdf, appendixPhotos, layout);
+    renderProjectPhotoAppendix(pdf, area.name, areaAppendixPhotos, layout);
+  }
 
   addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages(), layout);
 }
