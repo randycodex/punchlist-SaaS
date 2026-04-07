@@ -23,6 +23,13 @@ import {
 } from '@/lib/areas';
 import { applyTemplateToArea } from '@/lib/template';
 import { pushProjectsToOneDrive, syncProjectsWithOneDrive } from '@/lib/oneDriveSync';
+import {
+  clearPendingProjectSync,
+  clearPendingSyncState,
+  hasPendingSyncState,
+  loadPendingSyncState,
+  queuePendingSync,
+} from '@/lib/pendingSync';
 import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -93,6 +100,7 @@ export default function AreaDetailPage() {
   const backgroundSyncInFlightRef = useRef(false);
   const backgroundSyncQueuedRef = useRef(false);
   const dirtyProjectIdsRef = useRef<Set<string>>(new Set());
+  const fullSyncNeededRef = useRef(false);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesDraftRef = useRef('');
   const pullStartYRef = useRef<number | null>(null);
@@ -101,7 +109,7 @@ export default function AreaDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement | null>());
   const locationRefs = useRef(new Map<string, HTMLDivElement | null>());
-  const { ensureAccessToken } = useMicrosoftAuth();
+  const { accessToken, ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
   const { inspectionShowOnlyIssues, setInspectionShowOnlyIssues, markSyncedNow } = useAppSettings();
 
@@ -136,12 +144,18 @@ export default function AreaDetailPage() {
       }
       backgroundSyncInFlightRef.current = false;
       backgroundSyncQueuedRef.current = false;
+      fullSyncNeededRef.current = false;
       if (notesTimerRef.current) {
         clearTimeout(notesTimerRef.current);
         void persistGeneralNotes(notesDraftRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!accessToken || !hasPendingSyncState()) return;
+    scheduleSync();
+  }, [accessToken]);
 
   useEffect(() => {
     const value = area?.notes ?? '';
@@ -664,6 +678,7 @@ export default function AreaDetailPage() {
         return;
       }
       await syncProjectsWithOneDrive(token);
+      clearPendingSyncState();
       setSyncStatus('idle');
       markSyncedNow();
       await loadData();
@@ -737,32 +752,57 @@ export default function AreaDetailPage() {
   }
 
   async function runBackgroundSync() {
+    const pendingSyncState = loadPendingSyncState();
+    pendingSyncState.projectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+    if (pendingSyncState.fullSyncNeeded) {
+      fullSyncNeededRef.current = true;
+    }
+
     if (backgroundSyncInFlightRef.current) {
       backgroundSyncQueuedRef.current = true;
       return;
     }
-    if (dirtyProjectIdsRef.current.size === 0) return;
+    if (dirtyProjectIdsRef.current.size === 0 && !fullSyncNeededRef.current) return;
 
     backgroundSyncInFlightRef.current = true;
     setSyncStatus('syncing');
     const dirtyProjectIds = [...dirtyProjectIdsRef.current];
+    const shouldRunFullSync = fullSyncNeededRef.current;
     dirtyProjectIdsRef.current.clear();
+    fullSyncNeededRef.current = false;
     try {
       const token = await ensureAccessToken();
       if (!token) {
         dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+        if (shouldRunFullSync) {
+          fullSyncNeededRef.current = true;
+        }
         setSyncStatus('needs-auth');
+        return;
+      }
+      if (shouldRunFullSync) {
+        await syncProjectsWithOneDrive(token);
+        clearPendingSyncState();
+        await loadData();
+        setSyncStatus('idle');
+        markSyncedNow();
         return;
       }
       const pushResult = await pushProjectsToOneDrive(token, dirtyProjectIds);
       if (pushResult.conflicts.length > 0) {
         await syncProjectsWithOneDrive(token);
+        clearPendingSyncState();
         await loadData();
+      } else {
+        clearPendingProjectSync(dirtyProjectIds);
       }
       setSyncStatus('idle');
       markSyncedNow();
     } catch (error) {
       dirtyProjectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+      if (shouldRunFullSync) {
+        fullSyncNeededRef.current = true;
+      }
       setSyncStatus('error');
       console.error('Background sync failed:', error);
     } finally {
@@ -778,6 +818,7 @@ export default function AreaDetailPage() {
     if (projectId) {
       dirtyProjectIdsRef.current.add(projectId);
     }
+    queuePendingSync(projectId);
     setSyncStatus('pending');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);

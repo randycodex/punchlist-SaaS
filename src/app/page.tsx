@@ -10,6 +10,13 @@ import {
   markProjectDeleted,
   unmarkProjectDeleted,
 } from '@/lib/oneDriveSync';
+import {
+  clearPendingFullSyncFlag,
+  clearPendingProjectSync,
+  clearPendingSyncState,
+  loadPendingSyncState,
+  queuePendingSync,
+} from '@/lib/pendingSync';
 import { generateMultiProjectPDF, downloadPDF, type PdfExportMode } from '@/lib/pdfExport';
 import { uploadPdfToOneDrive, getNextOneDriveExportFilename } from '@/lib/oneDrive';
 import { getMicrosoftErrorMessage } from '@/lib/microsoftErrors';
@@ -479,6 +486,7 @@ export default function ProjectsPage() {
         return;
       }
       const result = await syncProjectsWithOneDrive(token);
+      clearPendingSyncState();
       setSyncConflicts(result.conflicts);
       setSyncStatus('idle');
       markSyncedNow();
@@ -493,6 +501,12 @@ export default function ProjectsPage() {
   }
 
   async function runBackgroundSync() {
+    const pendingSyncState = loadPendingSyncState();
+    pendingSyncState.projectIds.forEach((projectId) => dirtyProjectIdsRef.current.add(projectId));
+    if (pendingSyncState.fullSyncNeeded) {
+      fullSyncNeededRef.current = true;
+    }
+
     if (backgroundSyncInFlightRef.current) {
       backgroundSyncQueuedRef.current = true;
       return;
@@ -519,6 +533,7 @@ export default function ProjectsPage() {
 
       if (shouldRunFullSync) {
         const result = await syncProjectsWithOneDrive(token);
+        clearPendingSyncState();
         setSyncConflicts(result.conflicts);
         setSyncStatus('idle');
         markSyncedNow();
@@ -529,8 +544,12 @@ export default function ProjectsPage() {
       const pushResult = await pushProjectsToOneDrive(token, dirtyProjectIds);
       if (pushResult.conflicts.length > 0) {
         const result = await syncProjectsWithOneDrive(token);
+        clearPendingSyncState();
         setSyncConflicts(result.conflicts);
         await loadProjects();
+      } else {
+        clearPendingProjectSync(dirtyProjectIds);
+        clearPendingFullSyncFlag();
       }
       setSyncStatus('idle');
       markSyncedNow();
@@ -557,6 +576,7 @@ export default function ProjectsPage() {
     if (options?.fullSync) {
       fullSyncNeededRef.current = true;
     }
+    queuePendingSync(projectId, options);
     setSyncStatus('pending');
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);

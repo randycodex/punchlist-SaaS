@@ -95,6 +95,15 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
     };
   }, [pca]);
 
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    if (!navigator.storage?.persist) return;
+
+    void navigator.storage.persist().catch(() => {
+      // Persistent storage is best-effort and unsupported on some browsers.
+    });
+  }, []);
+
   async function signIn() {
     if (!pca) {
       alert('Microsoft sign-in is not configured. Check NEXT_PUBLIC_MS_* environment variables.');
