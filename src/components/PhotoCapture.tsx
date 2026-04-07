@@ -7,8 +7,8 @@ import { PhotoAttachment, FileAttachment } from '@/types';
 interface PhotoCaptureProps {
   photos: PhotoAttachment[];
   files: FileAttachment[];
-  onAddPhoto: (imageData: string, thumbnail?: string) => void;
-  onAddPhotos?: (photos: Array<{ imageData: string; thumbnail?: string }>) => void;
+  onAddPhoto: (imageData: string, thumbnail?: string) => void | Promise<void>;
+  onAddPhotos?: (photos: Array<{ imageData: string; thumbnail?: string }>) => void | Promise<void>;
   onAddFiles?: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
@@ -30,6 +30,7 @@ export default function PhotoCapture({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [savingPhotos, setSavingPhotos] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -111,14 +112,21 @@ export default function PhotoCapture({
     });
   }
 
-  function addCapturedBatch() {
+  async function addCapturedBatch() {
     if (capturedBatch.length === 0) return;
-    if (onAddPhotos) {
-      onAddPhotos(capturedBatch);
-    } else {
-      capturedBatch.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+    setSavingPhotos(true);
+    try {
+      if (onAddPhotos) {
+        await onAddPhotos(capturedBatch);
+      } else {
+        for (const photo of capturedBatch) {
+          await onAddPhoto(photo.imageData, photo.thumbnail);
+        }
+      }
+      closeCamera(true);
+    } finally {
+      setSavingPhotos(false);
     }
-    closeCamera(true);
   }
 
   function fileToPhotoPayload(file: File): Promise<{ imageData: string; thumbnail?: string } | null> {
@@ -160,18 +168,23 @@ export default function PhotoCapture({
     const selected = Array.from(e.target.files ?? []);
     if (selected.length === 0) return;
 
+    setSavingPhotos(true);
     const processed = await Promise.all(selected.map((file) => fileToPhotoPayload(file)));
     const readyPhotos = processed.filter((photo): photo is { imageData: string; thumbnail?: string } => photo !== null);
-    if (readyPhotos.length > 0) {
-      if (onAddPhotos) {
-        onAddPhotos(readyPhotos);
-      } else {
-        readyPhotos.forEach((photo) => onAddPhoto(photo.imageData, photo.thumbnail));
+    try {
+      if (readyPhotos.length > 0) {
+        if (onAddPhotos) {
+          await onAddPhotos(readyPhotos);
+        } else {
+          for (const photo of readyPhotos) {
+            await onAddPhoto(photo.imageData, photo.thumbnail);
+          }
+        }
       }
+    } finally {
+      setSavingPhotos(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
-
-    // Reset inputs
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
   }
 
   useEffect(() => {
@@ -261,6 +274,7 @@ export default function PhotoCapture({
       <div className="flex items-center gap-3">
         <button
           onClick={openCamera}
+          disabled={savingPhotos}
           className={`flex items-center justify-center rounded-[1rem] bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 ${
             compactActions ? 'h-10 w-10' : 'h-11 w-11'
           }`}
@@ -276,6 +290,7 @@ export default function PhotoCapture({
           accept="image/*"
           capture="environment"
           onChange={handlePhotoSelect}
+          disabled={savingPhotos}
           className="hidden"
         />
       </div>
@@ -320,6 +335,7 @@ export default function PhotoCapture({
               <div className="flex items-center justify-center">
                 <button
                   onClick={captureFromVideo}
+                  disabled={savingPhotos}
                   className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/90 bg-white/18 shadow-[0_0_0_1px_rgba(255,255,255,0.28)] backdrop-blur-sm transition active:scale-95"
                   aria-label="Capture photo"
                 >
@@ -330,10 +346,13 @@ export default function PhotoCapture({
               <div className="flex h-16 w-16 items-center justify-center">
                 {capturedBatch.length > 0 ? (
                   <button
-                    onClick={addCapturedBatch}
+                    onClick={() => {
+                      void addCapturedBatch();
+                    }}
+                    disabled={savingPhotos}
                     className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-900"
                   >
-                    Done
+                    {savingPhotos ? 'Saving...' : 'Done'}
                   </button>
                 ) : null}
               </div>
