@@ -102,7 +102,6 @@ export default function AreaDetailPage() {
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
-  const [customItemCheckpointName, setCustomItemCheckpointName] = useState('');
   const [showCustomItemComposer, setShowCustomItemComposer] = useState(false);
   const [customSubareaName, setCustomSubareaName] = useState('');
   const [showCustomSubareaComposer, setShowCustomSubareaComposer] = useState(false);
@@ -568,16 +567,12 @@ export default function AreaDetailPage() {
       scheduleSync(project.id);
 
       setCustomItemName('');
-      setCustomItemCheckpointName('');
       setEditingCustomItem(null);
       setShowCustomItemComposer(false);
       setProject({ ...project, areas: [...project.areas] });
       setArea({ ...targetArea });
       return;
     }
-
-    const trimmedCheckpointName = customItemCheckpointName.trim();
-    const finalCheckpointName = trimmedCheckpointName || trimmedName;
 
     let targetLocation = customItemTargetLocationId
       ? targetArea.locations.find((location) => location.id === customItemTargetLocationId) ?? null
@@ -596,11 +591,6 @@ export default function AreaDetailPage() {
     }
 
     const item = createItem(targetLocation.id, trimmedName, targetLocation.items.length, { isCustom: true });
-    const checkpoint = createCheckpoint(item.id, finalCheckpointName, 0, { isCustom: true });
-    checkpoint.issueState = 'open';
-    checkpoint.status = 'needsReview';
-    checkpoint.fixStatus = 'pending';
-    item.checkpoints.push(checkpoint);
     targetLocation.items.push(item);
     targetLocation.items.forEach((entry, index) => {
       entry.sortOrder = index;
@@ -611,18 +601,13 @@ export default function AreaDetailPage() {
     scheduleSync(project.id);
 
     setCustomItemName('');
-    setCustomItemCheckpointName('');
     setEditingCustomItem(null);
     setCustomItemTargetLocationId(null);
     setShowCustomItemComposer(false);
-    setExpandedCheckpoint({
-      locationId: targetLocation.id,
-      itemId: item.id,
-      checkpointId: checkpoint.id,
-    });
     setExpandedLocations(new Set([targetLocation.id]));
     setExpandedItems(new Set([item.id]));
-    setCommentText(checkpoint.comments);
+    setExpandedCheckpoint(null);
+    setCommentText('');
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
   }
@@ -659,13 +644,11 @@ export default function AreaDetailPage() {
     setEditingCustomItem({ locationId, itemId });
     setCustomItemTargetLocationId(locationId);
     setCustomItemName(currentName);
-    setCustomItemCheckpointName('');
     setShowCustomItemComposer(false);
   }
 
   function handleCancelCustomItemEdit() {
     setCustomItemName('');
-    setCustomItemCheckpointName('');
     setEditingCustomItem(null);
     setCustomItemTargetLocationId(null);
   }
@@ -1430,7 +1413,6 @@ export default function AreaDetailPage() {
               onClose={() => {
                 setShowCustomItemComposer(false);
                 setCustomItemName('');
-                setCustomItemCheckpointName('');
                 setEditingCustomItem(null);
                 setCustomItemTargetLocationId(null);
               }}
@@ -1582,14 +1564,12 @@ export default function AreaDetailPage() {
                         setCustomItemTargetLocationId(location.id);
                         setEditingCustomItem(null);
                         setCustomItemName('');
-                        setCustomItemCheckpointName('');
                         setShowCustomItemComposer(true);
                       }}
                       onClose={() => {
                         setShowCustomItemComposer(false);
                         setCustomItemTargetLocationId(null);
                         setCustomItemName('');
-                        setCustomItemCheckpointName('');
                         setEditingCustomItem(null);
                       }}
                       onChange={setCustomItemName}

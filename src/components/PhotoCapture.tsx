@@ -30,10 +30,13 @@ export default function PhotoCapture({
   openCameraSignal,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [viewerScale, setViewerScale] = useState(1);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [savingPhotos, setSavingPhotos] = useState(false);
+  const pinchDistanceRef = useRef<number | null>(null);
+  const pinchScaleRef = useRef(1);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -113,6 +116,47 @@ export default function PhotoCapture({
       if (!payload) return;
       setCapturedBatch((prev) => [...prev, payload]);
     });
+  }
+
+  function resetViewer() {
+    setSelectedPhoto(null);
+    setViewerScale(1);
+    pinchDistanceRef.current = null;
+    pinchScaleRef.current = 1;
+  }
+
+  function getTouchDistance(touches: React.TouchList) {
+    if (touches.length < 2) return null;
+    const [first, second] = [touches[0], touches[1]];
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  }
+
+  function handleViewerTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    const distance = getTouchDistance(event.touches);
+    if (distance === null) return;
+    pinchDistanceRef.current = distance;
+    pinchScaleRef.current = viewerScale;
+  }
+
+  function handleViewerTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    const distance = getTouchDistance(event.touches);
+    if (distance === null || pinchDistanceRef.current === null) return;
+    event.preventDefault();
+    const nextScale = pinchScaleRef.current * (distance / pinchDistanceRef.current);
+    setViewerScale(Math.min(4, Math.max(1, nextScale)));
+  }
+
+  function handleViewerTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length >= 2) {
+      const distance = getTouchDistance(event.touches);
+      if (distance !== null) {
+        pinchDistanceRef.current = distance;
+        pinchScaleRef.current = viewerScale;
+      }
+      return;
+    }
+    pinchDistanceRef.current = null;
+    pinchScaleRef.current = viewerScale;
   }
 
   async function addCapturedBatch() {
@@ -222,6 +266,7 @@ export default function PhotoCapture({
               }`}
               onClick={() => {
                 setSelectedPhoto(photo.imageData);
+                setViewerScale(1);
               }}
             >
               <img
@@ -326,6 +371,7 @@ export default function PhotoCapture({
                     onClick={() => {
                       const latest = capturedBatch[capturedBatch.length - 1];
                       setSelectedPhoto(latest.imageData);
+                      setViewerScale(1);
                     }}
                     className="h-14 w-14 overflow-hidden rounded-[1rem] bg-white/10 backdrop-blur-sm"
                     aria-label="Open last captured photo"
@@ -372,13 +418,13 @@ export default function PhotoCapture({
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/95"
-          onClick={() => setSelectedPhoto(null)}
+          onClick={resetViewer}
         >
           <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                setSelectedPhoto(null);
+                resetViewer();
               }}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
               aria-label="Close photo viewer"
@@ -386,12 +432,24 @@ export default function PhotoCapture({
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="h-full overflow-auto p-6" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="h-full overflow-auto p-6"
+            onClick={(event) => event.stopPropagation()}
+            onTouchStart={handleViewerTouchStart}
+            onTouchMove={handleViewerTouchMove}
+            onTouchEnd={handleViewerTouchEnd}
+            onTouchCancel={handleViewerTouchEnd}
+          >
             <div className="flex min-h-full items-center justify-center">
               <img
                 src={selectedPhoto}
                 alt="Full size"
                 className="max-h-[88vh] max-w-full rounded-2xl object-contain"
+                style={{
+                  transform: `scale(${viewerScale})`,
+                  transformOrigin: 'center center',
+                  touchAction: 'none',
+                }}
               />
             </div>
           </div>
