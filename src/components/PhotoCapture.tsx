@@ -13,6 +13,8 @@ interface PhotoCaptureProps {
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
   compactActions?: boolean;
+  hideCameraButton?: boolean;
+  openCameraSignal?: number;
 }
 
 export default function PhotoCapture({
@@ -24,6 +26,8 @@ export default function PhotoCapture({
   onDeletePhoto,
   onDeleteFile,
   compactActions = false,
+  hideCameraButton = false,
+  openCameraSignal,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [viewerZoom, setViewerZoom] = useState(1);
@@ -201,6 +205,11 @@ export default function PhotoCapture({
     };
   }, []);
 
+  useEffect(() => {
+    if (!openCameraSignal) return;
+    void openCamera();
+  }, [openCameraSignal]);
+
   return (
     <div className="space-y-3">
       {photos.length > 0 && (
@@ -272,18 +281,19 @@ export default function PhotoCapture({
       )}
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={openCamera}
-          disabled={savingPhotos}
-          className={`flex items-center justify-center rounded-[1rem] bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 ${
-            compactActions ? 'h-10 w-10' : 'h-11 w-11'
-          }`}
-          aria-label="Take photo"
-        >
-          <Camera className={compactActions ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
-        </button>
+        {!hideCameraButton && (
+          <button
+            onClick={openCamera}
+            disabled={savingPhotos}
+            className={`flex items-center justify-center rounded-[1rem] bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 ${
+              compactActions ? 'h-10 w-10' : 'h-11 w-11'
+            }`}
+            aria-label="Take photo"
+          >
+            <Camera className={compactActions ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
+          </button>
+        )}
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
-
         <input
           ref={cameraInputRef}
           type="file"

@@ -286,12 +286,18 @@ export function createLocation(areaId: string, name: string, sortOrder: number):
   };
 }
 
-export function createItem(locationId: string, name: string, sortOrder: number): Item {
+export function createItem(
+  locationId: string,
+  name: string,
+  sortOrder: number,
+  options?: { isCustom?: boolean }
+): Item {
   const now = new Date();
   return {
     id: uuidv4(),
     locationId,
     name,
+    isCustom: options?.isCustom ?? false,
     sortOrder,
     checkpoints: [],
     createdAt: now,
@@ -299,12 +305,18 @@ export function createItem(locationId: string, name: string, sortOrder: number):
   };
 }
 
-export function createCheckpoint(itemId: string, name: string, sortOrder: number): Checkpoint {
+export function createCheckpoint(
+  itemId: string,
+  name: string,
+  sortOrder: number,
+  options?: { isCustom?: boolean }
+): Checkpoint {
   const now = new Date();
   return {
     id: uuidv4(),
     itemId,
     name,
+    isCustom: options?.isCustom ?? false,
     status: 'pending',
     fixStatus: 'pending',
     issueState: 'none',

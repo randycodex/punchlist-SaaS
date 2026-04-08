@@ -24,6 +24,7 @@ export interface Checkpoint {
   id: string;
   itemId: string;
   name: string;
+  isCustom?: boolean;
   status: CheckpointStatus;
   fixStatus: FixStatus;
   issueState?: IssueState;
@@ -80,6 +81,7 @@ export interface Item {
   id: string;
   locationId: string;
   name: string;
+  isCustom?: boolean;
   sortOrder: number;
   checkpoints: Checkpoint[];
   createdAt: Date;

@@ -1,6 +1,6 @@
 import type { Area } from '@/types';
 
-export type AreaTemplateKey = 'apartment' | 'halfBathroom' | 'notesOnly';
+export type AreaTemplateKey = 'apartment' | 'halfBathroom' | 'notesOnly' | 'stairs';
 export type AreaTypeKey =
   | 'amenity_space'
   | 'apartment_unit'
@@ -79,7 +79,7 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'public_toilet', label: 'Public Toilet', templateKey: 'notesOnly' },
   { key: 'refuse', label: 'Refuse', templateKey: 'notesOnly' },
   { key: 'security', label: 'Security', templateKey: 'notesOnly' },
-  { key: 'stairs', label: 'Stairs', templateKey: 'notesOnly' },
+  { key: 'stairs', label: 'Stairs', templateKey: 'stairs' },
   { key: 'storage', label: 'Storage', templateKey: 'notesOnly' },
   { key: 'super_office', label: "Super's Office", templateKey: 'notesOnly' },
   { key: 'trash_compactor', label: 'Trash Compactor', templateKey: 'notesOnly' },

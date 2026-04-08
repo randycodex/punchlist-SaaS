@@ -46,6 +46,7 @@ const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
 const CUSTOM_ITEMS_LOCATION_NAME = 'Custom Items';
 const OTHER_LOCATION_NAME = 'Other';
+const MAX_RECENT_COMMENTS = 5;
 
 type StatusMetrics = {
   total: number;
@@ -90,8 +91,23 @@ export default function AreaDetailPage() {
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
+  const [customItemCheckpointName, setCustomItemCheckpointName] = useState('');
   const [showCustomItemComposer, setShowCustomItemComposer] = useState(false);
+  const [customSubareaName, setCustomSubareaName] = useState('');
+  const [showCustomSubareaComposer, setShowCustomSubareaComposer] = useState(false);
   const [editingCustomItem, setEditingCustomItem] = useState<{ locationId: string; itemId: string } | null>(null);
+  const [customItemTargetLocationId, setCustomItemTargetLocationId] = useState<string | null>(null);
+  const [customCheckpointName, setCustomCheckpointName] = useState('');
+  const [showCustomCheckpointComposer, setShowCustomCheckpointComposer] = useState(false);
+  const [customCheckpointTarget, setCustomCheckpointTarget] = useState<{
+    locationId: string;
+    itemId: string;
+  } | null>(null);
+  const [editingCustomCheckpoint, setEditingCustomCheckpoint] = useState<{
+    locationId: string;
+    itemId: string;
+    checkpointId: string;
+  } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
@@ -121,7 +137,9 @@ export default function AreaDetailPage() {
     const savedRecentComments = localStorage.getItem(RECENT_COMMENTS_STORAGE_KEY);
     if (savedRecentComments) {
       try {
-        setRecentComments(JSON.parse(savedRecentComments) as string[]);
+        const nextRecentComments = (JSON.parse(savedRecentComments) as string[]).slice(0, MAX_RECENT_COMMENTS);
+        setRecentComments(nextRecentComments);
+        localStorage.setItem(RECENT_COMMENTS_STORAGE_KEY, JSON.stringify(nextRecentComments));
       } catch (error) {
         console.error('Failed to parse recent comments:', error);
       }
@@ -394,7 +412,7 @@ export default function AreaDetailPage() {
       const nextRecentComments = [
         trimmedComment,
         ...recentComments.filter((comment) => comment !== trimmedComment),
-      ].slice(0, 12);
+      ].slice(0, MAX_RECENT_COMMENTS);
       setRecentComments(nextRecentComments);
       localStorage.setItem(RECENT_COMMENTS_STORAGE_KEY, JSON.stringify(nextRecentComments));
     }
@@ -454,7 +472,7 @@ export default function AreaDetailPage() {
   }
 
   async function handleSubmitCustomItem() {
-    if (!project || !area || !customItemName.trim() || isApartmentArea(area)) return;
+    if (!project || !area || !customItemName.trim()) return;
 
     const targetArea = project.areas.find((entry) => entry.id === area.id);
     if (!targetArea) return;
@@ -471,6 +489,7 @@ export default function AreaDetailPage() {
       scheduleSync(project.id);
 
       setCustomItemName('');
+      setCustomItemCheckpointName('');
       setEditingCustomItem(null);
       setShowCustomItemComposer(false);
       setProject({ ...project, areas: [...project.areas] });
@@ -478,37 +497,77 @@ export default function AreaDetailPage() {
       return;
     }
 
-    let customItemsLocation = targetArea.locations.find((location) => location.name === CUSTOM_ITEMS_LOCATION_NAME);
+    const trimmedCheckpointName = customItemCheckpointName.trim();
+    if (!trimmedCheckpointName) return;
 
-    if (!customItemsLocation) {
-      customItemsLocation = createLocation(targetArea.id, CUSTOM_ITEMS_LOCATION_NAME, targetArea.locations.length);
-      targetArea.locations.push(customItemsLocation);
+    let targetLocation = customItemTargetLocationId
+      ? targetArea.locations.find((location) => location.id === customItemTargetLocationId) ?? null
+      : null;
+
+    if (!targetLocation) {
+      targetLocation = targetArea.locations.find((location) => location.name === CUSTOM_ITEMS_LOCATION_NAME) ?? null;
+    }
+
+    if (!targetLocation) {
+      targetLocation = createLocation(targetArea.id, CUSTOM_ITEMS_LOCATION_NAME, targetArea.locations.length);
+      targetArea.locations.push(targetLocation);
       targetArea.locations.forEach((location, index) => {
         location.sortOrder = index;
       });
     }
 
-    const item = createItem(customItemsLocation.id, trimmedName, customItemsLocation.items.length);
-    const checkpoint = createCheckpoint(item.id, 'Notes', 0);
+    const item = createItem(targetLocation.id, trimmedName, targetLocation.items.length, { isCustom: true });
+    const checkpoint = createCheckpoint(item.id, trimmedCheckpointName, 0, { isCustom: true });
     checkpoint.issueState = 'open';
     checkpoint.status = 'needsReview';
     checkpoint.fixStatus = 'pending';
     item.checkpoints.push(checkpoint);
-    customItemsLocation.items.push(item);
+    targetLocation.items.push(item);
+    targetLocation.items.forEach((entry, index) => {
+      entry.sortOrder = index;
+    });
     syncAreaCompletion(targetArea);
 
     await saveProject(project);
     scheduleSync(project.id);
 
     setCustomItemName('');
+    setCustomItemCheckpointName('');
     setEditingCustomItem(null);
+    setCustomItemTargetLocationId(null);
     setShowCustomItemComposer(false);
     setExpandedCheckpoint({
-      locationId: customItemsLocation.id,
+      locationId: targetLocation.id,
       itemId: item.id,
       checkpointId: checkpoint.id,
     });
+    setExpandedLocations(new Set([targetLocation.id]));
+    setExpandedItems(new Set([item.id]));
     setCommentText(checkpoint.comments);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleSubmitCustomSubarea() {
+    if (!project || !area || !customSubareaName.trim()) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+
+    const location = createLocation(targetArea.id, customSubareaName.trim(), targetArea.locations.length);
+    targetArea.locations.push(location);
+    targetArea.locations.forEach((entry, index) => {
+      entry.sortOrder = index;
+    });
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    setCustomSubareaName('');
+    setShowCustomSubareaComposer(false);
+    setExpandedLocations(new Set([location.id]));
+    setExpandedItems(new Set());
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
   }
@@ -517,8 +576,140 @@ export default function AreaDetailPage() {
     void project;
     void area;
     setEditingCustomItem({ locationId, itemId });
+    setCustomItemTargetLocationId(locationId);
     setCustomItemName(currentName);
-    setShowCustomItemComposer(true);
+    setCustomItemCheckpointName('');
+    setShowCustomItemComposer(false);
+  }
+
+  function handleCancelCustomItemEdit() {
+    setCustomItemName('');
+    setCustomItemCheckpointName('');
+    setEditingCustomItem(null);
+    setCustomItemTargetLocationId(null);
+  }
+
+  async function handleSubmitCustomCheckpoint() {
+    if (!project || !area || !customCheckpointTarget || !customCheckpointName.trim()) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    const targetLocation = targetArea?.locations.find((location) => location.id === customCheckpointTarget.locationId);
+    const targetItem = targetLocation?.items.find((item) => item.id === customCheckpointTarget.itemId);
+    if (!targetArea || !targetLocation || !targetItem) return;
+
+    if (editingCustomCheckpoint) {
+      const checkpoint = targetItem.checkpoints.find((entry) => entry.id === editingCustomCheckpoint.checkpointId);
+      if (!checkpoint) return;
+
+      checkpoint.name = customCheckpointName.trim();
+      checkpoint.updatedAt = new Date();
+
+      syncAreaCompletion(targetArea);
+      await saveProject(project);
+      scheduleSync(project.id);
+
+      setCustomCheckpointName('');
+      setShowCustomCheckpointComposer(false);
+      setCustomCheckpointTarget(null);
+      setEditingCustomCheckpoint(null);
+      setProject({ ...project, areas: [...project.areas] });
+      setArea({ ...targetArea });
+      return;
+    }
+
+    const checkpoint = createCheckpoint(
+      targetItem.id,
+      customCheckpointName.trim(),
+      targetItem.checkpoints.length,
+      { isCustom: true }
+    );
+    targetItem.checkpoints.push(checkpoint);
+    targetItem.checkpoints.forEach((entry, index) => {
+      entry.sortOrder = index;
+    });
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    setCustomCheckpointName('');
+    setShowCustomCheckpointComposer(false);
+    setCustomCheckpointTarget(null);
+    setEditingCustomCheckpoint(null);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleEditCustomCheckpoint(
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    currentName: string
+  ) {
+    setCustomCheckpointTarget({ locationId, itemId });
+    setCustomCheckpointName(currentName);
+    setEditingCustomCheckpoint({ locationId, itemId, checkpointId });
+    setShowCustomCheckpointComposer(false);
+  }
+
+  function handleCancelCustomCheckpointEdit() {
+    setCustomCheckpointName('');
+    setCustomCheckpointTarget(null);
+    setEditingCustomCheckpoint(null);
+  }
+
+  async function handleDeleteCustomCheckpoint(locationId: string, itemId: string, checkpointId: string) {
+    if (!project || !area) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    const targetLocation = targetArea?.locations.find((location) => location.id === locationId);
+    const targetItem = targetLocation?.items.find((item) => item.id === itemId);
+    if (!targetArea || !targetLocation || !targetItem) return;
+
+    targetItem.checkpoints = targetItem.checkpoints.filter((checkpoint) => checkpoint.id !== checkpointId);
+    targetItem.checkpoints.forEach((checkpoint, index) => {
+      checkpoint.sortOrder = index;
+    });
+
+    if (targetItem.checkpoints.length === 0 && targetItem.isCustom) {
+      targetLocation.items = targetLocation.items.filter((item) => item.id !== itemId);
+      targetLocation.items.forEach((item, index) => {
+        item.sortOrder = index;
+      });
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+      if (targetLocation.items.length === 0 && targetLocation.name === CUSTOM_ITEMS_LOCATION_NAME) {
+        targetArea.locations = targetArea.locations.filter((location) => location.id !== targetLocation.id);
+        targetArea.locations.forEach((location, index) => {
+          location.sortOrder = index;
+        });
+        setExpandedLocations((prev) => {
+          const next = new Set(prev);
+          next.delete(locationId);
+          return next;
+        });
+      }
+    }
+
+    if (expandedCheckpoint?.checkpointId === checkpointId) {
+      setExpandedCheckpoint(null);
+      setCommentText('');
+    }
+    if (editingCustomCheckpoint?.checkpointId === checkpointId) {
+      setCustomCheckpointName('');
+      setShowCustomCheckpointComposer(false);
+      setCustomCheckpointTarget(null);
+      setEditingCustomCheckpoint(null);
+    }
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
   }
 
   async function handleDeleteCustomItem(locationId: string, itemId: string) {
@@ -529,6 +720,9 @@ export default function AreaDetailPage() {
     if (!targetArea || !targetLocation) return;
 
     targetLocation.items = targetLocation.items.filter((item) => item.id !== itemId);
+    targetLocation.items.forEach((item, index) => {
+      item.sortOrder = index;
+    });
     if (targetLocation.items.length === 0 && targetLocation.name === CUSTOM_ITEMS_LOCATION_NAME) {
       targetArea.locations = targetArea.locations.filter((location) => location.id !== targetLocation.id);
       targetArea.locations.forEach((location, index) => {
@@ -861,6 +1055,11 @@ export default function AreaDetailPage() {
   }
 
   async function toggleItem(itemId: string) {
+    setShowCustomCheckpointComposer(false);
+    setCustomCheckpointName('');
+    setCustomCheckpointTarget(null);
+    setEditingCustomCheckpoint(null);
+
     if (expandedItems.has(itemId)) {
       await closeExpandedCheckpoint();
       setExpandedItems(new Set());
@@ -911,7 +1110,11 @@ export default function AreaDetailPage() {
     return null;
   }
 
-  const supportsCustomItems = !isApartmentArea(area);
+  const supportsInlineLocationCustomItems = isApartmentArea(area) || area.areaTypeKey === 'stairs';
+  const supportsCustomSubareas = isApartmentArea(area);
+  const supportsGlobalCustomItems = !supportsInlineLocationCustomItems;
+  const flattenSingleStairsLocation =
+    area.areaTypeKey === 'stairs' && filteredStandardLocations.length === 1;
 
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
@@ -967,22 +1170,201 @@ export default function AreaDetailPage() {
         onTouchCancelCapture={handlePullEnd}
       >
         <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
-          {supportsCustomItems && (
+          {supportsGlobalCustomItems && !editingCustomItem && (
             <CustomItemComposer
               open={showCustomItemComposer}
               value={customItemName}
+              secondaryValue={!editingCustomItem ? customItemCheckpointName : undefined}
               submitLabel={editingCustomItem ? 'Save' : 'Add'}
               onOpen={() => setShowCustomItemComposer(true)}
               onClose={() => {
                 setShowCustomItemComposer(false);
                 setCustomItemName('');
+                setCustomItemCheckpointName('');
                 setEditingCustomItem(null);
+                setCustomItemTargetLocationId(null);
               }}
               onChange={setCustomItemName}
+              onSecondaryChange={!editingCustomItem ? setCustomItemCheckpointName : undefined}
               onSubmit={() => void handleSubmitCustomItem()}
             />
           )}
-          {supportsCustomItems && filteredCustomItemsLocation && (
+          {filteredStandardLocations.map((location) => (
+            <div
+              key={location.id}
+              ref={(node) => {
+                locationRefs.current.set(location.id, node);
+              }}
+            >
+              <InspectionLocationCard
+                location={location}
+                locationMetric={areaDerived?.locationMetrics.get(location.id)}
+                itemMetrics={areaDerived?.itemMetrics ?? new Map()}
+                showOnlyIssues={inspectionShowOnlyIssues}
+                expandedItems={expandedItems}
+                isExpanded={flattenSingleStairsLocation || expandedLocations.has(location.id)}
+                alwaysExpanded={flattenSingleStairsLocation}
+                hideHeader={flattenSingleStairsLocation}
+                onToggleLocation={toggleLocation}
+                onToggleItem={toggleItem}
+                onToggleCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
+                  void toggleCheckpoint(locationId, itemId, checkpointId, comments)
+                }
+                onCommentBlur={(locationId, itemId, checkpointId, value) =>
+                  void persistCheckpointComment(locationId, itemId, checkpointId, value)
+                }
+                onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
+                  void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
+                }
+                expandedCheckpointId={expandedCheckpoint?.checkpointId ?? null}
+                commentText={commentText}
+                recentComments={recentComments}
+                onCommentChange={setCommentText}
+                onAddPhoto={(imageData, thumbnail) =>
+                  expandedCheckpoint
+                    ? handleAddPhoto(
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
+                        imageData,
+                        thumbnail
+                      )
+                    : Promise.resolve()
+                }
+                onAddPhotos={(photos) =>
+                  expandedCheckpoint
+                    ? handleAddPhotos(
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
+                        photos
+                      )
+                    : Promise.resolve()
+                }
+                onAddFiles={(files) =>
+                  expandedCheckpoint
+                    ? handleAddFiles(
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
+                        files
+                      )
+                    : Promise.resolve()
+                }
+                onDeletePhoto={(photoId) =>
+                  expandedCheckpoint
+                    ? handleDeletePhoto(
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
+                        photoId
+                      )
+                    : Promise.resolve()
+                }
+                onDeleteFile={(fileId) =>
+                  expandedCheckpoint
+                    ? handleDeleteFile(
+                        expandedCheckpoint.locationId,
+                        expandedCheckpoint.itemId,
+                        expandedCheckpoint.checkpointId,
+                        fileId
+                      )
+                    : Promise.resolve()
+                }
+                registerItemRef={(itemId, node) => {
+                  itemRefs.current.set(itemId, node);
+                }}
+                editingCustomItemId={editingCustomItem?.locationId === location.id ? editingCustomItem.itemId : null}
+                editingCustomItemName={customItemName}
+                onEditingCustomItemChange={setCustomItemName}
+                onSaveCustomItemEdit={() => void handleSubmitCustomItem()}
+                onCancelCustomItemEdit={handleCancelCustomItemEdit}
+                onEditCustomItem={handleEditCustomItem}
+                onDeleteCustomItem={handleDeleteCustomItem}
+                editingCustomCheckpointId={editingCustomCheckpoint?.itemId && editingCustomCheckpoint.locationId === location.id ? editingCustomCheckpoint.checkpointId : null}
+                editingCustomCheckpointName={customCheckpointName}
+                onEditingCustomCheckpointChange={setCustomCheckpointName}
+                onSaveCustomCheckpointEdit={() => void handleSubmitCustomCheckpoint()}
+                onCancelCustomCheckpointEdit={handleCancelCustomCheckpointEdit}
+                onEditCustomCheckpoint={handleEditCustomCheckpoint}
+                onDeleteCustomCheckpoint={handleDeleteCustomCheckpoint}
+                renderCheckpointAddControl={
+                  supportsInlineLocationCustomItems
+                    ? (locationId, itemId) => (
+                        <CustomItemComposer
+                          open={
+                            showCustomCheckpointComposer &&
+                            customCheckpointTarget?.locationId === locationId &&
+                            customCheckpointTarget?.itemId === itemId
+                          }
+                          value={customCheckpointName}
+                          valuePlaceholder="Sub-item name"
+                          submitLabel={editingCustomCheckpoint ? 'Save' : 'Add'}
+                          onOpen={() => {
+                            setCustomCheckpointTarget({ locationId, itemId });
+                            setCustomCheckpointName('');
+                            setEditingCustomCheckpoint(null);
+                            setShowCustomCheckpointComposer(true);
+                          }}
+                          onClose={() => {
+                            setShowCustomCheckpointComposer(false);
+                            setCustomCheckpointName('');
+                            setCustomCheckpointTarget(null);
+                            setEditingCustomCheckpoint(null);
+                          }}
+                          onChange={setCustomCheckpointName}
+                          onSubmit={() => void handleSubmitCustomCheckpoint()}
+                        />
+                      )
+                    : undefined
+                }
+                addItemControl={
+                  supportsInlineLocationCustomItems && !editingCustomItem ? (
+                    <CustomItemComposer
+                      open={showCustomItemComposer && customItemTargetLocationId === location.id}
+                      value={customItemName}
+                      secondaryValue={!editingCustomItem ? customItemCheckpointName : undefined}
+                      submitLabel={editingCustomItem ? 'Save' : 'Add'}
+                      onOpen={() => {
+                        setCustomItemTargetLocationId(location.id);
+                        setEditingCustomItem(null);
+                        setCustomItemName('');
+                        setCustomItemCheckpointName('');
+                        setShowCustomItemComposer(true);
+                      }}
+                      onClose={() => {
+                        setShowCustomItemComposer(false);
+                        setCustomItemTargetLocationId(null);
+                        setCustomItemName('');
+                        setCustomItemCheckpointName('');
+                        setEditingCustomItem(null);
+                      }}
+                      onChange={setCustomItemName}
+                      onSecondaryChange={!editingCustomItem ? setCustomItemCheckpointName : undefined}
+                      onSubmit={() => void handleSubmitCustomItem()}
+                    />
+                  ) : null
+                }
+              />
+            </div>
+          ))}
+          {supportsCustomSubareas ? (
+            <CustomItemComposer
+              open={showCustomSubareaComposer}
+              value={customSubareaName}
+              triggerLabel="+ Sub Area"
+              valuePlaceholder="Subarea name"
+              submitLabel="Add"
+              onOpen={() => setShowCustomSubareaComposer(true)}
+              onClose={() => {
+                setShowCustomSubareaComposer(false);
+                setCustomSubareaName('');
+              }}
+              onChange={setCustomSubareaName}
+              onSubmit={() => void handleSubmitCustomSubarea()}
+            />
+          ) : null}
+          {filteredCustomItemsLocation && (
             <InspectionLocationCard
               key={filteredCustomItemsLocation.id}
               location={filteredCustomItemsLocation}
@@ -1062,98 +1444,26 @@ export default function AreaDetailPage() {
               registerItemRef={(itemId, node) => {
                 itemRefs.current.set(itemId, node);
               }}
+              editingCustomItemId={editingCustomItem?.locationId === filteredCustomItemsLocation.id ? editingCustomItem.itemId : null}
+              editingCustomItemName={customItemName}
+              onEditingCustomItemChange={setCustomItemName}
+              onSaveCustomItemEdit={() => void handleSubmitCustomItem()}
+              onCancelCustomItemEdit={handleCancelCustomItemEdit}
               onEditCustomItem={handleEditCustomItem}
               onDeleteCustomItem={handleDeleteCustomItem}
+              editingCustomCheckpointId={
+                editingCustomCheckpoint?.locationId === filteredCustomItemsLocation.id
+                  ? editingCustomCheckpoint.checkpointId
+                  : null
+              }
+              editingCustomCheckpointName={customCheckpointName}
+              onEditingCustomCheckpointChange={setCustomCheckpointName}
+              onSaveCustomCheckpointEdit={() => void handleSubmitCustomCheckpoint()}
+              onCancelCustomCheckpointEdit={handleCancelCustomCheckpointEdit}
+              onEditCustomCheckpoint={handleEditCustomCheckpoint}
+              onDeleteCustomCheckpoint={handleDeleteCustomCheckpoint}
             />
           )}
-          {filteredStandardLocations.map((location) => (
-            <div
-              key={location.id}
-              ref={(node) => {
-                locationRefs.current.set(location.id, node);
-              }}
-            >
-              <InspectionLocationCard
-                location={location}
-                locationMetric={areaDerived?.locationMetrics.get(location.id)}
-                itemMetrics={areaDerived?.itemMetrics ?? new Map()}
-                showOnlyIssues={inspectionShowOnlyIssues}
-                expandedItems={expandedItems}
-                isExpanded={expandedLocations.has(location.id)}
-                onToggleLocation={toggleLocation}
-                onToggleItem={toggleItem}
-                onToggleCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
-                  void toggleCheckpoint(locationId, itemId, checkpointId, comments)
-                }
-                onCommentBlur={(locationId, itemId, checkpointId, value) =>
-                  void persistCheckpointComment(locationId, itemId, checkpointId, value)
-                }
-                onUpdateCheckpointStatus={(locationId, itemId, checkpointId, nextState) =>
-                  void updateCheckpointReviewState(locationId, itemId, checkpointId, nextState)
-                }
-                expandedCheckpointId={expandedCheckpoint?.checkpointId ?? null}
-                commentText={commentText}
-                recentComments={recentComments}
-                onCommentChange={setCommentText}
-                onAddPhoto={(imageData, thumbnail) =>
-                  expandedCheckpoint
-                    ? handleAddPhoto(
-                        expandedCheckpoint.locationId,
-                        expandedCheckpoint.itemId,
-                        expandedCheckpoint.checkpointId,
-                        imageData,
-                        thumbnail
-                      )
-                    : Promise.resolve()
-                }
-                onAddPhotos={(photos) =>
-                  expandedCheckpoint
-                    ? handleAddPhotos(
-                        expandedCheckpoint.locationId,
-                        expandedCheckpoint.itemId,
-                        expandedCheckpoint.checkpointId,
-                        photos
-                      )
-                    : Promise.resolve()
-                }
-                onAddFiles={(files) =>
-                  expandedCheckpoint
-                    ? handleAddFiles(
-                        expandedCheckpoint.locationId,
-                        expandedCheckpoint.itemId,
-                        expandedCheckpoint.checkpointId,
-                        files
-                      )
-                    : Promise.resolve()
-                }
-                onDeletePhoto={(photoId) =>
-                  expandedCheckpoint
-                    ? handleDeletePhoto(
-                        expandedCheckpoint.locationId,
-                        expandedCheckpoint.itemId,
-                        expandedCheckpoint.checkpointId,
-                        photoId
-                      )
-                    : Promise.resolve()
-                }
-                onDeleteFile={(fileId) =>
-                  expandedCheckpoint
-                    ? handleDeleteFile(
-                        expandedCheckpoint.locationId,
-                        expandedCheckpoint.itemId,
-                        expandedCheckpoint.checkpointId,
-                        fileId
-                      )
-                    : Promise.resolve()
-                }
-                registerItemRef={(itemId, node) => {
-                  itemRefs.current.set(itemId, node);
-                }}
-                onEditCustomItem={handleEditCustomItem}
-                onDeleteCustomItem={handleDeleteCustomItem}
-              />
-            </div>
-          ))}
           <AreaNotesCard
             value={generalNotes}
             onChange={handleGeneralNotesChange}

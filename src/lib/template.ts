@@ -12,6 +12,20 @@ interface TemplateLocation {
   items: TemplateItem[];
 }
 
+const stairsTemplate: TemplateLocation[] = [
+  {
+    name: 'Stairs',
+    items: [
+      { name: 'Wall', checkpoints: ['Paint', 'Clean'] },
+      { name: 'Ceiling', checkpoints: ['Paint', 'Clean'] },
+      { name: 'Stair / Landing', checkpoints: ['Paint', 'Surface', 'Clean'] },
+      { name: 'Railing', checkpoints: ['Welding', 'Paint', 'Clean'] },
+      { name: 'Light Fixture', checkpoints: ['Operational', 'Bulb', 'Cleaning'] },
+      { name: 'Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Threshold'] },
+    ],
+  },
+];
+
 function createLivingAreaItems(includeIntercom: boolean): TemplateItem[] {
   return [
     { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
@@ -27,6 +41,14 @@ function createLivingAreaItems(includeIntercom: boolean): TemplateItem[] {
     { name: 'Clean', checkpoints: ['Yes'] },
   ];
 }
+
+const corridorItems: TemplateItem[] = [
+  { name: 'Closet', checkpoints: ['Paint', 'Shelving', 'Rod', 'Ceiling'] },
+  { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
+  { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+  { name: 'Ceiling', checkpoints: ['Paint', 'Clean'] },
+  { name: 'Light Fixtures', checkpoints: ['Operational', 'Bulb', 'Clean'] },
+];
 
 const bathroomItems: TemplateItem[] = [
   { name: 'Door', checkpoints: ['Finish', 'Hardware operation', 'Stop', 'Frame Paint'] },
@@ -101,6 +123,10 @@ function getApartmentTemplate(unitType?: Area['unitType']): TemplateLocation[] {
     template.push({
       name: 'Half Bathroom',
       items: bathroomItems.filter((item) => item.name !== 'Tub / Shower'),
+    });
+    template.push({
+      name: 'Corridor',
+      items: corridorItems,
     });
   }
 
@@ -254,6 +280,11 @@ export function applyTemplateToArea(area: Area): void {
 
   if (definition.templateKey === 'apartment') {
     populateArea(area, getApartmentTemplate(area.unitType));
+    return;
+  }
+
+  if (definition.templateKey === 'stairs') {
+    populateArea(area, stairsTemplate);
     return;
   }
 

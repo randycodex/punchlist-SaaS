@@ -2,14 +2,17 @@
 
 import {
   AlertTriangle,
+  Camera,
+  Check,
   ChevronDown,
   ChevronRight,
   MessageSquare,
   MoreVertical,
   Pencil,
   Trash2,
+  X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -53,8 +56,31 @@ type InspectionLocationCardProps = {
   onDeletePhoto: (photoId: string) => void | Promise<void>;
   onDeleteFile: (fileId: string) => void | Promise<void>;
   registerItemRef: (itemId: string, node: HTMLDivElement | null) => void;
+  editingCustomItemId?: string | null;
+  editingCustomItemName?: string;
+  onEditingCustomItemChange?: (value: string) => void;
+  onSaveCustomItemEdit?: () => void | Promise<void>;
+  onCancelCustomItemEdit?: () => void;
   onEditCustomItem?: (locationId: string, itemId: string, currentName: string) => void | Promise<void>;
   onDeleteCustomItem?: (locationId: string, itemId: string) => void | Promise<void>;
+  editingCustomCheckpointId?: string | null;
+  editingCustomCheckpointName?: string;
+  onEditingCustomCheckpointChange?: (value: string) => void;
+  onSaveCustomCheckpointEdit?: () => void | Promise<void>;
+  onCancelCustomCheckpointEdit?: () => void;
+  onEditCustomCheckpoint?: (
+    locationId: string,
+    itemId: string,
+    checkpointId: string,
+    currentName: string
+  ) => void | Promise<void>;
+  onDeleteCustomCheckpoint?: (
+    locationId: string,
+    itemId: string,
+    checkpointId: string
+  ) => void | Promise<void>;
+  addItemControl?: ReactNode;
+  renderCheckpointAddControl?: (locationId: string, itemId: string) => ReactNode;
 };
 
 export default function InspectionLocationCard({
@@ -81,14 +107,32 @@ export default function InspectionLocationCard({
   onDeletePhoto,
   onDeleteFile,
   registerItemRef,
+  editingCustomItemId,
+  editingCustomItemName,
+  onEditingCustomItemChange,
+  onSaveCustomItemEdit,
+  onCancelCustomItemEdit,
   onEditCustomItem,
   onDeleteCustomItem,
+  editingCustomCheckpointId,
+  editingCustomCheckpointName,
+  onEditingCustomCheckpointChange,
+  onSaveCustomCheckpointEdit,
+  onCancelCustomCheckpointEdit,
+  onEditCustomCheckpoint,
+  onDeleteCustomCheckpoint,
+  addItemControl,
+  renderCheckpointAddControl,
 }: InspectionLocationCardProps) {
   const locationStats = locationMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const isCustomItemsList =
     hideHeader && alwaysExpanded && location.name.trim().toLowerCase() === 'custom items';
   const [openCustomItemMenuId, setOpenCustomItemMenuId] = useState<string | null>(null);
+  const [cameraRequest, setCameraRequest] = useState<{ checkpointId: string; token: number } | null>(null);
+  const [cameraOnlyCheckpointId, setCameraOnlyCheckpointId] = useState<string | null>(null);
   const customMenuRef = useRef<HTMLDivElement | null>(null);
+  const customItemEditRef = useRef<HTMLDivElement | null>(null);
+  const customCheckpointEditRef = useRef<HTMLDivElement | null>(null);
   const visibleItems = showOnlyIssues
     ? location.items.filter((item) => (itemMetrics.get(item.id)?.stats.issues ?? 0) > 0)
     : location.items;
@@ -107,6 +151,52 @@ export default function InspectionLocationCard({
       document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, [openCustomItemMenuId]);
+
+  useEffect(() => {
+    if (expandedCheckpointId === cameraOnlyCheckpointId) return;
+    setCameraOnlyCheckpointId(null);
+  }, [cameraOnlyCheckpointId, expandedCheckpointId]);
+
+  useEffect(() => {
+    const hasInlineEdit = !!editingCustomItemId || !!editingCustomCheckpointId;
+    if (!hasInlineEdit) return;
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target as Node;
+      if (customItemEditRef.current?.contains(target) || customCheckpointEditRef.current?.contains(target)) {
+        return;
+      }
+
+      onCancelCustomItemEdit?.();
+      onCancelCustomCheckpointEdit?.();
+    }
+
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [
+    editingCustomCheckpointId,
+    editingCustomItemId,
+    onCancelCustomCheckpointEdit,
+    onCancelCustomItemEdit,
+  ]);
+
+  function openCheckpointComments(locationId: string, itemId: string, checkpointId: string, comments: string) {
+    setCameraOnlyCheckpointId(null);
+    void onToggleCheckpoint({ locationId, itemId, checkpointId, comments });
+  }
+
+  function openCheckpointCamera(locationId: string, itemId: string, checkpointId: string, comments: string) {
+    if (expandedCheckpointId !== checkpointId) {
+      setCameraOnlyCheckpointId(checkpointId);
+      void onToggleCheckpoint({ locationId, itemId, checkpointId, comments });
+    } else {
+      setCameraOnlyCheckpointId((current) => current ?? null);
+    }
+
+    setCameraRequest({ checkpointId, token: Date.now() });
+  }
 
   return (
     <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
@@ -138,7 +228,7 @@ export default function InspectionLocationCard({
           <div
             className={
               isCustomItemsList
-                ? 'space-y-2.5'
+                ? 'space-y-2.5 pl-4'
                 : 'space-y-2.5 pl-4'
             }
           >
@@ -147,23 +237,26 @@ export default function InspectionLocationCard({
             const itemStats = itemMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
             const customCheckpoint = isCustomItemsList ? item.checkpoints[0] ?? null : null;
             const isExpandedCustomCheckpoint = customCheckpoint ? expandedCheckpointId === customCheckpoint.id : false;
+            const isInlineCustomItem = !!item.isCustom && !isCustomItemsList;
 
             if (isCustomItemsList && customCheckpoint) {
               const customIssueState = getCheckpointIssueState(customCheckpoint);
+              const isEditingCustomItem = editingCustomItemId === item.id;
               return (
-                <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="space-y-2">
+                <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="space-y-2 pl-4">
                   <CheckpointRow
                     checkpoint={customCheckpoint}
                     label={item.name}
+                    editContainerRef={isEditingCustomItem ? customItemEditRef : undefined}
+                    editableLabel={isEditingCustomItem}
+                    editableValue={editingCustomItemName ?? item.name}
+                    onEditableValueChange={onEditingCustomItemChange}
+                    onSaveEdit={onSaveCustomItemEdit}
+                    onCancelEdit={onCancelCustomItemEdit}
                     issueState={customIssueState}
                     expanded={isExpandedCustomCheckpoint}
                     onToggleExpand={() =>
-                      void onToggleCheckpoint({
-                        locationId: location.id,
-                        itemId: item.id,
-                        checkpointId: customCheckpoint.id,
-                        comments: customCheckpoint.comments,
-                      })
+                      openCheckpointComments(location.id, item.id, customCheckpoint.id, customCheckpoint.comments)
                     }
                     onToggleIssue={() =>
                       void onUpdateCheckpointStatus(
@@ -173,6 +266,9 @@ export default function InspectionLocationCard({
                         customIssueState === 'open' ? 'pending' : 'open'
                       )
                     }
+                    onOpenCamera={() => {
+                      openCheckpointCamera(location.id, item.id, customCheckpoint.id, customCheckpoint.comments);
+                    }}
                     extraActions={
                       <div
                         ref={openCustomItemMenuId === item.id ? customMenuRef : null}
@@ -244,6 +340,13 @@ export default function InspectionLocationCard({
                       onAddFiles={onAddFiles}
                       onDeletePhoto={onDeletePhoto}
                       onDeleteFile={onDeleteFile}
+                      showCommentEditor={cameraOnlyCheckpointId !== customCheckpoint.id}
+                      onCloseEditor={() =>
+                        openCheckpointComments(location.id, item.id, customCheckpoint.id, customCheckpoint.comments)
+                      }
+                      openCameraSignal={
+                        cameraRequest?.checkpointId === customCheckpoint.id ? cameraRequest.token : undefined
+                      }
                     />
                   )}
                 </div>
@@ -251,31 +354,144 @@ export default function InspectionLocationCard({
             }
 
             const isItemExpanded = expandedItems.has(item.id);
+            const isEditingCustomItem = editingCustomItemId === item.id;
             return (
               <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="pl-4">
-                <button
-                  onClick={() => void onToggleItem(item.id)}
-                  className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
-                    isItemExpanded
-                      ? 'bg-white/90 dark:bg-white/[0.07]'
-                      : 'bg-gray-50/85 hover:bg-white dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[1.02rem] tracking-[-0.01em] text-gray-900 dark:text-white">
-                        {item.name}
+                {isEditingCustomItem ? (
+                  <div
+                    ref={customItemEditRef}
+                    className="w-full rounded-[1.3rem] bg-white/90 px-4 py-3 text-left dark:bg-white/[0.07]"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <input
+                          type="text"
+                          value={editingCustomItemName ?? item.name}
+                          onChange={(event) => onEditingCustomItemChange?.(event.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void onSaveCustomItemEdit?.();
+                            } else if (event.key === 'Escape') {
+                              event.preventDefault();
+                              onCancelCustomItemEdit?.();
+                            }
+                          }}
+                          className="w-full rounded-[1rem] bg-transparent text-[1.02rem] tracking-[-0.01em] text-gray-900 outline-none dark:text-white"
+                          aria-label={`Edit name for ${item.name}`}
+                          autoFocus
+                        />
+                        <MetadataLine
+                          className="mt-1"
+                          issues={itemStats.issues}
+                          notes={itemMetric?.commentCount ?? 0}
+                          photos={itemMetric?.photoCount ?? 0}
+                        />
                       </div>
-                      <MetadataLine
-                        className="mt-1"
-                        issues={itemStats.issues}
-                        notes={itemMetric?.commentCount ?? 0}
-                        photos={itemMetric?.photoCount ?? 0}
-                      />
+                      <div className="ml-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void onSaveCustomItemEdit?.()}
+                          className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                          aria-label={`Save ${item.name}`}
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onCancelCustomItemEdit}
+                          className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                          aria-label={`Cancel editing ${item.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    {isItemExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                   </div>
-                </button>
+                ) : (
+                  <button
+                    onClick={() => void onToggleItem(item.id)}
+                    className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
+                      isItemExpanded
+                        ? 'bg-white/90 dark:bg-white/[0.07]'
+                        : 'bg-gray-50/85 hover:bg-white dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[1.02rem] tracking-[-0.01em] text-gray-900 dark:text-white">
+                          {item.name}
+                        </div>
+                        <MetadataLine
+                          className="mt-1"
+                          issues={itemStats.issues}
+                          notes={itemMetric?.commentCount ?? 0}
+                          photos={itemMetric?.photoCount ?? 0}
+                        />
+                      </div>
+                      <div className="ml-3 flex items-center gap-2">
+                        {isInlineCustomItem ? (
+                          <div
+                            ref={openCustomItemMenuId === item.id ? customMenuRef : null}
+                            className="relative"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onPointerDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                              }}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setOpenCustomItemMenuId((current) => (current === item.id ? null : item.id));
+                              }}
+                              className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                              aria-label={`More actions for ${item.name}`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            {openCustomItemMenuId === item.id && (
+                              <div
+                                className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={async (event) => {
+                                    event.stopPropagation();
+                                    setOpenCustomItemMenuId(null);
+                                    await onEditCustomItem?.(location.id, item.id, item.name);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Edit item
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async (event) => {
+                                    event.stopPropagation();
+                                    setOpenCustomItemMenuId(null);
+                                    await onDeleteCustomItem?.(location.id, item.id);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete item
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                        {isItemExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                      </div>
+                    </div>
+                  </button>
+                )}
 
                 {isItemExpanded && (
                   <div className="space-y-2.5 pl-10 pr-1 pt-2">
@@ -289,15 +505,16 @@ export default function InspectionLocationCard({
                           <div key={checkpoint.id} className="space-y-2">
                           <CheckpointRow
                             checkpoint={checkpoint}
+                            editContainerRef={editingCustomCheckpointId === checkpoint.id ? customCheckpointEditRef : undefined}
+                            editableLabel={editingCustomCheckpointId === checkpoint.id}
+                            editableValue={editingCustomCheckpointName ?? checkpoint.name}
+                            onEditableValueChange={onEditingCustomCheckpointChange}
+                            onSaveEdit={onSaveCustomCheckpointEdit}
+                            onCancelEdit={onCancelCustomCheckpointEdit}
                             issueState={issueState}
                             expanded={isExpandedCheckpoint}
                             onToggleExpand={() =>
-                              void onToggleCheckpoint({
-                                locationId: location.id,
-                                itemId: item.id,
-                                checkpointId: checkpoint.id,
-                                comments: checkpoint.comments,
-                              })
+                              openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
                             }
                             onToggleIssue={() =>
                               void onUpdateCheckpointStatus(
@@ -306,6 +523,72 @@ export default function InspectionLocationCard({
                                 checkpoint.id,
                                 issueState === 'open' ? 'pending' : 'open'
                               )
+                            }
+                            onOpenCamera={() => {
+                              openCheckpointCamera(location.id, item.id, checkpoint.id, checkpoint.comments);
+                            }}
+                            extraActions={
+                              checkpoint.isCustom || item.isCustom ? (
+                                <div
+                                  ref={openCustomItemMenuId === checkpoint.id ? customMenuRef : null}
+                                  className="relative"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onPointerDown={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setOpenCustomItemMenuId((current) => (current === checkpoint.id ? null : checkpoint.id));
+                                    }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                                    aria-label={`More actions for ${checkpoint.name}`}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                  {openCustomItemMenuId === checkpoint.id && (
+                                    <div
+                                      className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                                      onPointerDown={(event) => event.stopPropagation()}
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={async (event) => {
+                                          event.stopPropagation();
+                                          setOpenCustomItemMenuId(null);
+                                          await onEditCustomCheckpoint?.(
+                                            location.id,
+                                            item.id,
+                                            checkpoint.id,
+                                            checkpoint.name
+                                          );
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                        Edit item
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async (event) => {
+                                          event.stopPropagation();
+                                          setOpenCustomItemMenuId(null);
+                                          await onDeleteCustomCheckpoint?.(location.id, item.id, checkpoint.id);
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Delete item
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null
                             }
                           />
                           {isExpandedCheckpoint && (
@@ -322,16 +605,25 @@ export default function InspectionLocationCard({
                               onAddFiles={onAddFiles}
                               onDeletePhoto={onDeletePhoto}
                               onDeleteFile={onDeleteFile}
+                              showCommentEditor={cameraOnlyCheckpointId !== checkpoint.id}
+                              onCloseEditor={() =>
+                                openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
+                              }
+                              openCameraSignal={
+                                cameraRequest?.checkpointId === checkpoint.id ? cameraRequest.token : undefined
+                              }
                             />
                           )}
                         </div>
                       );
                     })}
+                    {renderCheckpointAddControl ? renderCheckpointAddControl(location.id, item.id) : null}
                   </div>
                 )}
               </div>
             );
           })}
+          {addItemControl ? <div className="pl-4">{addItemControl}</div> : null}
           </div>
         </div>
       )}
@@ -342,18 +634,32 @@ export default function InspectionLocationCard({
 function CheckpointRow({
   checkpoint,
   label,
+  editContainerRef,
+  editableLabel = false,
+  editableValue,
+  onEditableValueChange,
+  onSaveEdit,
+  onCancelEdit,
   issueState,
   expanded,
   onToggleExpand,
   onToggleIssue,
+  onOpenCamera,
   extraActions,
 }: {
   checkpoint: Checkpoint;
   label?: string;
+  editContainerRef?: RefObject<HTMLDivElement | null>;
+  editableLabel?: boolean;
+  editableValue?: string;
+  onEditableValueChange?: (value: string) => void;
+  onSaveEdit?: () => void | Promise<void>;
+  onCancelEdit?: () => void;
   issueState: IssueState;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIssue: () => void;
+  onOpenCamera: () => void;
   extraActions?: ReactNode;
 }) {
   const noteCount = checkpoint.comments.trim() ? 1 : 0;
@@ -362,6 +668,7 @@ function CheckpointRow({
 
   return (
     <div
+      ref={editableLabel ? editContainerRef : undefined}
       className={`rounded-[1.35rem] border px-3 py-3 transition ${
         issueState === 'open'
           ? 'border-transparent accent-tint'
@@ -369,41 +676,103 @@ function CheckpointRow({
       }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <button onClick={onToggleExpand} className="min-w-0 flex-1 text-left">
-          <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
-          <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
-          {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
-        </button>
+        {editableLabel ? (
+          <div className="min-w-0 flex-1">
+            <input
+              type="text"
+              value={editableValue ?? label ?? checkpoint.name}
+              onChange={(event) => onEditableValueChange?.(event.target.value)}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void onSaveEdit?.();
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  onCancelEdit?.();
+                }
+              }}
+              className="w-full rounded-[1rem] bg-transparent text-[0.98rem] font-normal text-gray-900 outline-none dark:text-white"
+              aria-label={`Edit name for ${label ?? checkpoint.name}`}
+              autoFocus
+            />
+            <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
+            {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
+          </div>
+        ) : (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
+            <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
+            {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
+          </div>
+        )}
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleExpand();
-            }}
-            className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
-              expanded || hasRecordedContext
-                ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
-                : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
-            }`}
-            aria-label={`Open note editor for ${checkpoint.name}`}
-          >
-            <MessageSquare className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleIssue();
-            }}
-            className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
-              issueState === 'open'
-                ? 'accent-bg text-white shadow-sm'
-                : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
-            }`}
-            aria-label={`Flag issue for ${checkpoint.name}`}
-          >
-            <AlertTriangle className="w-5 h-5" />
-          </button>
-          {extraActions}
+          {editableLabel ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void onSaveEdit?.()}
+                className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-white text-gray-700 shadow-sm transition dark:bg-white/[0.09] dark:text-white"
+                aria-label={`Save ${label ?? checkpoint.name}`}
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="flex h-10 w-10 items-center justify-center rounded-[1rem] text-gray-400 transition hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100"
+                aria-label={`Cancel editing ${label ?? checkpoint.name}`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleExpand();
+                }}
+                className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
+                  expanded || hasRecordedContext
+                    ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                    : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
+                }`}
+                aria-label={`Open note editor for ${checkpoint.name}`}
+              >
+                <MessageSquare className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenCamera();
+                }}
+                className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
+                  photoCount > 0
+                    ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                    : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
+                }`}
+                aria-label={`Open camera for ${checkpoint.name}`}
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleIssue();
+                }}
+                className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
+                  issueState === 'open'
+                    ? 'accent-bg text-white shadow-sm'
+                    : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
+                }`}
+                aria-label={`Flag issue for ${checkpoint.name}`}
+              >
+                <AlertTriangle className="w-5 h-5" />
+              </button>
+              {extraActions}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -423,6 +792,9 @@ function InlineCheckpointEditor({
   onAddFiles,
   onDeletePhoto,
   onDeleteFile,
+  showCommentEditor = true,
+  onCloseEditor,
+  openCameraSignal,
   issueState,
   onToggleIssue,
   expanded,
@@ -440,13 +812,31 @@ function InlineCheckpointEditor({
   onAddFiles: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void | Promise<void>;
   onDeletePhoto: (photoId: string) => void | Promise<void>;
   onDeleteFile: (fileId: string) => void | Promise<void>;
+  showCommentEditor?: boolean;
+  onCloseEditor?: () => void;
+  openCameraSignal?: number;
   issueState?: IssueState;
   onToggleIssue?: () => void;
   expanded?: boolean;
   onToggleExpand?: () => void;
 }) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleDocumentClick(event: MouseEvent) {
+      if (!editorRef.current) return;
+      if (editorRef.current.contains(event.target as Node)) return;
+      onCloseEditor?.();
+    }
+
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [onCloseEditor]);
+
   return (
-    <div className="space-y-2.5 px-1 pb-1 pt-1">
+    <div ref={editorRef} className="space-y-2.5 px-1 pb-1 pt-1">
       {(onToggleIssue || onToggleExpand) && (
         <div className="flex items-center justify-end gap-2">
           {onToggleExpand && (
@@ -485,26 +875,32 @@ function InlineCheckpointEditor({
         onAddFiles={onAddFiles}
         onDeletePhoto={onDeletePhoto}
         onDeleteFile={onDeleteFile}
+        hideCameraButton
+        openCameraSignal={openCameraSignal}
       />
-      <textarea
-        value={commentText}
-        onChange={(e) => onCommentChange(e.target.value)}
-        onBlur={(e) => void onCommentBlur(locationId, itemId, checkpoint.id, e.target.value)}
-        className="min-h-[88px] w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-[#ef4e24]/25"
-        placeholder="Add inspection note"
-      />
-      {recentComments.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {recentComments.map((comment) => (
-            <button
-              key={comment}
-              onClick={() => onCommentChange(comment)}
-              className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:bg-white/[0.1] dark:hover:text-white"
-            >
-              {comment}
-            </button>
-          ))}
-        </div>
+      {showCommentEditor && (
+        <>
+          <textarea
+            value={commentText}
+            onChange={(e) => onCommentChange(e.target.value)}
+            onBlur={(e) => void onCommentBlur(locationId, itemId, checkpoint.id, e.target.value)}
+            className="min-h-[88px] w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-[#ef4e24]/25"
+            placeholder="Add inspection note"
+          />
+          {recentComments.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {recentComments.map((comment) => (
+                <button
+                  key={comment}
+                  onClick={() => onCommentChange(comment)}
+                  className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:bg-white/[0.1] dark:hover:text-white"
+                >
+                  {comment}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
