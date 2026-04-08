@@ -54,7 +54,6 @@ type AreaCardProps = {
   deleteMode: boolean;
   isSelected: boolean;
   onToggleSelection: (areaId: string) => void;
-  onLongPressSelect: (areaId: string) => void;
 };
 
 const AreaCard = memo(function AreaCard({
@@ -64,20 +63,11 @@ const AreaCard = memo(function AreaCard({
   deleteMode,
   isSelected,
   onToggleSelection,
-  onLongPressSelect,
 }: AreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function clearLongPress() {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
-    }
-  }
 
   return (
     <div
@@ -91,17 +81,6 @@ const AreaCard = memo(function AreaCard({
           onToggleSelection(area.id);
         }
       }}
-      onPointerDown={() => {
-        if (!deleteMode) {
-          longPressRef.current = setTimeout(() => {
-            onLongPressSelect(area.id);
-            longPressRef.current = null;
-          }, LONG_PRESS_MS);
-        }
-      }}
-      onPointerUp={clearLongPress}
-      onPointerCancel={clearLongPress}
-      onPointerLeave={clearLongPress}
       className={`block rounded-2xl border p-4 transition-colors ${
         isSelected
           ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
@@ -375,13 +354,6 @@ export default function ProjectDetailPage() {
     });
   }, []);
 
-  const handleAreaCardLongPress = useCallback((areaId: string) => {
-    setShowTrash(false);
-    setSelectedAreaIds(new Set([areaId]));
-    setDeleteMode(true);
-    setActionSheet(null);
-  }, []);
-
   async function handleDeleteSelectedAreas() {
     if (!project) return;
     if (selectedAreaIds.size === 0) {
@@ -529,6 +501,11 @@ export default function ProjectDetailPage() {
 
       if (detail.action === 'sort' && detail.sort) {
         handleSortChange(detail.sort);
+        return;
+      }
+
+      if (detail.action === 'sync-now') {
+        void handleSync();
         return;
       }
 
@@ -759,18 +736,17 @@ export default function ProjectDetailPage() {
               const metric = areaMetrics.get(area.id);
               const isSelected = selectedAreaIds.has(area.id);
               return (
-                <AreaCard
-                  key={area.id}
-                  projectId={project.id}
-                  area={area}
-                  metric={metric}
-                  deleteMode={deleteMode}
-                  isSelected={isSelected}
-                  onToggleSelection={toggleAreaSelection}
-                  onLongPressSelect={handleAreaCardLongPress}
-                />
-              );
-            })}
+                  <AreaCard
+                    key={area.id}
+                    projectId={project.id}
+                    area={area}
+                    metric={metric}
+                    deleteMode={deleteMode}
+                    isSelected={isSelected}
+                    onToggleSelection={toggleAreaSelection}
+                  />
+                );
+              })}
             <div className="mt-auto pt-2" />
           </div>
         )}

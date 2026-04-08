@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type TouchEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type TouchEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Project,
@@ -36,17 +36,23 @@ import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AreaNotesCard from '@/components/inspection/AreaNotesCard';
 import CustomItemComposer from '@/components/inspection/CustomItemComposer';
 import InspectionLocationCard from '@/components/inspection/InspectionLocationCard';
+import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  MoreVertical,
+  RefreshCw,
+  Trash2,
   Pencil,
 } from 'lucide-react';
 
 const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
+const SORT_STORAGE_KEY = 'punchlist-area-detail-sort';
 const CUSTOM_ITEMS_LOCATION_NAME = 'Custom Items';
 const OTHER_LOCATION_NAME = 'Other';
 const MAX_RECENT_COMMENTS = 5;
+type SortOption = 'issues' | 'alphabetical' | 'progress';
 
 type StatusMetrics = {
   total: number;
@@ -88,6 +94,11 @@ export default function AreaDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [recentComments, setRecentComments] = useState<string[]>([]);
   const [showEditArea, setShowEditArea] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [sortOption, setSortOption] = useState<SortOption>('issues');
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
@@ -125,9 +136,10 @@ export default function AreaDetailPage() {
   const listRef = useRef<HTMLElement | null>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement | null>());
   const locationRefs = useRef(new Map<string, HTMLDivElement | null>());
+  const headerMenuRef = useRef<HTMLDivElement | null>(null);
   const { accessToken, ensureAccessToken } = useMicrosoftAuth();
   const { setStatus: setSyncStatus } = useSyncStatus();
-  const { inspectionShowOnlyIssues, setInspectionShowOnlyIssues, markSyncedNow } = useAppSettings();
+  const { inspectionShowOnlyIssues, setInspectionShowOnlyIssues, quickSort, markSyncedNow } = useAppSettings();
 
   useEffect(() => {
     if (!id || !areaId) {
@@ -152,8 +164,18 @@ export default function AreaDetailPage() {
         console.error('Failed to parse recent area types:', error);
       }
     }
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
+    if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
+      setSortOption(savedSort);
+    } else if (savedSort === 'name') {
+      setSortOption('alphabetical');
+    } else if (savedSort === 'recent') {
+      setSortOption('issues');
+    } else {
+      setSortOption(quickSort);
+    }
     loadData();
-  }, [id, areaId]);
+  }, [id, areaId, quickSort]);
 
   useEffect(() => {
     return () => {
@@ -169,6 +191,21 @@ export default function AreaDetailPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!headerMenuRef.current?.contains(event.target as Node)) {
+        setShowHeaderMenu(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [showHeaderMenu]);
 
   useEffect(() => {
     if (!accessToken || !hasPendingSyncState()) return;
@@ -342,6 +379,48 @@ export default function AreaDetailPage() {
     [inspectionShowOnlyIssues, standardLocations, areaDerived]
   );
 
+  const sortedStandardLocations = useMemo(() => {
+    return [...filteredStandardLocations].sort((a, b) => {
+      if (sortOption === 'alphabetical') {
+        return a.name.localeCompare(b.name);
+      }
+
+      if (sortOption === 'issues') {
+        const issuesA = areaDerived?.locationMetrics.get(a.id)?.stats.issues ?? 0;
+        const issuesB = areaDerived?.locationMetrics.get(b.id)?.stats.issues ?? 0;
+        if (issuesB !== issuesA) return issuesB - issuesA;
+        return a.name.localeCompare(b.name);
+      }
+
+      const progressA = getReviewMetrics(
+        areaDerived?.locationMetrics.get(a.id)?.stats.total ?? 0,
+        areaDerived?.locationMetrics.get(a.id)?.stats.ok ?? 0,
+        areaDerived?.locationMetrics.get(a.id)?.stats.issues ?? 0
+      ).reviewedPercent;
+      const progressB = getReviewMetrics(
+        areaDerived?.locationMetrics.get(b.id)?.stats.total ?? 0,
+        areaDerived?.locationMetrics.get(b.id)?.stats.ok ?? 0,
+        areaDerived?.locationMetrics.get(b.id)?.stats.issues ?? 0
+      ).reviewedPercent;
+      if (progressB !== progressA) return progressB - progressA;
+      return a.name.localeCompare(b.name);
+    });
+  }, [areaDerived, filteredStandardLocations, sortOption]);
+
+  function handleSortChange(option: SortOption) {
+    setSortOption(option);
+    localStorage.setItem(SORT_STORAGE_KEY, option);
+  }
+
+  async function handleEditProject(updates: Partial<Project>) {
+    if (!editingProject) return;
+    Object.assign(editingProject, updates);
+    await saveProject(editingProject);
+    scheduleSync(editingProject.id);
+    setProject({ ...editingProject, areas: [...editingProject.areas] });
+    setEditingProject(null);
+  }
+
   function findCheckpoint(locationId: string, itemId: string, checkpointId: string): Checkpoint | null {
     if (!area) return null;
     const location = area.locations.find((l) => l.id === locationId);
@@ -498,7 +577,7 @@ export default function AreaDetailPage() {
     }
 
     const trimmedCheckpointName = customItemCheckpointName.trim();
-    if (!trimmedCheckpointName) return;
+    const finalCheckpointName = trimmedCheckpointName || trimmedName;
 
     let targetLocation = customItemTargetLocationId
       ? targetArea.locations.find((location) => location.id === customItemTargetLocationId) ?? null
@@ -517,7 +596,7 @@ export default function AreaDetailPage() {
     }
 
     const item = createItem(targetLocation.id, trimmedName, targetLocation.items.length, { isCustom: true });
-    const checkpoint = createCheckpoint(item.id, trimmedCheckpointName, 0, { isCustom: true });
+    const checkpoint = createCheckpoint(item.id, finalCheckpointName, 0, { isCustom: true });
     checkpoint.issueState = 'open';
     checkpoint.status = 'needsReview';
     checkpoint.fixStatus = 'pending';
@@ -554,7 +633,9 @@ export default function AreaDetailPage() {
     const targetArea = project.areas.find((entry) => entry.id === area.id);
     if (!targetArea) return;
 
-    const location = createLocation(targetArea.id, customSubareaName.trim(), targetArea.locations.length);
+    const location = createLocation(targetArea.id, customSubareaName.trim(), targetArea.locations.length, {
+      isCustom: true,
+    });
     targetArea.locations.push(location);
     targetArea.locations.forEach((entry, index) => {
       entry.sortOrder = index;
@@ -623,6 +704,9 @@ export default function AreaDetailPage() {
       targetItem.checkpoints.length,
       { isCustom: true }
     );
+    checkpoint.issueState = 'open';
+    checkpoint.status = 'needsReview';
+    checkpoint.fixStatus = 'pending';
     targetItem.checkpoints.push(checkpoint);
     targetItem.checkpoints.forEach((entry, index) => {
       entry.sortOrder = index;
@@ -743,6 +827,98 @@ export default function AreaDetailPage() {
     syncAreaCompletion(targetArea);
     await saveProject(project);
     scheduleSync(project.id);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleEditCustomLocation(locationId: string, currentName: string) {
+    if (!project || !area) return;
+
+    const nextName = window.prompt('Edit item', currentName)?.trim();
+    if (!nextName || nextName === currentName) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    const targetLocation = targetArea?.locations.find((location) => location.id === locationId);
+    if (!targetArea || !targetLocation) return;
+
+    targetLocation.name = nextName;
+    targetLocation.updatedAt = new Date();
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  async function handleDeleteCustomLocation(locationId: string) {
+    if (!project || !area) return;
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+
+    targetArea.locations = targetArea.locations.filter((location) => location.id !== locationId);
+    targetArea.locations.forEach((location, index) => {
+      location.sortOrder = index;
+    });
+
+    setExpandedLocations((prev) => {
+      const next = new Set(prev);
+      next.delete(locationId);
+      return next;
+    });
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      next.delete(locationId);
+      return next;
+    });
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+    setProject({ ...project, areas: [...project.areas] });
+    setArea({ ...targetArea });
+  }
+
+  const toggleLocationSelection = useCallback((locationId: string) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(locationId)) next.delete(locationId);
+      else next.add(locationId);
+      return next;
+    });
+  }, []);
+
+  function cancelSelectionMode() {
+    setDeleteMode(false);
+    setSelectedLocationIds(new Set());
+  }
+
+  async function handleDeleteSelectedLocations() {
+    if (!project || !area) return;
+    if (selectedLocationIds.size === 0) {
+      cancelSelectionMode();
+      return;
+    }
+
+    const targetArea = project.areas.find((entry) => entry.id === area.id);
+    if (!targetArea) return;
+
+    targetArea.locations = targetArea.locations.filter((location) => !selectedLocationIds.has(location.id));
+    targetArea.locations.forEach((location, index) => {
+      location.sortOrder = index;
+    });
+
+    syncAreaCompletion(targetArea);
+    await saveProject(project);
+    scheduleSync(project.id);
+
+    setExpandedLocations(new Set());
+    setExpandedItems(new Set());
+    setExpandedCheckpoint(null);
+    setCommentText('');
+    setDeleteMode(false);
+    setSelectedLocationIds(new Set());
     setProject({ ...project, areas: [...project.areas] });
     setArea({ ...targetArea });
   }
@@ -1111,10 +1287,10 @@ export default function AreaDetailPage() {
   }
 
   const supportsInlineLocationCustomItems = isApartmentArea(area) || area.areaTypeKey === 'stairs';
-  const supportsCustomSubareas = isApartmentArea(area);
-  const supportsGlobalCustomItems = !supportsInlineLocationCustomItems;
+  const supportsCustomSubareas = isApartmentArea(area) && !deleteMode;
+  const supportsGlobalCustomItems = !supportsInlineLocationCustomItems && !deleteMode;
   const flattenSingleStairsLocation =
-    area.areaTypeKey === 'stairs' && filteredStandardLocations.length === 1;
+    !deleteMode && area.areaTypeKey === 'stairs' && sortedStandardLocations.length === 1;
 
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
@@ -1144,15 +1320,90 @@ export default function AreaDetailPage() {
             >
               <span className="text-[0.92rem] font-medium">Issues</span>
             </button>
-            <button
-              onClick={() => setShowEditArea(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
-              aria-label="Edit area"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
+            <div ref={headerMenuRef} className="relative">
+              <button
+                onClick={() => setShowHeaderMenu((current) => !current)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
+                aria-label="Area actions"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {showHeaderMenu && (
+                <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[14rem] rounded-[1.5rem] p-3">
+                  <div className="rounded-[1.2rem] bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+                    <div className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-gray-500 dark:text-gray-400">
+                      Sort
+                    </div>
+                    <div className="space-y-2">
+                      {([
+                        ['issues', 'Issues first'],
+                        ['alphabetical', 'Alphabetical'],
+                        ['progress', 'Progress'],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          onClick={() => {
+                            handleSortChange(value);
+                            setShowHeaderMenu(false);
+                          }}
+                          className={`flex h-9 w-full items-center rounded-full px-3 text-sm transition ${
+                            sortOption === value
+                              ? 'accent-bg text-white'
+                              : 'bg-black/[0.05] text-gray-600 hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        void handleSync();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Sync now
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        setEditingProject(project);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit project
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        {deleteMode && (
+          <div className="header-row mx-auto w-full max-w-6xl sm:px-5">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
+              <button
+                onClick={cancelSelectionMode}
+                className="flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium text-gray-600 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.06]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleDeleteSelectedLocations()}
+                disabled={selectedLocationIds.size === 0}
+                className="accent-text accent-tint hover:accent-tint-strong flex h-10 w-10 items-center justify-center rounded-full transition disabled:opacity-40"
+                aria-label="Delete selected sub-areas"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {syncError && (
@@ -1174,7 +1425,6 @@ export default function AreaDetailPage() {
             <CustomItemComposer
               open={showCustomItemComposer}
               value={customItemName}
-              secondaryValue={!editingCustomItem ? customItemCheckpointName : undefined}
               submitLabel={editingCustomItem ? 'Save' : 'Add'}
               onOpen={() => setShowCustomItemComposer(true)}
               onClose={() => {
@@ -1185,11 +1435,10 @@ export default function AreaDetailPage() {
                 setCustomItemTargetLocationId(null);
               }}
               onChange={setCustomItemName}
-              onSecondaryChange={!editingCustomItem ? setCustomItemCheckpointName : undefined}
               onSubmit={() => void handleSubmitCustomItem()}
             />
           )}
-          {filteredStandardLocations.map((location) => (
+          {sortedStandardLocations.map((location) => (
             <div
               key={location.id}
               ref={(node) => {
@@ -1200,13 +1449,18 @@ export default function AreaDetailPage() {
                 location={location}
                 locationMetric={areaDerived?.locationMetrics.get(location.id)}
                 itemMetrics={areaDerived?.itemMetrics ?? new Map()}
+                deleteMode={deleteMode}
+                isSelected={selectedLocationIds.has(location.id)}
+                onToggleSelection={toggleLocationSelection}
                 showOnlyIssues={inspectionShowOnlyIssues}
                 expandedItems={expandedItems}
-                isExpanded={flattenSingleStairsLocation || expandedLocations.has(location.id)}
-                alwaysExpanded={flattenSingleStairsLocation}
-                hideHeader={flattenSingleStairsLocation}
+                isExpanded={!deleteMode && (flattenSingleStairsLocation || expandedLocations.has(location.id))}
+                alwaysExpanded={!deleteMode && flattenSingleStairsLocation}
+                hideHeader={!deleteMode && flattenSingleStairsLocation}
                 onToggleLocation={toggleLocation}
                 onToggleItem={toggleItem}
+                onEditCustomLocation={handleEditCustomLocation}
+                onDeleteCustomLocation={handleDeleteCustomLocation}
                 onToggleCheckpoint={({ locationId, itemId, checkpointId, comments }) =>
                   void toggleCheckpoint(locationId, itemId, checkpointId, comments)
                 }
@@ -1323,7 +1577,6 @@ export default function AreaDetailPage() {
                     <CustomItemComposer
                       open={showCustomItemComposer && customItemTargetLocationId === location.id}
                       value={customItemName}
-                      secondaryValue={!editingCustomItem ? customItemCheckpointName : undefined}
                       submitLabel={editingCustomItem ? 'Save' : 'Add'}
                       onOpen={() => {
                         setCustomItemTargetLocationId(location.id);
@@ -1340,7 +1593,6 @@ export default function AreaDetailPage() {
                         setEditingCustomItem(null);
                       }}
                       onChange={setCustomItemName}
-                      onSecondaryChange={!editingCustomItem ? setCustomItemCheckpointName : undefined}
                       onSubmit={() => void handleSubmitCustomItem()}
                     />
                   ) : null
@@ -1364,7 +1616,7 @@ export default function AreaDetailPage() {
               onSubmit={() => void handleSubmitCustomSubarea()}
             />
           ) : null}
-          {filteredCustomItemsLocation && (
+          {!deleteMode && filteredCustomItemsLocation && (
             <InspectionLocationCard
               key={filteredCustomItemsLocation.id}
               location={filteredCustomItemsLocation}
@@ -1464,17 +1716,19 @@ export default function AreaDetailPage() {
               onDeleteCustomCheckpoint={handleDeleteCustomCheckpoint}
             />
           )}
-          <AreaNotesCard
-            value={generalNotes}
-            onChange={handleGeneralNotesChange}
-            onBlur={(value) => {
-              if (notesTimerRef.current) {
-                clearTimeout(notesTimerRef.current);
-              }
-              notesDraftRef.current = value;
-              void persistGeneralNotes(value);
-            }}
-          />
+          {!deleteMode && (
+            <AreaNotesCard
+              value={generalNotes}
+              onChange={handleGeneralNotesChange}
+              onBlur={(value) => {
+                if (notesTimerRef.current) {
+                  clearTimeout(notesTimerRef.current);
+                }
+                notesDraftRef.current = value;
+                void persistGeneralNotes(value);
+              }}
+            />
+          )}
           <div className="mt-auto pt-1" />
         </div>
       </main>
@@ -1492,6 +1746,14 @@ export default function AreaDetailPage() {
         onSubmit={() => void saveAreaChanges()}
         submitLabel="Save"
       />
+
+      {editingProject && (
+        <ProjectEditModal
+          project={editingProject}
+          onSave={(updates) => void handleEditProject(updates)}
+          onClose={() => setEditingProject(null)}
+        />
+      )}
     </div>
   );
 }

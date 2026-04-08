@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Minus, Paperclip, Plus, X } from 'lucide-react';
+import { Camera, Paperclip, X } from 'lucide-react';
 import { PhotoAttachment, FileAttachment } from '@/types';
 
 interface PhotoCaptureProps {
@@ -30,7 +30,6 @@ export default function PhotoCapture({
   openCameraSignal,
 }: PhotoCaptureProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [viewerZoom, setViewerZoom] = useState(1);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedBatch, setCapturedBatch] = useState<Array<{ imageData: string; thumbnail?: string }>>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -223,7 +222,6 @@ export default function PhotoCapture({
               }`}
               onClick={() => {
                 setSelectedPhoto(photo.imageData);
-                setViewerZoom(1);
               }}
             >
               <img
@@ -328,7 +326,6 @@ export default function PhotoCapture({
                     onClick={() => {
                       const latest = capturedBatch[capturedBatch.length - 1];
                       setSelectedPhoto(latest.imageData);
-                      setViewerZoom(1);
                     }}
                     className="h-14 w-14 overflow-hidden rounded-[1rem] bg-white/10 backdrop-blur-sm"
                     aria-label="Open last captured photo"
@@ -346,10 +343,10 @@ export default function PhotoCapture({
                 <button
                   onClick={captureFromVideo}
                   disabled={savingPhotos}
-                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/90 bg-white/18 shadow-[0_0_0_1px_rgba(255,255,255,0.28)] backdrop-blur-sm transition active:scale-95"
+                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.34)] backdrop-blur-sm transition active:scale-95"
                   aria-label="Capture photo"
                 >
-                  <span className="h-14 w-14 rounded-full bg-[#ef4e24]" />
+                  <span className="h-14 w-14 rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]" />
                 </button>
               </div>
 
@@ -381,26 +378,6 @@ export default function PhotoCapture({
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                setViewerZoom((zoom) => Math.max(1, zoom - 0.5));
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
-              aria-label="Zoom out"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                setViewerZoom((zoom) => Math.min(3, zoom + 0.5));
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
-              aria-label="Zoom in"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
                 setSelectedPhoto(null);
               }}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white"
@@ -414,11 +391,7 @@ export default function PhotoCapture({
               <img
                 src={selectedPhoto}
                 alt="Full size"
-                className="max-w-none rounded-2xl object-contain"
-                style={{
-                  width: viewerZoom === 1 ? 'auto' : `${viewerZoom * 80}vw`,
-                  maxHeight: viewerZoom === 1 ? '88vh' : 'none',
-                }}
+                className="max-h-[88vh] max-w-full rounded-2xl object-contain"
               />
             </div>
           </div>

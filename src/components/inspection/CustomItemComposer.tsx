@@ -34,7 +34,7 @@ export default function CustomItemComposer({
 }: CustomItemComposerProps) {
   const composerRef = useRef<HTMLDivElement | null>(null);
   const requiresSecondaryValue = typeof secondaryValue === 'string' && typeof onSecondaryChange === 'function';
-  const canSubmit = value.trim() && (!requiresSecondaryValue || secondaryValue.trim());
+  const canSubmit = value.trim().length > 0;
 
   useEffect(() => {
     if (!open) return;

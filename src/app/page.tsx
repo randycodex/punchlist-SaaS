@@ -253,7 +253,6 @@ type HomeAreaCardProps = {
   deleteMode: boolean;
   isSelected: boolean;
   onToggleSelection: (areaId: string) => void;
-  onLongPressSelect: (areaId: string) => void;
 };
 
 const HomeAreaCard = memo(function HomeAreaCard({
@@ -263,21 +262,11 @@ const HomeAreaCard = memo(function HomeAreaCard({
   deleteMode,
   isSelected,
   onToggleSelection,
-  onLongPressSelect,
 }: HomeAreaCardProps) {
   const areaStats = metric?.stats ?? { total: 0, ok: 0, issues: 0 };
   const progress = metric?.progress ?? 0;
   const commentCount = metric?.commentCount ?? 0;
   const photoCount = metric?.photoCount ?? 0;
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTriggeredRef = useRef(false);
-
-  function clearLongPress() {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
-    }
-  }
 
   return (
     <div
@@ -287,26 +276,10 @@ const HomeAreaCard = memo(function HomeAreaCard({
         }
       }}
       onClick={() => {
-        if (longPressTriggeredRef.current) {
-          longPressTriggeredRef.current = false;
-          return;
-        }
         if (deleteMode) {
           onToggleSelection(area.id);
         }
       }}
-      onPointerDown={() => {
-        if (!deleteMode) {
-          longPressRef.current = setTimeout(() => {
-            longPressTriggeredRef.current = true;
-            onLongPressSelect(area.id);
-            longPressRef.current = null;
-          }, LONG_PRESS_MS);
-        }
-      }}
-      onPointerUp={clearLongPress}
-      onPointerCancel={clearLongPress}
-      onPointerLeave={clearLongPress}
       className={`card-surface-subtle select-none touch-manipulation [-webkit-touch-callout:none] rounded-[1.5rem] p-4 transition-colors ${
         isSelected
           ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
@@ -816,14 +789,6 @@ export default function ProjectsPage() {
     setSelectedProjectIds(new Set([projectId]));
   }, []);
 
-  const handleAreaCardLongPress = useCallback((areaId: string) => {
-    setShowTrash(false);
-    setDeleteMode(true);
-    setExportMode(false);
-    setSelectedProjectIds(new Set());
-    setSelectedAreaIds(new Set([areaId]));
-  }, []);
-
   const toggleAreaSelection = useCallback((id: string) => {
     setSelectedAreaIds((prev) => {
       const next = new Set(prev);
@@ -1080,6 +1045,21 @@ export default function ProjectsPage() {
         return;
       }
 
+      if (detail.action === 'toggle-selection' && singleProject) {
+        setShowTrash(false);
+        setExportMode(false);
+        setSelectedProjectIds(new Set());
+        setActionSheet(null);
+        if (deleteMode) {
+          setDeleteMode(false);
+          setSelectedAreaIds(new Set());
+        } else {
+          setDeleteMode(true);
+          setSelectedAreaIds(new Set());
+        }
+        return;
+      }
+
       if (detail.action === 'export-project' && singleProject) {
         setShowTrash(false);
         setDeleteMode(false);
@@ -1100,7 +1080,7 @@ export default function ProjectsPage() {
     return () => {
       window.removeEventListener('punchlist-home-menu-action', handleHomeMenuAction as EventListener);
     };
-  }, [isSignedIn, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort]);
+  }, [deleteMode, isSignedIn, signIn, signOut, singleProject, sortOption, showTrash, setQuickSort]);
 
   useEffect(() => {
     window.dispatchEvent(
@@ -1112,10 +1092,11 @@ export default function ProjectsPage() {
           canAddArea: !!singleProject,
           isSingleProject: !!singleProject,
           singleProjectName: singleProject?.projectName ?? '',
+          selectionMode: deleteMode,
         },
       })
     );
-  }, [sortOption, showTrash, singleProject]);
+  }, [deleteMode, sortOption, showTrash, singleProject]);
 
   function toggleTrashView() {
     setShowTrash((current) => {
@@ -1397,7 +1378,6 @@ export default function ProjectsPage() {
                     deleteMode={deleteMode}
                     isSelected={isSelected}
                     onToggleSelection={toggleAreaSelection}
-                    onLongPressSelect={handleAreaCardLongPress}
                   />
                 );
               })

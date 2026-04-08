@@ -273,12 +273,20 @@ export function createArea(
   };
 }
 
-export function createLocation(areaId: string, name: string, sortOrder: number): Location {
+export function createLocation(
+  areaId: string,
+  name: string,
+  sortOrder: number,
+  options?: {
+    isCustom?: boolean;
+  }
+): Location {
   const now = new Date();
   return {
     id: uuidv4(),
     areaId,
     name,
+    isCustom: options?.isCustom,
     sortOrder,
     items: [],
     createdAt: now,

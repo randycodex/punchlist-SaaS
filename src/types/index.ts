@@ -92,6 +92,7 @@ export interface Location {
   id: string;
   areaId: string;
   name: string;
+  isCustom?: boolean;
   sortOrder: number;
   items: Item[];
   createdAt: Date;

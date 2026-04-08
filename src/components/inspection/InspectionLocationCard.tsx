@@ -31,6 +31,9 @@ type InspectionLocationCardProps = {
   location: Area['locations'][number];
   locationMetric?: Metrics;
   itemMetrics: Map<string, Metrics>;
+  deleteMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (locationId: string) => void;
   showOnlyIssues?: boolean;
   expandedItems: Set<string>;
   isExpanded: boolean;
@@ -38,6 +41,8 @@ type InspectionLocationCardProps = {
   hideHeader?: boolean;
   onToggleLocation: (locationId: string) => void | Promise<void>;
   onToggleItem: (itemId: string) => void | Promise<void>;
+  onEditCustomLocation?: (locationId: string, currentName: string) => void | Promise<void>;
+  onDeleteCustomLocation?: (locationId: string) => void | Promise<void>;
   onToggleCheckpoint: (payload: {
     locationId: string;
     itemId: string;
@@ -87,6 +92,9 @@ export default function InspectionLocationCard({
   location,
   locationMetric,
   itemMetrics,
+  deleteMode = false,
+  isSelected = false,
+  onToggleSelection,
   showOnlyIssues = false,
   expandedItems,
   isExpanded,
@@ -94,6 +102,8 @@ export default function InspectionLocationCard({
   hideHeader = false,
   onToggleLocation,
   onToggleItem,
+  onEditCustomLocation,
+  onDeleteCustomLocation,
   onToggleCheckpoint,
   onCommentChange,
   onCommentBlur,
@@ -200,15 +210,25 @@ export default function InspectionLocationCard({
   }
 
   return (
-    <div className={hideHeader ? '' : 'card-surface-subtle overflow-hidden rounded-[1.6rem]'}>
+    <div
+      className={
+        hideHeader
+          ? ''
+          : `overflow-hidden rounded-[1.6rem] ${isSelected ? 'bg-gray-200 dark:bg-white/[0.09]' : 'card-surface-subtle'}`
+      }
+    >
       {!hideHeader && (
         <button
           onClick={() => {
-            if (!alwaysExpanded) {
+            if (deleteMode) {
+              onToggleSelection?.(location.id);
+            } else if (!alwaysExpanded) {
               void onToggleLocation(location.id);
             }
           }}
-          className="w-full px-4 py-4 text-left transition hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
+          className={`w-full px-4 py-4 text-left transition ${
+            deleteMode ? '' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.04]'
+          }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -217,9 +237,67 @@ export default function InspectionLocationCard({
               </div>
               <MetadataLine className="mt-1" issues={locationStats.issues} issuesOnly />
             </div>
-            {!alwaysExpanded && (
-              isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />
-            )}
+            <div className="ml-3 flex items-center gap-2">
+              {!deleteMode && location.isCustom ? (
+                <div
+                  ref={openCustomItemMenuId === location.id ? customMenuRef : null}
+                  className="relative"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setOpenCustomItemMenuId((current) => (current === location.id ? null : location.id));
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                    aria-label={`More actions for ${location.name}`}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  {openCustomItemMenuId === location.id && (
+                    <div
+                      className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          setOpenCustomItemMenuId(null);
+                          await onEditCustomLocation?.(location.id, location.name);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit item
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          setOpenCustomItemMenuId(null);
+                          await onDeleteCustomLocation?.(location.id);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete item
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              {!alwaysExpanded && !deleteMode && (
+                isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
           </div>
         </button>
       )}
@@ -361,7 +439,7 @@ export default function InspectionLocationCard({
                 {isEditingCustomItem ? (
                   <div
                     ref={customItemEditRef}
-                    className="w-full rounded-[1.3rem] bg-white/90 px-4 py-3 text-left dark:bg-white/[0.07]"
+                    className="card-surface-subtle w-full rounded-[1.3rem] px-4 py-3 text-left"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
@@ -413,10 +491,8 @@ export default function InspectionLocationCard({
                 ) : (
                   <button
                     onClick={() => void onToggleItem(item.id)}
-                    className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
-                      isItemExpanded
-                        ? 'bg-white/90 dark:bg-white/[0.07]'
-                        : 'bg-gray-50/85 hover:bg-white dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
+                    className={`card-surface-subtle w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
+                      isItemExpanded ? 'bg-[var(--surface)] dark:bg-white/[0.07]' : 'hover:bg-[var(--surface-strong)] dark:hover:bg-white/[0.06]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-4">
