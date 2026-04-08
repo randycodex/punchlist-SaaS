@@ -184,6 +184,7 @@ export default function InspectionLocationCard({
 
   function openCheckpointComments(locationId: string, itemId: string, checkpointId: string, comments: string) {
     setCameraOnlyCheckpointId(null);
+    setCameraRequest(null);
     void onToggleCheckpoint({ locationId, itemId, checkpointId, comments });
   }
 
