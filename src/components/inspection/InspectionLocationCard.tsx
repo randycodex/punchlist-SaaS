@@ -214,7 +214,9 @@ export default function InspectionLocationCard({
       className={
         hideHeader
           ? ''
-          : `overflow-hidden rounded-[1.6rem] ${isSelected ? 'bg-gray-200 dark:bg-white/[0.09]' : 'card-surface-subtle'}`
+          : `${location.isCustom ? 'overflow-visible' : 'overflow-hidden'} rounded-[1.6rem] ${
+              isSelected ? 'bg-gray-200 dark:bg-white/[0.09]' : 'card-surface-subtle'
+            }`
       }
     >
       {!hideHeader && (
@@ -304,13 +306,7 @@ export default function InspectionLocationCard({
 
       {(alwaysExpanded || isExpanded) && (
         <div className={hideHeader ? 'space-y-2.5' : 'space-y-2.5 px-2.5 pb-2.5 pt-2'}>
-          <div
-            className={
-              isCustomItemsList
-                ? 'space-y-2.5 pl-4'
-                : 'space-y-2.5 pl-4'
-            }
-          >
+          <div className="space-y-2.5">
           {visibleItems.map((item) => {
             const itemMetric = itemMetrics.get(item.id);
             const itemStats = itemMetric?.stats ?? { total: 0, ok: 0, issues: 0 };
@@ -322,7 +318,7 @@ export default function InspectionLocationCard({
               const customIssueState = getCheckpointIssueState(customCheckpoint);
               const isEditingCustomItem = editingCustomItemId === item.id;
               return (
-                <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="space-y-2 pl-4">
+                <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="space-y-2">
                   <CheckpointRow
                     checkpoint={customCheckpoint}
                     label={item.name}
@@ -435,7 +431,7 @@ export default function InspectionLocationCard({
             const isItemExpanded = expandedItems.has(item.id);
             const isEditingCustomItem = editingCustomItemId === item.id;
             return (
-              <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="pl-4">
+              <div key={item.id} ref={(node) => registerItemRef(item.id, node)}>
                 {isEditingCustomItem ? (
                   <div
                     ref={customItemEditRef}
@@ -571,7 +567,7 @@ export default function InspectionLocationCard({
                 )}
 
                 {isItemExpanded && (
-                  <div className="space-y-2.5 pl-10 pr-1 pt-2">
+                  <div className="space-y-2.5 pt-2">
                     {item.checkpoints
                       .filter((checkpoint) => !showOnlyIssues || getCheckpointIssueState(checkpoint) !== 'none')
                       .map((checkpoint) => {
@@ -700,7 +696,7 @@ export default function InspectionLocationCard({
               </div>
             );
           })}
-          {addItemControl ? <div className="pl-4">{addItemControl}</div> : null}
+          {addItemControl ? <div>{addItemControl}</div> : null}
           </div>
         </div>
       )}
@@ -741,7 +737,6 @@ function CheckpointRow({
 }) {
   const noteCount = checkpoint.comments.trim() ? 1 : 0;
   const photoCount = checkpoint.photos.length;
-  const hasRecordedContext = noteCount > 0 || photoCount > 0;
 
   return (
     <div
@@ -773,14 +768,10 @@ function CheckpointRow({
               aria-label={`Edit name for ${label ?? checkpoint.name}`}
               autoFocus
             />
-            <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
-            {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
           </div>
         ) : (
           <div className="min-w-0 flex-1 text-left">
             <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
-            <MetadataLine className="mt-1" notes={noteCount} photos={photoCount} />
-            {checkpoint.comments && <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-300">{checkpoint.comments}</p>}
           </div>
         )}
         <div className="flex shrink-0 items-center gap-2">
@@ -811,8 +802,8 @@ function CheckpointRow({
                   onToggleExpand();
                 }}
                 className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
-                  expanded || hasRecordedContext
-                    ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                  noteCount > 0
+                    ? 'accent-bg text-white shadow-sm'
                     : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
                 }`}
                 aria-label={`Open note editor for ${checkpoint.name}`}
@@ -826,7 +817,7 @@ function CheckpointRow({
                 }}
                 className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
                   photoCount > 0
-                    ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
+                    ? 'accent-bg text-white shadow-sm'
                     : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
                 }`}
                 aria-label={`Open camera for ${checkpoint.name}`}

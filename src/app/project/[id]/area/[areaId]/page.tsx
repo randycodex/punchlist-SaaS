@@ -36,23 +36,19 @@ import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AreaNotesCard from '@/components/inspection/AreaNotesCard';
 import CustomItemComposer from '@/components/inspection/CustomItemComposer';
 import InspectionLocationCard from '@/components/inspection/InspectionLocationCard';
-import ProjectEditModal from '@/components/ProjectEditModal';
 import Link from 'next/link';
 import {
   ArrowLeft,
   MoreVertical,
   RefreshCw,
   Trash2,
-  Pencil,
 } from 'lucide-react';
 
 const RECENT_COMMENTS_STORAGE_KEY = 'punchlist-recent-comments';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
-const SORT_STORAGE_KEY = 'punchlist-area-detail-sort';
 const CUSTOM_ITEMS_LOCATION_NAME = 'Custom Items';
 const OTHER_LOCATION_NAME = 'Other';
 const MAX_RECENT_COMMENTS = 5;
-type SortOption = 'issues' | 'alphabetical' | 'progress';
 
 type StatusMetrics = {
   total: number;
@@ -95,10 +91,8 @@ export default function AreaDetailPage() {
   const [recentComments, setRecentComments] = useState<string[]>([]);
   const [showEditArea, setShowEditArea] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const [sortOption, setSortOption] = useState<SortOption>('issues');
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [areaForm, setAreaForm] = useState(getAreaFormValue());
   const [recentAreaTypeKeys, setRecentAreaTypeKeys] = useState<AreaTypeKey[]>([]);
   const [customItemName, setCustomItemName] = useState('');
@@ -163,18 +157,8 @@ export default function AreaDetailPage() {
         console.error('Failed to parse recent area types:', error);
       }
     }
-    const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
-    if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
-      setSortOption(savedSort);
-    } else if (savedSort === 'name') {
-      setSortOption('alphabetical');
-    } else if (savedSort === 'recent') {
-      setSortOption('issues');
-    } else {
-      setSortOption(quickSort);
-    }
     loadData();
-  }, [id, areaId, quickSort]);
+  }, [id, areaId]);
 
   useEffect(() => {
     return () => {
@@ -380,11 +364,11 @@ export default function AreaDetailPage() {
 
   const sortedStandardLocations = useMemo(() => {
     return [...filteredStandardLocations].sort((a, b) => {
-      if (sortOption === 'alphabetical') {
+      if (quickSort === 'alphabetical') {
         return a.name.localeCompare(b.name);
       }
 
-      if (sortOption === 'issues') {
+      if (quickSort === 'issues') {
         const issuesA = areaDerived?.locationMetrics.get(a.id)?.stats.issues ?? 0;
         const issuesB = areaDerived?.locationMetrics.get(b.id)?.stats.issues ?? 0;
         if (issuesB !== issuesA) return issuesB - issuesA;
@@ -404,21 +388,7 @@ export default function AreaDetailPage() {
       if (progressB !== progressA) return progressB - progressA;
       return a.name.localeCompare(b.name);
     });
-  }, [areaDerived, filteredStandardLocations, sortOption]);
-
-  function handleSortChange(option: SortOption) {
-    setSortOption(option);
-    localStorage.setItem(SORT_STORAGE_KEY, option);
-  }
-
-  async function handleEditProject(updates: Partial<Project>) {
-    if (!editingProject) return;
-    Object.assign(editingProject, updates);
-    await saveProject(editingProject);
-    scheduleSync(editingProject.id);
-    setProject({ ...editingProject, areas: [...editingProject.areas] });
-    setEditingProject(null);
-  }
+  }, [areaDerived, filteredStandardLocations, quickSort]);
 
   function findCheckpoint(locationId: string, itemId: string, checkpointId: string): Checkpoint | null {
     if (!area) return null;
@@ -1269,6 +1239,10 @@ export default function AreaDetailPage() {
     return null;
   }
 
+  const areaTitle = isApartmentArea(area)
+    ? [area.unitType?.trim(), area.areaNumber?.trim()].filter(Boolean).join(' - ') || area.name
+    : area.name;
+
   const supportsInlineLocationCustomItems = isApartmentArea(area) || area.areaTypeKey === 'stairs';
   const supportsCustomSubareas = isApartmentArea(area) && !deleteMode;
   const supportsGlobalCustomItems = !supportsInlineLocationCustomItems && !deleteMode;
@@ -1288,7 +1262,7 @@ export default function AreaDetailPage() {
             </Link>
             <div className="min-w-0 flex flex-1 items-baseline gap-2">
               <h1 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
-                {area.name}
+                {areaTitle}
               </h1>
             </div>
             <button
@@ -1313,34 +1287,7 @@ export default function AreaDetailPage() {
               </button>
               {showHeaderMenu && (
                 <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[14rem] rounded-[1.5rem] p-3">
-                  <div className="rounded-[1.2rem] bg-black/[0.03] p-3 dark:bg-white/[0.04]">
-                    <div className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-gray-500 dark:text-gray-400">
-                      Sort
-                    </div>
-                    <div className="space-y-2">
-                      {([
-                        ['issues', 'Issues first'],
-                        ['alphabetical', 'Alphabetical'],
-                        ['progress', 'Progress'],
-                      ] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          onClick={() => {
-                            handleSortChange(value);
-                            setShowHeaderMenu(false);
-                          }}
-                          className={`flex h-9 w-full items-center rounded-full px-3 text-sm transition ${
-                            sortOption === value
-                              ? 'accent-bg text-white'
-                              : 'bg-black/[0.05] text-gray-600 hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-3 space-y-1">
+                  <div className="space-y-1">
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false);
@@ -1354,12 +1301,13 @@ export default function AreaDetailPage() {
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false);
-                        setEditingProject(project);
+                        setAreaForm(getAreaFormValue(area));
+                        setShowEditArea(true);
                       }}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
                     >
-                      <Pencil className="h-4 w-4" />
-                      Edit project
+                      <MoreVertical className="h-4 w-4" />
+                      Edit area
                     </button>
                   </div>
                 </div>
@@ -1726,14 +1674,6 @@ export default function AreaDetailPage() {
         onSubmit={() => void saveAreaChanges()}
         submitLabel="Save"
       />
-
-      {editingProject && (
-        <ProjectEditModal
-          project={editingProject}
-          onSave={(updates) => void handleEditProject(updates)}
-          onClose={() => setEditingProject(null)}
-        />
-      )}
     </div>
   );
 }
