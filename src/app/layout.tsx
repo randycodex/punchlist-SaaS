@@ -37,8 +37,9 @@ export default function RootLayout({
             (function () {
               try {
                 var root = document.documentElement;
-                var storedMode = localStorage.getItem('punchlist:theme-mode') || 'system';
-                var useDark = storedMode === 'dark' || (storedMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                try { localStorage.removeItem('punchlist:theme-mode'); } catch (e) {}
+                var storedMode = 'system';
+                var useDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 root.dataset.themeMode = storedMode;
                 if (useDark) {
                   root.classList.add('dark');
