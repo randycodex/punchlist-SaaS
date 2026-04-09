@@ -13,10 +13,12 @@ import {
   uploadProjectFile,
   listPhotoProjectFolders,
   listProjectPhotoFiles,
+  listProjectExportFiles,
   uploadProjectPhotoFile,
   deleteDriveItem,
   deleteProjectPhotoFolder,
   deleteProjectFolder,
+  moveDriveItemToFolder,
   downloadDeletionLog,
   uploadDeletionLog,
   cleanupLegacyPunchListFolders,
@@ -102,8 +104,12 @@ function projectJsonFilename(project: Pick<Project, 'id' | 'projectName'>) {
   return `${sanitizeNamePart(project.projectName, 'project')}_${project.id}.json`;
 }
 
-function projectFolderName(project: Pick<Project, 'id' | 'projectName'>) {
+function currentProjectFolderName(project: Pick<Project, 'projectName'>) {
   return sanitizeNamePart(project.projectName, 'project');
+}
+
+function projectFolderName(project: Pick<Project, 'projectName' | 'oneDriveFolderName'>) {
+  return sanitizeNamePart(project.oneDriveFolderName, currentProjectFolderName(project));
 }
 
 function isProjectInTrash(project: Pick<Project, 'deletedAt'>) {
@@ -158,13 +164,13 @@ function pickPrimaryRemoteProjectFile<
 
 async function deleteStaleRemoteProjectFiles(
   token: string,
-  project: Pick<Project, 'id' | 'projectName'>,
+  project: Pick<Project, 'id' | 'projectName' | 'oneDriveFolderName'>,
   remoteFiles: RemoteProjectFile[],
   trashed: boolean,
+  targetFolderName: string,
   keepRemoteId?: string
 ) {
   const targetFilename = projectJsonFilename(project);
-  const targetFolderName = projectFolderName(project);
   await runWithConcurrency(
     remoteFiles.filter((file) => {
       if (keepRemoteId && file.id === keepRemoteId) return false;
@@ -214,8 +220,14 @@ function projectPhotoFilename(
   return `${projectName}_${safeAreaName}_${sequence}_${photo.id}.jpg`;
 }
 
-function getLegacyProjectFolderNames(project: Pick<Project, 'id' | 'projectName'>) {
-  return [`${sanitizeNamePart(project.projectName, 'project')}_${project.id}`, project.id];
+function getLegacyProjectFolderNames(project: Pick<Project, 'id' | 'projectName' | 'oneDriveFolderName'>) {
+  const currentFolder = currentProjectFolderName(project);
+  const stableFolder = projectFolderName(project);
+  return [
+    `${currentFolder}_${project.id}`,
+    project.id,
+    ...(currentFolder !== stableFolder ? [currentFolder] : []),
+  ];
 }
 
 function getProjectFolderIdFromName(name: string) {
@@ -224,14 +236,92 @@ function getProjectFolderIdFromName(name: string) {
 }
 
 function isCanonicalRemoteProjectFile(
-  project: Pick<Project, 'id' | 'projectName' | 'deletedAt'>,
-  file: RemoteProjectFile
+  project: Pick<Project, 'id' | 'projectName' | 'oneDriveFolderName' | 'deletedAt'>,
+  file: RemoteProjectFile,
+  targetFolderName = projectFolderName(project)
 ) {
   return (
     file.name === projectJsonFilename(project) &&
-    getProjectFolderNameFromRemoteFile(file) === projectFolderName(project) &&
+    getProjectFolderNameFromRemoteFile(file) === targetFolderName &&
     isRemoteProjectFileInTrash(file) === isProjectInTrash(project)
   );
+}
+
+function resolveRemoteProjectFolderName(
+  project: Pick<Project, 'projectName' | 'oneDriveFolderName'>,
+  remoteFiles: RemoteProjectFile[]
+) {
+  const currentFolder = currentProjectFolderName(project);
+  if (remoteFiles.some((file) => getProjectFolderNameFromRemoteFile(file) === currentFolder)) {
+    return currentFolder;
+  }
+  const remote = pickPrimaryRemoteProjectFile(remoteFiles);
+  return (remote ? getProjectFolderNameFromRemoteFile(remote) : null) ?? projectFolderName(project);
+}
+
+function withProjectFolderName<T extends Project>(project: T, folderName?: string | null): T {
+  if (!folderName) return project;
+  if (project.oneDriveFolderName === folderName) return project;
+  return {
+    ...project,
+    oneDriveFolderName: folderName,
+  };
+}
+
+function uniqueFolderNames(names: Array<string | null | undefined>) {
+  return [...new Set(names.filter((name): name is string => Boolean(name)))];
+}
+
+function getProjectExportsFolderPath(projectFolderName: string, trashed: boolean) {
+  return `PunchList${trashed ? '/Trash Bin' : ''}/${projectFolderName}/exports`;
+}
+
+function buildMigratedExportName(filename: string, sourceFolderName: string) {
+  const dotIndex = filename.lastIndexOf('.');
+  if (dotIndex <= 0) {
+    return `${filename}_${sourceFolderName}`;
+  }
+  return `${filename.slice(0, dotIndex)}_${sourceFolderName}${filename.slice(dotIndex)}`;
+}
+
+async function migrateLegacyProjectExports(
+  token: string,
+  remoteEntries: RemoteProjectFile[],
+  targetFolderName: string,
+  trashed: boolean
+) {
+  const sourceFolderNames = uniqueFolderNames(
+    remoteEntries.map((entry) => getProjectFolderNameFromRemoteFile(entry))
+  ).filter((folderName) => folderName !== targetFolderName);
+
+  if (sourceFolderNames.length === 0) {
+    return;
+  }
+
+  const destinationFolderPath = getProjectExportsFolderPath(targetFolderName, trashed);
+
+  await runWithConcurrency(sourceFolderNames, 2, async (sourceFolderName) => {
+    const exportFiles = await listProjectExportFiles(token, sourceFolderName, trashed);
+    await runWithConcurrency(
+      exportFiles.filter((file) => file.id),
+      2,
+      async (file) => {
+        try {
+          await moveDriveItemToFolder(token, file.id, destinationFolderPath);
+        } catch (error) {
+          if (!(error instanceof Error) || !error.message.toLowerCase().includes('already exists')) {
+            throw error;
+          }
+          await moveDriveItemToFolder(
+            token,
+            file.id,
+            destinationFolderPath,
+            buildMigratedExportName(file.name, sourceFolderName)
+          );
+        }
+      }
+    );
+  });
 }
 
 function getPhotoIdFromFilename(name: string) {
@@ -285,34 +375,37 @@ function normalizeProjectPhotos(project: Project): Project {
   };
 }
 
-async function hydrateProjectPhotosFromOneDrive(token: string, project: Project): Promise<Project> {
-  const normalizedProject = normalizeProjectPhotos(project);
+async function hydrateProjectPhotosFromOneDrive(
+  token: string,
+  project: Project,
+  preferredFolderName?: string
+): Promise<Project> {
+  const normalizedProject = withProjectFolderName(
+    normalizeProjectPhotos(project),
+    preferredFolderName
+  );
   const remoteFolders = await listPhotoProjectFolders(token);
-  const preferredFolderName = projectFolderName(normalizedProject);
-  const folder =
-    remoteFolders.find(
-      (entry) =>
-        entry.name === preferredFolderName &&
-        isRemoteProjectFolderInTrash(entry) === isProjectInTrash(normalizedProject)
-    ) ??
-    remoteFolders.find((entry) => {
-      const folderProjectId = getProjectFolderIdFromName(entry.name);
-      return (
-        folderProjectId === normalizedProject.id ||
-        getLegacyProjectFolderNames(normalizedProject).includes(entry.name)
-      );
-    });
+  const candidateFolderNames = [
+    projectFolderName(normalizedProject),
+    ...getLegacyProjectFolderNames(normalizedProject),
+  ];
+  const candidateFolders = remoteFolders.filter((entry) => {
+    if (isRemoteProjectFolderInTrash(entry) !== isProjectInTrash(normalizedProject)) {
+      return false;
+    }
+    return candidateFolderNames.includes(entry.name);
+  });
 
-  if (!folder) {
+  if (candidateFolders.length === 0) {
     return normalizedProject;
   }
 
-  const remotePhotos = await listProjectPhotoFiles(
-    token,
-    folder.name,
-    isProjectInTrash(normalizedProject),
-    true
+  const remotePhotoSets = await Promise.all(
+    candidateFolders.map((folder) =>
+      listProjectPhotoFiles(token, folder.name, isProjectInTrash(normalizedProject), true)
+    )
   );
+  const remotePhotos = remotePhotoSets.flat();
   const remotePhotoById = new Map(
     remotePhotos
       .map((photo) => {
@@ -355,24 +448,27 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return response.blob();
 }
 
-async function syncProjectPhotosToOneDrive(token: string, project: Project): Promise<void> {
+async function syncProjectPhotosToOneDrive(
+  token: string,
+  project: Project,
+  targetFolderName = projectFolderName(project)
+): Promise<void> {
   const localPhotos = getProjectPhotos(project);
-  const folderName = projectFolderName(project);
   const trashed = isProjectInTrash(project);
   const expectedNames = new Set(
     localPhotos.map((photo, index) => projectPhotoFilename(project, photo, index))
   );
   const remoteFolders = await listPhotoProjectFolders(token);
   const matchingFolder = remoteFolders.find(
-    (folder) => folder.name === folderName && isRemoteProjectFolderInTrash(folder) === trashed
+    (folder) => folder.name === targetFolderName && isRemoteProjectFolderInTrash(folder) === trashed
   );
   const legacyFolders = remoteFolders.filter((folder) => {
-    if (folder.name === folderName && isRemoteProjectFolderInTrash(folder) === trashed) return false;
+    if (folder.name === targetFolderName && isRemoteProjectFolderInTrash(folder) === trashed) return false;
     const folderProjectId = getProjectFolderIdFromName(folder.name);
     return (
       folderProjectId === project.id ||
       getLegacyProjectFolderNames(project).includes(folder.name) ||
-      folder.name === folderName
+      folder.name === currentProjectFolderName(project)
     );
   });
   const remotePhotos = matchingFolder
@@ -386,7 +482,7 @@ async function syncProjectPhotosToOneDrive(token: string, project: Project): Pro
       return;
     }
     const blob = await dataUrlToBlob(photo.imageData);
-    await uploadProjectPhotoFile(token, folderName, filename, blob, trashed);
+    await uploadProjectPhotoFile(token, targetFolderName, filename, blob, trashed);
   });
 
   await runWithConcurrency(
@@ -668,6 +764,7 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
     if (!remote) return;
     if (!remote.name.endsWith('.json') || !remote.id) return;
+    const remoteFolderName = getProjectFolderNameFromRemoteFile(remote);
     const syncState = resolvedSyncStates[projectId];
     if (syncState && isAfterOrEqual(syncState.updatedAt, remote.lastModifiedDateTime)) {
       return;
@@ -677,7 +774,12 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     if (!remoteProject) {
       return;
     }
-    const hydratedRemoteProject = await hydrateProjectPhotosFromOneDrive(token, remoteProject);
+    const remoteProjectWithFolder = withProjectFolderName(remoteProject, remoteFolderName);
+    const hydratedRemoteProject = await hydrateProjectPhotosFromOneDrive(
+      token,
+      remoteProjectWithFolder,
+      remoteFolderName ?? undefined
+    );
     const remoteUpdatedAt = getProjectUpdatedAt(hydratedRemoteProject);
 
     if (!localProject) {
@@ -723,31 +825,42 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
   await runWithConcurrency(pushQueue, 3, async (project) => {
     const filename = projectJsonFilename(project);
     const remoteEntries = remoteFilesById.get(project.id) ?? [];
+    const targetFolderName = resolveRemoteProjectFolderName(project, remoteEntries);
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
-    const canonicalRemote = remoteEntries.find((entry) => isCanonicalRemoteProjectFile(project, entry));
+    const canonicalRemote = remoteEntries.find((entry) =>
+      isCanonicalRemoteProjectFile(project, entry, targetFolderName)
+    );
     const syncState = resolvedSyncStates[project.id];
     if (syncState && timestampMs(syncState.updatedAt) >= project.updatedAt.getTime()) {
       return;
     }
 
-    const fullProject = await getProject(project.id);
-    if (!fullProject) {
+    const projectForUpload = await getProject(project.id);
+    if (!projectForUpload) {
       return;
     }
+    const fullProject = withProjectFolderName(projectForUpload, targetFolderName);
+    await saveProjectPreserveTimestamps(fullProject);
 
     const localUpdatedAt = getProjectUpdatedAt(project);
     const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
     const needsProjectFileMigration =
       remoteEntries.length > 0 && (!canonicalRemote || remoteEntries.some((entry) => entry.id !== canonicalRemote.id));
     if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS && !needsProjectFileMigration) {
-      await syncProjectPhotosToOneDrive(token, fullProject);
+      await migrateLegacyProjectExports(
+        token,
+        remoteEntries,
+        targetFolderName,
+        isProjectInTrash(fullProject)
+      );
+      await syncProjectPhotosToOneDrive(token, fullProject, targetFolderName);
       return;
     }
 
     try {
       const uploadedRemote = await uploadProjectFile(
         token,
-        projectFolderName(fullProject),
+        targetFolderName,
         filename,
         JSON.stringify(fullProject),
         isProjectInTrash(fullProject),
@@ -758,9 +871,16 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
         fullProject,
         remoteEntries,
         isProjectInTrash(fullProject),
+        targetFolderName,
         uploadedRemote.id
       );
-      await syncProjectPhotosToOneDrive(token, fullProject);
+      await migrateLegacyProjectExports(
+        token,
+        remoteEntries,
+        targetFolderName,
+        isProjectInTrash(fullProject)
+      );
+      await syncProjectPhotosToOneDrive(token, fullProject, targetFolderName);
     } catch (error) {
       if (isConflictError(error)) {
         addConflict(project.id, project.projectName);
@@ -795,8 +915,11 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
 
     const filename = projectJsonFilename(localProject);
     const remoteEntries = remoteFilesById.get(projectId) ?? [];
+    const targetFolderName = resolveRemoteProjectFolderName(localProject, remoteEntries);
     const remote = pickPrimaryRemoteProjectFile(remoteEntries);
-    const canonicalRemote = remoteEntries.find((entry) => isCanonicalRemoteProjectFile(localProject, entry));
+    const canonicalRemote = remoteEntries.find((entry) =>
+      isCanonicalRemoteProjectFile(localProject, entry, targetFolderName)
+    );
     const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
     const localUpdatedAt = getProjectUpdatedAt(localProject);
 
@@ -805,22 +928,31 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
     }
 
     try {
+      const localProjectWithFolder = withProjectFolderName(localProject, targetFolderName);
+      await saveProjectPreserveTimestamps(localProjectWithFolder);
       const uploadedRemote = await uploadProjectFile(
         token,
-        projectFolderName(localProject),
+        targetFolderName,
         filename,
-        JSON.stringify(localProject),
-        isProjectInTrash(localProject),
+        JSON.stringify(localProjectWithFolder),
+        isProjectInTrash(localProjectWithFolder),
         canonicalRemote?.eTag
       );
       await deleteStaleRemoteProjectFiles(
         token,
-        localProject,
+        localProjectWithFolder,
         remoteEntries,
-        isProjectInTrash(localProject),
+        isProjectInTrash(localProjectWithFolder),
+        targetFolderName,
         uploadedRemote.id
       );
-      await syncProjectPhotosToOneDrive(token, localProject);
+      await migrateLegacyProjectExports(
+        token,
+        remoteEntries,
+        targetFolderName,
+        isProjectInTrash(localProjectWithFolder)
+      );
+      await syncProjectPhotosToOneDrive(token, localProjectWithFolder, targetFolderName);
     } catch (error) {
       // Background push should not interrupt the editing flow; full sync can resolve conflicts.
       if (isConflictError(error)) {

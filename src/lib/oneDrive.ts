@@ -341,6 +341,15 @@ export async function listProjectPhotoFiles(
   return dedupeDriveItems(photoSets.flat());
 }
 
+export async function listProjectExportFiles(
+  token: string,
+  projectFolderName: string,
+  trashed = false
+): Promise<DriveItem[]> {
+  await ensurePunchListFolders(token);
+  return listFolderChildrenByPath(token, getProjectExportsPath(projectFolderName, trashed));
+}
+
 export async function listPhotoProjectFolders(token: string): Promise<DriveItem[]> {
   await ensurePunchListFolders(token);
   const [activeProjectFolders, trashedProjectFolders, legacyPhotoFolders] = await Promise.all([
@@ -495,6 +504,28 @@ export async function getNextOneDriveExportFilename(
 export async function deleteDriveItem(token: string, id: string): Promise<void> {
   await graphFetch(token, `/me/drive/items/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function moveDriveItemToFolder(
+  token: string,
+  id: string,
+  destinationFolderPath: string,
+  name?: string
+): Promise<DriveItem> {
+  await ensurePunchListFolders(token);
+  const destinationFolder = await ensureFolder(token, destinationFolderPath);
+  return graphFetch<DriveItem>(token, `/me/drive/items/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      parentReference: {
+        id: destinationFolder.id,
+      },
+      ...(name ? { name } : {}),
+    }),
   });
 }
 

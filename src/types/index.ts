@@ -119,6 +119,7 @@ export interface Area {
 export interface Project {
   id: string;
   projectName: string;
+  oneDriveFolderName?: string;
   address: string;
   date: Date;
   inspector: string;

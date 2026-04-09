@@ -25,6 +25,17 @@ interface PunchListDB extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<PunchListDB>> | null = null;
 
+function sanitizeOneDriveFolderNamePart(value: string | undefined, fallback: string) {
+  const cleaned = (value ?? '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return cleaned || fallback;
+}
+
 function stripPhotoPayload(photo: PhotoAttachment): PhotoAttachment {
   return {
     ...photo,
@@ -233,6 +244,7 @@ export function createProject(name: string, address: string = '', inspector: str
   return {
     id: uuidv4(),
     projectName: name,
+    oneDriveFolderName: sanitizeOneDriveFolderNamePart(name, 'project'),
     address,
     date: now,
     inspector,
