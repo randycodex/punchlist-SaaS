@@ -41,8 +41,10 @@ type SummaryArea = {
   areaName: string;
   issueCount: number;
   sections: Array<{
+    sectionId: string;
     sectionName: string;
     issueCount: number;
+    photoRef: string;
     entries: Array<{
       subItem: string;
       comment: string;
@@ -135,6 +137,12 @@ function sanitizeText(value: string | undefined | null) {
   return (value ?? '').trim();
 }
 
+function formatPhotoRefRange(refs: string[]) {
+  if (refs.length === 0) return '';
+  if (refs.length === 1) return refs[0];
+  return `${refs[0]}-${refs[refs.length - 1]}`;
+}
+
 function formatDate(value: Date | string | number | undefined, withTime = false) {
   if (!value) return '';
   const date = value instanceof Date ? value : new Date(value);
@@ -215,7 +223,7 @@ function drawStatusIcon(pdf: jsPDF, checkpoint: Checkpoint, x: number, y: number
   pdf.setFillColor(0, 0, 0);
 }
 
-function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
+function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string, summaryPages: Set<number>) {
   const totalPages = pdf.getNumberOfPages();
 
   for (let page = 1; page <= totalPages; page += 1) {
@@ -227,13 +235,15 @@ function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(90, 90, 90);
-    pdf.text('GC to complete below', layout.margin, footerFieldsY - 4);
-    pdf.text('Date Completed', layout.margin, footerFieldsY);
-    pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 64, footerFieldsY + 0.3);
-    pdf.text('Name', layout.margin + 68, footerFieldsY);
-    pdf.line(layout.margin + 81, footerFieldsY + 0.3, layout.margin + 145, footerFieldsY + 0.3);
-    pdf.text('Signature', layout.margin + 149, footerFieldsY);
-    pdf.line(layout.margin + 167, footerFieldsY + 0.3, layout.pageWidth - layout.margin, footerFieldsY + 0.3);
+    if (summaryPages.has(page)) {
+      pdf.text('GC to complete below', layout.margin, footerFieldsY - 4);
+      pdf.text('Date Completed', layout.margin, footerFieldsY);
+      pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 64, footerFieldsY + 0.3);
+      pdf.text('Name', layout.margin + 68, footerFieldsY);
+      pdf.line(layout.margin + 81, footerFieldsY + 0.3, layout.margin + 145, footerFieldsY + 0.3);
+      pdf.text('Signature', layout.margin + 149, footerFieldsY);
+      pdf.line(layout.margin + 167, footerFieldsY + 0.3, layout.pageWidth - layout.margin, footerFieldsY + 0.3);
+    }
 
     pdf.setDrawColor(226, 232, 240);
     pdf.line(
@@ -425,8 +435,10 @@ function getProjectIssueSummary(project: Project) {
   for (const area of activeAreas) {
     let areaIssueCount = 0;
     const sections: Array<{
+      sectionId: string;
       sectionName: string;
       issueCount: number;
+      photoRef: string;
       entries: Array<{
         subItem: string;
         comment: string;
@@ -453,7 +465,13 @@ function getProjectIssueSummary(project: Project) {
       }
 
       if (sectionIssueCount > 0) {
-        sections.push({ sectionName: location.name, issueCount: sectionIssueCount, entries });
+        sections.push({
+          sectionId: location.id,
+          sectionName: location.name,
+          issueCount: sectionIssueCount,
+          photoRef: '',
+          entries,
+        });
       }
     }
 
@@ -473,6 +491,34 @@ function getProjectIssueSummary(project: Project) {
     totalAreasWithIssues: areasWithIssues.size,
     areas,
   };
+}
+
+function buildAreaPhotoReferenceData(area: ExportArea) {
+  const checkpointPhotoRefs = new Map<string, string[]>();
+  const sectionPhotoRefs = new Map<string, string>();
+  let nextPhotoNumber = 1;
+
+  for (const location of area.locations) {
+    const sectionRefs: string[] = [];
+
+    for (const item of location.items) {
+      for (const checkpoint of item.checkpoints) {
+        if (!checkpointHasIssue(checkpoint)) continue;
+        const photoCount = getCheckpointPhotoSources(checkpoint).length;
+        if (photoCount === 0) continue;
+
+        const refs = Array.from({ length: photoCount }, () => `P${nextPhotoNumber++}`);
+        checkpointPhotoRefs.set(checkpoint.id, refs);
+        sectionRefs.push(...refs);
+      }
+    }
+
+    if (sectionRefs.length > 0) {
+      sectionPhotoRefs.set(location.id, formatPhotoRefRange(sectionRefs));
+    }
+  }
+
+  return { checkpointPhotoRefs, sectionPhotoRefs };
 }
 
 function renderCoverPage(
@@ -555,12 +601,13 @@ function renderIntroPages(
 
 function getAreaSummaryColumns(layout: LayoutMetrics) {
   const tableWidth = layout.contentWidth;
-  const sectionColumnWidth = 34;
+  const sectionColumnWidth = 28;
+  const photoColumnWidth = 18;
   const countColumnWidth = 14;
-  const detailsWidth = tableWidth - sectionColumnWidth - countColumnWidth - 4;
+  const detailsWidth = tableWidth - sectionColumnWidth - photoColumnWidth - countColumnWidth - 6;
   const subItemColumnWidth = Math.max(38, detailsWidth * 0.5);
   const commentsColumnWidth = Math.max(28, detailsWidth - subItemColumnWidth);
-  return { tableWidth, sectionColumnWidth, subItemColumnWidth, commentsColumnWidth };
+  return { tableWidth, sectionColumnWidth, subItemColumnWidth, commentsColumnWidth, photoColumnWidth };
 }
 
 function estimateAreaSummaryHeight(pdf: jsPDF, areaSummary: SummaryArea | undefined, layout: LayoutMetrics) {
@@ -589,7 +636,7 @@ function renderAreaSummaryBlock(
     return startY;
   }
 
-  const { tableWidth, sectionColumnWidth, subItemColumnWidth, commentsColumnWidth } = getAreaSummaryColumns(layout);
+  const { tableWidth, sectionColumnWidth, subItemColumnWidth, commentsColumnWidth, photoColumnWidth } = getAreaSummaryColumns(layout);
   let y = startY;
 
   pdf.setFont('helvetica', 'bold');
@@ -603,6 +650,7 @@ function renderAreaSummaryBlock(
   pdf.text('AREA', layout.margin + 0.5, y);
   pdf.text('INSPECTED ITEM', layout.margin + 0.5 + sectionColumnWidth, y);
   pdf.text('COMMENTS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth, y);
+  pdf.text('PHOTOS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth + commentsColumnWidth, y);
   pdf.text('ISSUES QTY', layout.margin + tableWidth - 1, y, { align: 'right' });
   y += 5;
 
@@ -623,6 +671,7 @@ function renderAreaSummaryBlock(
     const sectionX = layout.margin + 0.5;
     const subItemX = sectionX + sectionColumnWidth;
     const commentsX = subItemX + subItemColumnWidth;
+    const photosX = commentsX + commentsColumnWidth;
     const countX = layout.margin + tableWidth - 1;
 
     pdf.text(section.sectionName, sectionX, rowTextY);
@@ -642,6 +691,10 @@ function renderAreaSummaryBlock(
       entryY += usedLines * 4.1;
     }
 
+    if (section.photoRef) {
+      const photoRefLines = pdf.splitTextToSize(section.photoRef, photoColumnWidth - 1) as string[];
+      pdf.text(photoRefLines, photosX, rowTextY);
+    }
     pdf.text(String(section.issueCount), countX, rowTextY, { align: 'right' });
     y += rowHeight + 3;
   }
@@ -653,22 +706,32 @@ function renderAreaSummaryBlock(
 function renderPhotos(
   pdf: jsPDF,
   photos: Array<{ src: string; size: ImageSize }>,
+  photoRefs: string[],
   startX: number,
   startY: number,
   layout: LayoutMetrics,
   availableWidth: number
 ) {
   const grid = getPhotoGridMetrics(layout, availableWidth);
-  const y = startY + 1;
+  const y = startY + 4;
 
   for (let index = 0; index < photos.length; index += 1) {
     const col = index % grid.photosPerRow;
     const row = Math.floor(index / grid.photosPerRow);
     const x = startX + col * (grid.photoWidth + grid.photoGap);
     const imageY = y + row * (grid.photoHeight + grid.rowGap);
+    const ref = photoRefs[index];
     const fitted = fitImageSize(photos[index]?.size ?? { width: 1, height: 1 }, grid.photoWidth, grid.photoHeight);
     const imageX = x + (grid.photoWidth - fitted.width) / 2;
     const fittedY = imageY;
+
+    if (ref) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7.2);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text(ref, x, imageY - 1.2);
+      pdf.setTextColor(0, 0, 0);
+    }
 
     try {
       pdf.addImage(photos[index].src, 'JPEG', imageX, fittedY, fitted.width, fitted.height);
@@ -685,6 +748,7 @@ function renderPhotos(
 async function renderCheckpointBlock(
   pdf: jsPDF,
   checkpoint: ExportCheckpoint,
+  photoRefs: string[],
   startX: number,
   y: number,
   layout: LayoutMetrics
@@ -721,7 +785,7 @@ async function renderCheckpointBlock(
   }
 
   if (photos.length > 0) {
-    y = renderPhotos(pdf, photos, bodyX, y, layout, layout.contentWidth - BODY_INDENT - 2);
+    y = renderPhotos(pdf, photos, photoRefs, bodyX, y, layout, layout.contentWidth - BODY_INDENT - 2);
   }
 
   return y + ITEM_GAP;
@@ -736,7 +800,9 @@ async function renderProjectDetailPages(
 ) {
   const coverPage = pdf.getNumberOfPages();
   const startPage = coverPage;
-  const summaryByArea = new Map(getProjectIssueSummary(project).areas.map((area) => [area.areaId, area] as const));
+  const projectSummary = getProjectIssueSummary(project);
+  const summaryByArea = new Map(projectSummary.areas.map((area) => [area.areaId, area] as const));
+  const summaryPages = new Set<number>();
 
   const introEndY = renderIntroPages(pdf, project, mode, logo, layout);
   let firstAreaStartsOnCurrentPage = true;
@@ -755,6 +821,13 @@ async function renderProjectDetailPages(
     }
 
     const areaSummary = summaryByArea.get(area.id);
+    const areaPhotoRefs = buildAreaPhotoReferenceData(area);
+    if (areaSummary) {
+      areaSummary.sections = areaSummary.sections.map((section) => ({
+        ...section,
+        photoRef: areaPhotoRefs.sectionPhotoRefs.get(section.sectionId) ?? '',
+      }));
+    }
     const drawAreaIntro = (baseY: number, includeSummary: boolean) => {
       let y = drawAreaHeader(pdf, area.name, baseY, layout);
       if (sanitizeText(area.notes)) {
@@ -774,9 +847,15 @@ async function renderProjectDetailPages(
     const startAreaPage = (includeSummary: boolean) => {
       if (firstAreaStartsOnCurrentPage) {
         firstAreaStartsOnCurrentPage = false;
+        if (includeSummary) {
+          summaryPages.add(pdf.getCurrentPageInfo().pageNumber);
+        }
         return drawAreaIntro(introEndY, includeSummary);
       }
       pdf.addPage();
+      if (includeSummary) {
+        summaryPages.add(pdf.getCurrentPageInfo().pageNumber);
+      }
       return drawAreaIntro(layout.contentTop, includeSummary);
     };
     const drawLocationHeader = (name: string, y: number) => {
@@ -853,6 +932,7 @@ async function renderProjectDetailPages(
           y = await renderCheckpointBlock(
             pdf,
             checkpoint,
+            areaPhotoRefs.checkpointPhotoRefs.get(checkpoint.id) ?? [],
             layout.margin,
             y,
             layout
@@ -867,6 +947,7 @@ async function renderProjectDetailPages(
   }
 
   addProjectPageHeader(pdf, project.projectName, logo, coverPage, startPage, pdf.getNumberOfPages(), layout);
+  return summaryPages;
 }
 
 export async function generateProjectPDF(project: Project, mode: PdfExportMode = 'full'): Promise<Blob> {
@@ -876,8 +957,8 @@ export async function generateProjectPDF(project: Project, mode: PdfExportMode =
   const exportProject = filterProjectForMode(project, mode);
   const generatedAt = getGeneratedAt();
 
-  await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
-  addFooter(pdf, layout, generatedAt);
+  const summaryPages = await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+  addFooter(pdf, layout, generatedAt, summaryPages);
   return pdf.output('blob');
 }
 
@@ -887,16 +968,20 @@ export async function generateMultiProjectPDF(projects: Project[], mode: PdfExpo
   const layout = createLayout(pdf);
   const generatedAt = getGeneratedAt();
 
+  const summaryPages = new Set<number>();
   for (const [index, project] of projects.entries()) {
     if (index > 0) {
       pdf.addPage();
     }
 
     const exportProject = filterProjectForMode(project, mode);
-    await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+    const projectSummaryPages = await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+    for (const page of projectSummaryPages) {
+      summaryPages.add(page);
+    }
   }
 
-  addFooter(pdf, layout, generatedAt);
+  addFooter(pdf, layout, generatedAt, summaryPages);
   return pdf.output('blob');
 }
 
