@@ -565,6 +565,24 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
   let currentPageStartY = drawSectionTitle(pdf, summaryTitle, startY, layout);
   let columnIndex = 0;
   let columnY = [currentPageStartY, currentPageStartY];
+  const drawSummaryColumnHeaders = (columnX: number, y: number) => {
+    const headerY = y;
+    const sectionX = columnX + 0.5;
+    const subItemX = sectionX + sectionColumnWidth;
+    const commentsX = subItemX + subItemColumnWidth;
+    const countX = columnX + columnWidth - 1;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(71, 85, 105);
+    pdf.text('AREA', sectionX, headerY);
+    pdf.text('INSPECTED ITEM', subItemX, headerY);
+    pdf.text('COMMENTS', commentsX, headerY);
+    pdf.text('ISSUES QTY', countX, headerY, { align: 'right' });
+    pdf.setTextColor(0, 0, 0);
+
+    return headerY + 5;
+  };
 
   if (summary.areas.length === 0) {
     pdf.setFontSize(10);
@@ -603,7 +621,8 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
     pdf.setFontSize(10.5);
     pdf.setTextColor(71, 85, 105);
     pdf.text(`${area.areaName} - ${area.issueCount}`, columnX, y);
-    y += 5.5;
+    y += 5;
+    y = drawSummaryColumnHeaders(columnX, y);
 
     pdf.setTextColor(55, 65, 81);
     pdf.setFont('helvetica', 'normal');
