@@ -98,7 +98,7 @@ function createLayout(pdf: jsPDF): LayoutMetrics {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 12;
   const headerHeight = 14;
-  const footerHeight = 24;
+  const footerHeight = 34;
   const contentTop = margin + headerHeight;
   const contentBottom = pageHeight - margin - footerHeight;
   const contentWidth = pageWidth - margin * 2;
