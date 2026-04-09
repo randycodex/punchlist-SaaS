@@ -1056,3 +1056,22 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
 
   return { conflicts: [...conflictsById.values()] };
 }
+
+export async function hydrateProjectMediaFromOneDrive(
+  token: string,
+  projectId: string
+): Promise<Project | null> {
+  const localProject = await getProject(projectId);
+  if (!localProject) {
+    return null;
+  }
+
+  const hydratedProject = await hydrateProjectPhotosFromOneDrive(
+    token,
+    localProject,
+    localProject.oneDriveFolderName
+  );
+
+  await saveProjectPreserveTimestamps(hydratedProject);
+  return hydratedProject;
+}

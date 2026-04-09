@@ -9,6 +9,7 @@ import {
   SyncConflict,
   markProjectDeleted,
   unmarkProjectDeleted,
+  hydrateProjectMediaFromOneDrive,
 } from '@/lib/oneDriveSync';
 import {
   clearPendingFullSyncFlag,
@@ -886,14 +887,16 @@ export default function ProjectsPage() {
     setActionSheet('export');
   }
 
-  async function loadProjectsForExport() {
+  async function loadProjectsForExport(token?: string | null) {
     const selectedProjects = [...sortedProjects]
       .filter((project) => selectedProjectIds.has(project.id))
       .sort((a, b) => a.projectName.localeCompare(b.projectName));
 
     const hydratedProjects = await Promise.all(
       selectedProjects.map(async (project) => {
-        const fullProject = await getProject(project.id);
+        const fullProject = token
+          ? await hydrateProjectMediaFromOneDrive(token, project.id)
+          : await getProject(project.id);
         return fullProject ?? project;
       })
     );
@@ -909,7 +912,8 @@ export default function ProjectsPage() {
     setActionSheet(null);
     setExportingSelected(true);
     try {
-      const projectsForExport = await loadProjectsForExport();
+      const token = isSignedIn ? await ensureAccessToken().catch(() => null) : null;
+      const projectsForExport = await loadProjectsForExport(token);
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
       const filename = exportType === 'issues' ? 'UAI_PUNCHLIST_APP_Issues_Report.pdf' : 'UAI_PUNCHLIST_APP_Full_Report.pdf';
       downloadPDF(blob, filename);
@@ -936,7 +940,7 @@ export default function ProjectsPage() {
       const projectsToExport = [...sortedProjects]
         .filter((project) => selectedProjectIds.has(project.id))
         .sort((a, b) => a.projectName.localeCompare(b.projectName));
-      const projectsForExport = await loadProjectsForExport();
+      const projectsForExport = await loadProjectsForExport(token);
       const blob = await generateMultiProjectPDF(projectsForExport, exportType);
       const exportProject =
         projectsToExport.length === 1 ? projectsToExport[0] : null;
