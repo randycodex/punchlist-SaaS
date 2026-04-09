@@ -226,6 +226,7 @@ function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(90, 90, 90);
+    pdf.text('GC to complete below', layout.margin, footerFieldsY - 4);
     pdf.text('Date Completed', layout.margin, footerFieldsY);
     pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 64, footerFieldsY + 0.3);
     pdf.text('Name', layout.margin + 68, footerFieldsY);
