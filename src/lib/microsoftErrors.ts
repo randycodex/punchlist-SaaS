@@ -23,12 +23,34 @@ export function getMicrosoftErrorMessage(error: unknown, fallback: string): stri
   }
 
   if (
+    message.includes('login required') ||
+    message.includes('token') && message.includes('expired') ||
+    message.includes('invalid grant') ||
+    message.includes('unauthorized') ||
+    message.includes('forbidden') ||
+    message.includes('insufficient privileges')
+  ) {
+    return 'Microsoft sign-in expired or lost permission. Please sign in again and retry sync.';
+  }
+
+  if (
+    message.includes('timeout') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('service unavailable') ||
+    message.includes('too many requests') ||
+    message.includes('network') ||
+    message.includes('failed to fetch')
+  ) {
+    return 'Microsoft sync is temporarily unavailable. Retry in a moment.';
+  }
+
+  if (
     message === 'the resource could not be found.' ||
     message === 'resource not found' ||
     message.includes("unable to retrieve user's mysite url") ||
     message.includes('resource not found for the segment') ||
-    message.includes('/me/drive') ||
-    message.includes('mysite')
+    message.includes('mysite host is not found') ||
+    message.includes('unable to retrieve user\'s mysite url')
   ) {
     return 'This user does not have OneDrive ready yet. Ask them to open OneDrive once or contact UAI IT.';
   }
