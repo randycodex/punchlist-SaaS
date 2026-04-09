@@ -39,7 +39,12 @@ type ExportCheckpoint = Checkpoint;
 type SummaryArea = {
   areaName: string;
   issueCount: number;
-  sections: Array<{ sectionName: string; issueCount: number }>;
+  sections: Array<{
+    sectionName: string;
+    issueCount: number;
+    subItems: string[];
+    comments: string[];
+  }>;
 };
 
 async function loadLogoBase64(): Promise<string | null> {
@@ -327,7 +332,7 @@ function getPhotoGridMetrics(layout: LayoutMetrics, availableWidth: number) {
   const photosPerRow = 3;
   const photoGap = 4;
   const photoWidth = (availableWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
-  const photoHeight = photoWidth * 0.82;
+  const photoHeight = photoWidth * 1.4;
   const rowGap = 0;
   return { photosPerRow, photoGap, photoWidth, photoHeight, rowGap };
 }
@@ -414,10 +419,12 @@ function getProjectIssueSummary(project: Project) {
 
   for (const area of activeAreas) {
     let areaIssueCount = 0;
-    const sections: Array<{ sectionName: string; issueCount: number }> = [];
+    const sections: Array<{ sectionName: string; issueCount: number; subItems: string[]; comments: string[] }> = [];
 
     for (const location of area.locations) {
       let sectionIssueCount = 0;
+      const subItems: string[] = [];
+      const comments: string[] = [];
 
       for (const item of location.items) {
         for (const checkpoint of item.checkpoints) {
@@ -426,11 +433,21 @@ function getProjectIssueSummary(project: Project) {
           areaIssueCount += 1;
           sectionIssueCount += 1;
           areasWithIssues.add(area.id);
+
+          const subItem = `${item.name} - ${checkpoint.name}`;
+          if (!subItems.includes(subItem)) {
+            subItems.push(subItem);
+          }
+
+          const comment = sanitizeText(checkpoint.comments);
+          if (comment && !comments.includes(comment)) {
+            comments.push(comment);
+          }
         }
       }
 
       if (sectionIssueCount > 0) {
-        sections.push({ sectionName: location.name, issueCount: sectionIssueCount });
+        sections.push({ sectionName: location.name, issueCount: sectionIssueCount, subItems, comments });
       }
     }
 
@@ -522,9 +539,10 @@ function renderCoverPage(
 function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: LayoutMetrics, startY: number) {
   const summary = getProjectIssueSummary(project);
   let y = drawSectionTitle(pdf, 'Summary', startY, layout);
-  const tableWidth = Math.min(layout.contentWidth, 110);
-  const countColumnWidth = 18;
-  const labelColumnWidth = tableWidth - countColumnWidth;
+  const tableWidth = layout.contentWidth;
+  const sectionColumnWidth = 42;
+  const subItemColumnWidth = 54;
+  const commentsColumnWidth = tableWidth - sectionColumnWidth - subItemColumnWidth - 18;
 
   if (summary.areas.length === 0) {
     pdf.setFontSize(10);
@@ -534,7 +552,12 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
   }
 
   for (const area of summary.areas) {
-    const areaHeight = 6 + area.sections.length * 5 + 4;
+    const areaHeight = 6 + area.sections.reduce((total, section) => {
+      const subItemLines = pdf.splitTextToSize(section.subItems.join(', '), subItemColumnWidth - 2) as string[];
+      const commentLines = pdf.splitTextToSize(section.comments.join(' | '), commentsColumnWidth - 2) as string[];
+      const rowLines = Math.max(1, Math.min(2, subItemLines.length), Math.min(2, commentLines.length));
+      return total + Math.max(5, rowLines * 3.8 + 1.8);
+    }, 0) + 4;
     if (y + areaHeight > layout.contentBottom) {
       pdf.addPage();
       y = drawSectionTitle(pdf, 'Summary', layout.contentTop, layout);
@@ -552,12 +575,30 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
 
     pdf.setTextColor(55, 65, 81);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9.25);
+    pdf.setFontSize(8.6);
     area.sections.forEach((section) => {
-      pdf.text(section.sectionName, layout.margin + 2, y);
-      pdf.text(String(section.issueCount), layout.margin + labelColumnWidth + countColumnWidth - 2, y, { align: 'right' });
-      pdf.line(layout.margin, y + 1.4, layout.margin + tableWidth, y + 1.4);
-      y += 5;
+      const subItemLines = pdf.splitTextToSize(section.subItems.join(', '), subItemColumnWidth - 2) as string[];
+      const commentLines = pdf.splitTextToSize(section.comments.join(' | '), commentsColumnWidth - 2) as string[];
+      const clippedSubItems = subItemLines.slice(0, 2);
+      const clippedComments = commentLines.slice(0, 2);
+      const rowLines = Math.max(1, clippedSubItems.length, clippedComments.length);
+      const rowHeight = Math.max(5, rowLines * 3.8 + 1.8);
+      const rowTextY = y;
+      const sectionX = layout.margin + 1;
+      const subItemX = sectionX + sectionColumnWidth;
+      const commentsX = subItemX + subItemColumnWidth;
+      const countX = layout.margin + tableWidth - 2;
+
+      pdf.text(section.sectionName, sectionX, rowTextY);
+      if (clippedSubItems.length > 0) {
+        pdf.text(clippedSubItems, subItemX, rowTextY);
+      }
+      if (clippedComments.length > 0) {
+        pdf.text(clippedComments, commentsX, rowTextY);
+      }
+      pdf.text(String(section.issueCount), countX, rowTextY, { align: 'right' });
+      pdf.line(layout.margin, y + rowHeight - 1.2, layout.margin + tableWidth, y + rowHeight - 1.2);
+      y += rowHeight;
     });
 
     y += 3;
