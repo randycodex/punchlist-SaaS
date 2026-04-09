@@ -98,7 +98,7 @@ function createLayout(pdf: jsPDF): LayoutMetrics {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 12;
   const headerHeight = 14;
-  const footerHeight = 14;
+  const footerHeight = 24;
   const contentTop = margin + headerHeight;
   const contentBottom = pageHeight - margin - footerHeight;
   const contentWidth = pageWidth - margin * 2;
@@ -219,18 +219,30 @@ function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
 
   for (let page = 1; page <= totalPages; page += 1) {
     pdf.setPage(page);
+    const footerFieldsY = layout.pageHeight - layout.margin - 10;
+    const dividerY = layout.pageHeight - layout.margin - 5;
+    const footerTextY = layout.pageHeight - layout.margin - 1.5;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(90, 90, 90);
+    pdf.text('Date Completed', layout.margin, footerFieldsY);
+    pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 82, footerFieldsY + 0.3);
+    pdf.text('Name', layout.margin + 86, footerFieldsY);
+    pdf.line(layout.margin + 99, footerFieldsY + 0.3, layout.margin + 141, footerFieldsY + 0.3);
+    pdf.text('Signature', layout.margin + 145, footerFieldsY);
+    pdf.line(layout.margin + 163, footerFieldsY + 0.3, layout.pageWidth - layout.margin, footerFieldsY + 0.3);
+
     pdf.setDrawColor(226, 232, 240);
     pdf.line(
       layout.margin,
-      layout.pageHeight - layout.margin - 7,
+      dividerY,
       layout.pageWidth - layout.margin,
-      layout.pageHeight - layout.margin - 7
+      dividerY
     );
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
     pdf.setTextColor(120, 120, 120);
-    pdf.text(`Generated ${generatedAt}`, layout.margin, layout.pageHeight - layout.margin - 2);
-    pdf.text(`Page ${page} of ${totalPages}`, layout.pageWidth - layout.margin, layout.pageHeight - layout.margin - 2, {
+    pdf.text(`Generated ${generatedAt}`, layout.margin, footerTextY);
+    pdf.text(`Page ${page} of ${totalPages}`, layout.pageWidth - layout.margin, footerTextY, {
       align: 'right',
     });
   }
@@ -282,9 +294,9 @@ function drawSectionTitle(pdf: jsPDF, title: string, y: number, layout: LayoutMe
   pdf.setTextColor(71, 85, 105);
   pdf.text(title, layout.margin, y);
   pdf.setDrawColor(226, 232, 240);
-  pdf.line(layout.margin, y + 4, layout.pageWidth - layout.margin, y + 4);
+  pdf.line(layout.margin, y + 5, layout.pageWidth - layout.margin, y + 5);
   pdf.setTextColor(0, 0, 0);
-  return y + 9;
+  return y + 10;
 }
 
 function drawAreaHeader(pdf: jsPDF, areaName: string, y: number, layout: LayoutMetrics) {
@@ -335,7 +347,7 @@ function getPhotoGridMetrics(layout: LayoutMetrics, availableWidth: number) {
   const photoGap = 4;
   const photoWidth = (availableWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
   const photoHeight = photoWidth * 1.18;
-  const rowGap = 0;
+  const rowGap = 4;
   return { photosPerRow, photoGap, photoWidth, photoHeight, rowGap };
 }
 
@@ -563,8 +575,8 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
           : [];
         return entryTotal + Math.max(1, subItemLines.length, commentLines.length);
       }, 0);
-      return total + Math.max(6.5, entryLines * 4.1 + 1.5) + 1.2;
-    }, 0) + 4;
+      return total + Math.max(6.5, entryLines * 4.1 + 1.5) + 3.2;
+    }, 0) + 6;
     if (y + areaHeight > layout.contentBottom) {
       pdf.addPage();
       y = drawSectionTitle(pdf, 'Summary', layout.contentTop, layout);
@@ -574,11 +586,11 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
     pdf.setFontSize(10.5);
     pdf.setTextColor(71, 85, 105);
     pdf.text(`${area.areaName} - ${area.issueCount}`, layout.margin, y);
-    y += 3.5;
+    y += 4;
 
     pdf.setDrawColor(203, 213, 225);
-    pdf.line(layout.margin, y, layout.margin + tableWidth, y);
-    y += 4;
+    pdf.line(layout.margin, y + 2.8, layout.margin + tableWidth, y + 2.8);
+    y += 5.2;
 
     pdf.setTextColor(55, 65, 81);
     pdf.setFont('helvetica', 'normal');
@@ -616,8 +628,8 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
       }
 
       pdf.text(String(section.issueCount), countX, rowTextY, { align: 'right' });
-      pdf.line(layout.margin, y + rowHeight + 0.5, layout.margin + tableWidth, y + rowHeight + 0.5);
-      y += rowHeight + 1.2;
+      pdf.line(layout.margin, y + rowHeight + 2.8, layout.margin + tableWidth, y + rowHeight + 2.8);
+      y += rowHeight + 4;
     });
 
     y += 3;
