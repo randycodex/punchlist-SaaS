@@ -751,7 +751,8 @@ async function renderCheckpointBlock(
   photoRefs: string[],
   startX: number,
   y: number,
-  layout: LayoutMetrics
+  layout: LayoutMetrics,
+  startCheckpointPage: () => number
 ) {
   const textWidth = layout.contentWidth - BODY_INDENT - 2;
   const noteLines = getCheckpointNotesLines(pdf, checkpoint, textWidth);
@@ -759,33 +760,74 @@ async function renderCheckpointBlock(
   const photos = await preparePdfPhotos(getCheckpointPhotoSources(checkpoint));
   const itemX = startX + ITEM_INDENT;
   const bodyX = startX + BODY_INDENT;
+  const availableWidth = layout.contentWidth - BODY_INDENT - 2;
 
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9);
-  drawStatusIcon(pdf, checkpoint, itemX, y, layout.statusIconRadius);
-  pdf.text(checkpoint.name, itemX + 4, y);
-  y += 4;
+  const renderCheckpointPrefix = (prefixY: number) => {
+    let nextY = prefixY;
 
-  if (noteLines.length > 0) {
-    pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(8);
-    pdf.setTextColor(107, 114, 128);
-    pdf.text(noteLines, bodyX, y);
-    pdf.setTextColor(0, 0, 0);
     pdf.setFont('helvetica', 'normal');
-    y += noteLines.length * 3.5;
-  }
+    pdf.setFontSize(9);
+    drawStatusIcon(pdf, checkpoint, itemX, nextY, layout.statusIconRadius);
+    pdf.text(checkpoint.name, itemX + 4, nextY);
+    nextY += 4;
 
-  if (fileLines.length > 0) {
-    pdf.setFontSize(7.8);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(fileLines, bodyX, y);
-    pdf.setTextColor(0, 0, 0);
-    y += fileLines.length * 3.3;
-  }
+    if (noteLines.length > 0) {
+      pdf.setFont('helvetica', 'italic');
+      pdf.setFontSize(8);
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(noteLines, bodyX, nextY);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+      nextY += noteLines.length * 3.5;
+    }
+
+    if (fileLines.length > 0) {
+      pdf.setFontSize(7.8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(fileLines, bodyX, nextY);
+      pdf.setTextColor(0, 0, 0);
+      nextY += fileLines.length * 3.3;
+    }
+
+    return nextY;
+  };
+
+  y = renderCheckpointPrefix(y);
 
   if (photos.length > 0) {
-    y = renderPhotos(pdf, photos, photoRefs, bodyX, y, layout, layout.contentWidth - BODY_INDENT - 2);
+    const grid = getPhotoGridMetrics(layout, availableWidth);
+    const minPhotoBlockHeight = 5 + grid.photoHeight + 1.5;
+    const rowUnit = grid.photoHeight + grid.rowGap;
+    let photoIndex = 0;
+
+    while (photoIndex < photos.length) {
+      if (layout.contentBottom - y < minPhotoBlockHeight) {
+        y = renderCheckpointPrefix(startCheckpointPage());
+      }
+
+      const remainingRowsCapacity = Math.max(
+        1,
+        Math.floor((layout.contentBottom - y - 5 + grid.rowGap) / rowUnit)
+      );
+      const rowsLeft = Math.ceil((photos.length - photoIndex) / grid.photosPerRow);
+      const rowsThisPage = Math.min(rowsLeft, remainingRowsCapacity);
+      const photosThisPage = rowsThisPage * grid.photosPerRow;
+
+      y = renderPhotos(
+        pdf,
+        photos.slice(photoIndex, photoIndex + photosThisPage),
+        photoRefs.slice(photoIndex, photoIndex + photosThisPage),
+        bodyX,
+        y,
+        layout,
+        availableWidth
+      );
+      photoIndex += photosThisPage;
+
+      if (photoIndex < photos.length) {
+        y = renderCheckpointPrefix(startCheckpointPage());
+      }
+    }
   }
 
   return y + ITEM_GAP;
@@ -916,6 +958,15 @@ async function renderProjectDetailPages(
         pdf.text(item.name, layout.margin + GROUP_INDENT, y);
         y += GROUP_TO_ITEM_GAP;
 
+        const startCheckpointPage = () => {
+          let nextY = startAreaPage(false);
+          nextY = drawLocationHeader(location.name, nextY);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(10);
+          pdf.text(item.name, layout.margin + GROUP_INDENT, nextY);
+          return nextY + GROUP_TO_ITEM_GAP;
+        };
+
         for (const checkpoint of item.checkpoints) {
           const checkpointHeight = estimateCheckpointBlockHeight(pdf, checkpoint, layout, layout.contentWidth - BODY_INDENT - 2);
           const itemHeaderHeight = GROUP_TO_ITEM_GAP + 1;
@@ -935,7 +986,8 @@ async function renderProjectDetailPages(
             areaPhotoRefs.checkpointPhotoRefs.get(checkpoint.id) ?? [],
             layout.margin,
             y,
-            layout
+            layout,
+            startCheckpointPage
           );
         }
 
