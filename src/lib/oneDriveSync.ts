@@ -498,6 +498,7 @@ async function syncProjectPhotosToOneDrive(
   const expectedNames = new Set(
     localPhotos.map((photo, index) => projectPhotoFilename(project, photo, index))
   );
+  const expectedPhotoIds = new Set(localPhotos.map((photo) => photo.id));
   const remoteFolders = await listPhotoProjectFolders(token);
   const matchingFolder = remoteFolders.find(
     (folder) => folder.name === targetFolderName && isRemoteProjectFolderInTrash(folder) === trashed
@@ -526,7 +527,12 @@ async function syncProjectPhotosToOneDrive(
   });
 
   await runWithConcurrency(
-    remotePhotos.filter((photo) => !expectedNames.has(photo.name) && photo.id),
+    remotePhotos.filter((photo) => {
+      if (!photo.id) return false;
+      if (expectedNames.has(photo.name)) return false;
+      const remotePhotoId = getPhotoIdFromFilename(photo.name);
+      return !remotePhotoId || !expectedPhotoIds.has(remotePhotoId);
+    }),
     3,
     async (photo) => {
       await deleteDriveItem(token, photo.id);
