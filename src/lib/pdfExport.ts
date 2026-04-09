@@ -227,11 +227,11 @@ function addFooter(pdf: jsPDF, layout: LayoutMetrics, generatedAt: string) {
     pdf.setFontSize(8);
     pdf.setTextColor(90, 90, 90);
     pdf.text('Date Completed', layout.margin, footerFieldsY);
-    pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 82, footerFieldsY + 0.3);
-    pdf.text('Name', layout.margin + 86, footerFieldsY);
-    pdf.line(layout.margin + 99, footerFieldsY + 0.3, layout.margin + 141, footerFieldsY + 0.3);
-    pdf.text('Signature', layout.margin + 145, footerFieldsY);
-    pdf.line(layout.margin + 163, footerFieldsY + 0.3, layout.pageWidth - layout.margin, footerFieldsY + 0.3);
+    pdf.line(layout.margin + 28, footerFieldsY + 0.3, layout.margin + 64, footerFieldsY + 0.3);
+    pdf.text('Name', layout.margin + 68, footerFieldsY);
+    pdf.line(layout.margin + 81, footerFieldsY + 0.3, layout.margin + 145, footerFieldsY + 0.3);
+    pdf.text('Signature', layout.margin + 149, footerFieldsY);
+    pdf.line(layout.margin + 167, footerFieldsY + 0.3, layout.pageWidth - layout.margin, footerFieldsY + 0.3);
 
     pdf.setDrawColor(226, 232, 240);
     pdf.line(
@@ -586,11 +586,7 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
     pdf.setFontSize(10.5);
     pdf.setTextColor(71, 85, 105);
     pdf.text(`${area.areaName} - ${area.issueCount}`, layout.margin, y);
-    y += 4;
-
-    pdf.setDrawColor(203, 213, 225);
-    pdf.line(layout.margin, y + 2.8, layout.margin + tableWidth, y + 2.8);
-    y += 5.2;
+    y += 5.5;
 
     pdf.setTextColor(55, 65, 81);
     pdf.setFont('helvetica', 'normal');
@@ -628,11 +624,10 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
       }
 
       pdf.text(String(section.issueCount), countX, rowTextY, { align: 'right' });
-      pdf.line(layout.margin, y + rowHeight + 2.8, layout.margin + tableWidth, y + rowHeight + 2.8);
-      y += rowHeight + 4;
+      y += rowHeight + 3;
     });
 
-    y += 3;
+    y += 4;
   }
 
   pdf.setTextColor(0, 0, 0);
