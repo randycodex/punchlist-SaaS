@@ -553,17 +553,23 @@ function renderCoverPage(
 
 function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: LayoutMetrics, startY: number) {
   const summary = getProjectIssueSummary(project);
-  let y = drawSectionTitle(pdf, 'Summary', startY, layout);
-  const tableWidth = layout.contentWidth;
-  const sectionColumnWidth = 42;
-  const subItemColumnWidth = 54;
-  const commentsColumnWidth = tableWidth - sectionColumnWidth - subItemColumnWidth - 18;
+  const summaryTitle = 'Summary';
+  const columnGap = 8;
+  const columnWidth = (layout.contentWidth - columnGap) / 2;
+  const sectionColumnWidth = 22;
+  const countColumnWidth = 8;
+  const detailsWidth = columnWidth - sectionColumnWidth - countColumnWidth - 4;
+  const subItemColumnWidth = Math.max(20, detailsWidth * 0.48);
+  const commentsColumnWidth = Math.max(18, detailsWidth - subItemColumnWidth);
+  let currentPageStartY = drawSectionTitle(pdf, summaryTitle, startY, layout);
+  let columnIndex = 0;
+  let columnY = [currentPageStartY, currentPageStartY];
 
   if (summary.areas.length === 0) {
     pdf.setFontSize(10);
-    pdf.text('No issues recorded.', layout.margin, y);
+    pdf.text('No issues recorded.', layout.margin, currentPageStartY);
     pdf.setTextColor(0, 0, 0);
-    return y + 6;
+    return currentPageStartY + 6;
   }
 
   for (const area of summary.areas) {
@@ -577,20 +583,30 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
       }, 0);
       return total + Math.max(6.5, entryLines * 4.1 + 1.5) + 3.2;
     }, 0) + 6;
-    if (y + areaHeight > layout.contentBottom) {
-      pdf.addPage();
-      y = drawSectionTitle(pdf, 'Summary', layout.contentTop, layout);
+
+    if (columnY[columnIndex] + areaHeight > layout.contentBottom) {
+      if (columnIndex === 0) {
+        columnIndex = 1;
+      } else {
+        pdf.addPage();
+        currentPageStartY = drawSectionTitle(pdf, summaryTitle, layout.contentTop, layout);
+        columnY = [currentPageStartY, currentPageStartY];
+        columnIndex = 0;
+      }
     }
+
+    const columnX = layout.margin + columnIndex * (columnWidth + columnGap);
+    let y = columnY[columnIndex];
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10.5);
     pdf.setTextColor(71, 85, 105);
-    pdf.text(`${area.areaName} - ${area.issueCount}`, layout.margin, y);
+    pdf.text(`${area.areaName} - ${area.issueCount}`, columnX, y);
     y += 5.5;
 
     pdf.setTextColor(55, 65, 81);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.6);
+    pdf.setFontSize(8.1);
     area.sections.forEach((section) => {
       const entryLines = section.entries.reduce((linesTotal, entry) => {
         const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
@@ -601,10 +617,10 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
       }, 0);
       const rowHeight = Math.max(6.5, entryLines * 4.1 + 1.5);
       const rowTextY = y;
-      const sectionX = layout.margin + 1;
+      const sectionX = columnX + 0.5;
       const subItemX = sectionX + sectionColumnWidth;
       const commentsX = subItemX + subItemColumnWidth;
-      const countX = layout.margin + tableWidth - 2;
+      const countX = columnX + columnWidth - 1;
 
       pdf.text(section.sectionName, sectionX, rowTextY);
 
@@ -628,10 +644,11 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
     });
 
     y += 4;
+    columnY[columnIndex] = y;
   }
 
   pdf.setTextColor(0, 0, 0);
-  return y;
+  return Math.max(...columnY);
 }
 
 function renderIntroPages(
