@@ -182,7 +182,13 @@ async function deleteStaleRemoteProjectFiles(
     }),
     2,
     async (file) => {
-      await deleteDriveItem(token, file.id);
+      try {
+        await deleteDriveItem(token, file.id);
+      } catch (error) {
+        if (!isItemNotFoundError(error)) {
+          throw error;
+        }
+      }
     }
   );
 }
@@ -313,6 +319,9 @@ async function migrateLegacyProjectExports(
         try {
           await moveDriveItemToFolder(token, file.id, destinationFolderPath);
         } catch (error) {
+          if (isItemNotFoundError(error)) {
+            return;
+          }
           if (!(error instanceof Error) || !error.message.toLowerCase().includes('already exists')) {
             throw error;
           }
@@ -354,10 +363,19 @@ async function migrateLegacyProjectPhotos(
         try {
           await moveDriveItemToFolder(token, file.id, destinationFolderPath);
         } catch (error) {
+          if (isItemNotFoundError(error)) {
+            return;
+          }
           if (!(error instanceof Error) || !error.message.toLowerCase().includes('already exists')) {
             throw error;
           }
-          await deleteDriveItem(token, file.id);
+          try {
+            await deleteDriveItem(token, file.id);
+          } catch (deleteError) {
+            if (!isItemNotFoundError(deleteError)) {
+              throw deleteError;
+            }
+          }
         }
       }
     );
@@ -535,7 +553,13 @@ async function syncProjectPhotosToOneDrive(
     }),
     3,
     async (photo) => {
-      await deleteDriveItem(token, photo.id);
+      try {
+        await deleteDriveItem(token, photo.id);
+      } catch (error) {
+        if (!isItemNotFoundError(error)) {
+          throw error;
+        }
+      }
     }
   );
 
@@ -543,13 +567,31 @@ async function syncProjectPhotosToOneDrive(
     legacyFolders.filter((folder) => folder.id),
     2,
     async (folder) => {
-      await deleteDriveItem(token, folder.id);
+      try {
+        await deleteDriveItem(token, folder.id);
+      } catch (error) {
+        if (!isItemNotFoundError(error)) {
+          throw error;
+        }
+      }
     }
   );
 }
 
 function isConflictError(error: unknown) {
   return error instanceof Error && error.message.includes('Precondition Failed');
+}
+
+function isItemNotFoundError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('itemnotfound') ||
+    message.includes('item not found') ||
+    message.includes('404') ||
+    message.includes('resource could not be found') ||
+    message.includes('resource not found')
+  );
 }
 
 function normalizeSyncStateMap(raw: unknown): ProjectSyncStateMap {
