@@ -42,8 +42,10 @@ type SummaryArea = {
   sections: Array<{
     sectionName: string;
     issueCount: number;
-    subItems: string[];
-    comments: string[];
+    entries: Array<{
+      subItem: string;
+      comment: string;
+    }>;
   }>;
 };
 
@@ -280,9 +282,9 @@ function drawSectionTitle(pdf: jsPDF, title: string, y: number, layout: LayoutMe
   pdf.setTextColor(71, 85, 105);
   pdf.text(title, layout.margin, y);
   pdf.setDrawColor(226, 232, 240);
-  pdf.line(layout.margin, y + 1.5, layout.pageWidth - layout.margin, y + 1.5);
+  pdf.line(layout.margin, y + 4, layout.pageWidth - layout.margin, y + 4);
   pdf.setTextColor(0, 0, 0);
-  return y + 8;
+  return y + 9;
 }
 
 function drawAreaHeader(pdf: jsPDF, areaName: string, y: number, layout: LayoutMetrics) {
@@ -332,7 +334,7 @@ function getPhotoGridMetrics(layout: LayoutMetrics, availableWidth: number) {
   const photosPerRow = 3;
   const photoGap = 4;
   const photoWidth = (availableWidth - photoGap * (photosPerRow - 1)) / photosPerRow;
-  const photoHeight = photoWidth * 1.4;
+  const photoHeight = photoWidth * 1.18;
   const rowGap = 0;
   return { photosPerRow, photoGap, photoWidth, photoHeight, rowGap };
 }
@@ -341,7 +343,7 @@ function estimatePhotoBlockHeight(photoCount: number, layout: LayoutMetrics, ava
   if (photoCount === 0) return 0;
   const grid = getPhotoGridMetrics(layout, availableWidth);
   const rows = Math.ceil(photoCount / grid.photosPerRow);
-  return 2 + rows * grid.photoHeight + Math.max(rows - 1, 0) * grid.rowGap + 3;
+  return 4 + rows * grid.photoHeight + Math.max(rows - 1, 0) * grid.rowGap + 6;
 }
 
 function estimateCheckpointBlockHeight(pdf: jsPDF, checkpoint: Checkpoint, layout: LayoutMetrics, textWidth: number) {
@@ -419,12 +421,18 @@ function getProjectIssueSummary(project: Project) {
 
   for (const area of activeAreas) {
     let areaIssueCount = 0;
-    const sections: Array<{ sectionName: string; issueCount: number; subItems: string[]; comments: string[] }> = [];
+    const sections: Array<{
+      sectionName: string;
+      issueCount: number;
+      entries: Array<{
+        subItem: string;
+        comment: string;
+      }>;
+    }> = [];
 
     for (const location of area.locations) {
       let sectionIssueCount = 0;
-      const subItems: string[] = [];
-      const comments: string[] = [];
+      const entries: Array<{ subItem: string; comment: string }> = [];
 
       for (const item of location.items) {
         for (const checkpoint of item.checkpoints) {
@@ -434,20 +442,15 @@ function getProjectIssueSummary(project: Project) {
           sectionIssueCount += 1;
           areasWithIssues.add(area.id);
 
-          const subItem = `${item.name} - ${checkpoint.name}`;
-          if (!subItems.includes(subItem)) {
-            subItems.push(subItem);
-          }
-
-          const comment = sanitizeText(checkpoint.comments);
-          if (comment && !comments.includes(comment)) {
-            comments.push(comment);
-          }
+          entries.push({
+            subItem: `${item.name} - ${checkpoint.name}`,
+            comment: sanitizeText(checkpoint.comments),
+          });
         }
       }
 
       if (sectionIssueCount > 0) {
-        sections.push({ sectionName: location.name, issueCount: sectionIssueCount, subItems, comments });
+        sections.push({ sectionName: location.name, issueCount: sectionIssueCount, entries });
       }
     }
 
@@ -553,10 +556,14 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
 
   for (const area of summary.areas) {
     const areaHeight = 6 + area.sections.reduce((total, section) => {
-      const subItemLines = pdf.splitTextToSize(section.subItems.join(', '), subItemColumnWidth - 2) as string[];
-      const commentLines = pdf.splitTextToSize(section.comments.join(' | '), commentsColumnWidth - 2) as string[];
-      const rowLines = Math.max(1, Math.min(2, subItemLines.length), Math.min(2, commentLines.length));
-      return total + Math.max(5, rowLines * 3.8 + 1.8);
+      const entryLines = section.entries.reduce((entryTotal, entry) => {
+        const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
+        const commentLines = entry.comment
+          ? (pdf.splitTextToSize(entry.comment, commentsColumnWidth - 2) as string[])
+          : [];
+        return entryTotal + Math.max(1, subItemLines.length, commentLines.length);
+      }, 0);
+      return total + Math.max(6.5, entryLines * 4.1 + 1.5) + 1.2;
     }, 0) + 4;
     if (y + areaHeight > layout.contentBottom) {
       pdf.addPage();
@@ -577,12 +584,14 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8.6);
     area.sections.forEach((section) => {
-      const subItemLines = pdf.splitTextToSize(section.subItems.join(', '), subItemColumnWidth - 2) as string[];
-      const commentLines = pdf.splitTextToSize(section.comments.join(' | '), commentsColumnWidth - 2) as string[];
-      const clippedSubItems = subItemLines.slice(0, 2);
-      const clippedComments = commentLines.slice(0, 2);
-      const rowLines = Math.max(1, clippedSubItems.length, clippedComments.length);
-      const rowHeight = Math.max(5, rowLines * 3.8 + 1.8);
+      const entryLines = section.entries.reduce((linesTotal, entry) => {
+        const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
+        const commentLines = entry.comment
+          ? (pdf.splitTextToSize(entry.comment, commentsColumnWidth - 2) as string[])
+          : [];
+        return linesTotal + Math.max(1, subItemLines.length, commentLines.length);
+      }, 0);
+      const rowHeight = Math.max(6.5, entryLines * 4.1 + 1.5);
       const rowTextY = y;
       const sectionX = layout.margin + 1;
       const subItemX = sectionX + sectionColumnWidth;
@@ -590,15 +599,25 @@ function renderSummarySection(pdf: jsPDF, project: ExportProject, layout: Layout
       const countX = layout.margin + tableWidth - 2;
 
       pdf.text(section.sectionName, sectionX, rowTextY);
-      if (clippedSubItems.length > 0) {
-        pdf.text(clippedSubItems, subItemX, rowTextY);
+
+      let entryY = rowTextY;
+      for (const entry of section.entries) {
+        const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
+        const commentLines = entry.comment
+          ? (pdf.splitTextToSize(entry.comment, commentsColumnWidth - 2) as string[])
+          : [];
+        const usedLines = Math.max(1, subItemLines.length, commentLines.length);
+
+        pdf.text(subItemLines, subItemX, entryY);
+        if (commentLines.length > 0) {
+          pdf.text(commentLines, commentsX, entryY);
+        }
+        entryY += usedLines * 4.1;
       }
-      if (clippedComments.length > 0) {
-        pdf.text(clippedComments, commentsX, rowTextY);
-      }
+
       pdf.text(String(section.issueCount), countX, rowTextY, { align: 'right' });
-      pdf.line(layout.margin, y + rowHeight - 1.2, layout.margin + tableWidth, y + rowHeight - 1.2);
-      y += rowHeight;
+      pdf.line(layout.margin, y + rowHeight + 0.5, layout.margin + tableWidth, y + rowHeight + 0.5);
+      y += rowHeight + 1.2;
     });
 
     y += 3;
@@ -628,7 +647,7 @@ function renderPhotos(
   availableWidth: number
 ) {
   const grid = getPhotoGridMetrics(layout, availableWidth);
-  const y = startY + 1.5;
+  const y = startY + 1;
 
   for (let index = 0; index < photos.length; index += 1) {
     const col = index % grid.photosPerRow;
@@ -648,7 +667,7 @@ function renderPhotos(
   }
 
   const rows = Math.ceil(photos.length / grid.photosPerRow);
-  return y + rows * grid.photoHeight + Math.max(rows - 1, 0) * grid.rowGap;
+  return y + rows * grid.photoHeight + Math.max(rows - 1, 0) * grid.rowGap + 1.5;
 }
 
 async function renderCheckpointBlock(
