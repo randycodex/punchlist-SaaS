@@ -35,8 +35,6 @@ type SortOption = 'alphabetical' | 'issues' | 'progress';
 
 const SORT_STORAGE_KEY = 'punchlist-areas-sort';
 const RECENT_AREA_TYPES_STORAGE_KEY = 'punchlist-recent-area-types';
-const LONG_PRESS_MS = 500;
-
 type AreaMetrics = {
   stats: { total: number; ok: number; issues: number };
   pending: number;
@@ -164,10 +162,6 @@ export default function ProjectDetailPage() {
   const { projectShowOnlyIssues, setProjectShowOnlyIssues, quickSort, markSyncedNow } = useAppSettings();
 
   useEffect(() => {
-    if (!id) {
-      router.push('/');
-      return;
-    }
     // Load saved sort preference
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
     if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
@@ -179,6 +173,13 @@ export default function ProjectDetailPage() {
     } else {
       setSortOption(quickSort);
     }
+  }, [quickSort]);
+
+  useEffect(() => {
+    if (!id) {
+      router.push('/');
+      return;
+    }
     const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
     if (savedRecentAreaTypes) {
       try {
@@ -188,7 +189,7 @@ export default function ProjectDetailPage() {
       }
     }
     loadProject();
-  }, [id, quickSort]);
+  }, [id]);
 
   useEffect(() => {
     return () => {

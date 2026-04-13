@@ -426,6 +426,19 @@ function filterProjectForMode(project: Project, mode: PdfExportMode): ExportProj
   };
 }
 
+function hasRenderableContent(project: ExportProject, mode: PdfExportMode) {
+  return project.areas.some((area) => {
+    const printableLocations = mode === 'full'
+      ? area.locations.filter((location) => location.items.length > 0 || isGeneralNotesLocation(location))
+      : area.locations.filter((location) => location.items.length > 0);
+    return printableLocations.length > 0 || (mode === 'full' && Boolean(sanitizeText(area.notes)));
+  });
+}
+
+function getEmptyProjectMessage(mode: PdfExportMode) {
+  return mode === 'issues' ? 'No issues recorded.' : 'No checklist content recorded.';
+}
+
 function getProjectIssueSummary(project: Project) {
   const activeAreas = getActiveAreas(project);
   let totalIssues = 0;
@@ -597,6 +610,14 @@ function renderIntroPages(
   layout: LayoutMetrics
 ) {
   return renderCoverPage(pdf, project, mode, logo, layout);
+}
+
+function renderEmptyIssuesMessage(pdf: jsPDF, layout: LayoutMetrics, startY: number, message: string) {
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.setTextColor(71, 85, 105);
+  pdf.text(message, layout.margin, startY);
+  pdf.setTextColor(0, 0, 0);
 }
 
 function getAreaSummaryColumns(layout: LayoutMetrics) {
@@ -822,7 +843,7 @@ async function renderCheckpointBlock(
         layout,
         availableWidth
       );
-      photoIndex += photosThisPage;
+      photoIndex += Math.min(photosThisPage, photos.length - photoIndex);
 
       if (photoIndex < photos.length) {
         y = renderCheckpointPrefix(startCheckpointPage());
@@ -850,7 +871,8 @@ async function renderProjectDetailPages(
   let firstAreaStartsOnCurrentPage = true;
 
   for (const area of project.areas) {
-    if (area.locations.length === 0 && !sanitizeText(area.notes)) {
+    const hasAreaNotes = Boolean(sanitizeText(area.notes));
+    if (area.locations.length === 0 && !hasAreaNotes) {
       continue;
     }
 
@@ -858,7 +880,7 @@ async function renderProjectDetailPages(
       ? area.locations.filter((location) => location.items.length > 0 || isGeneralNotesLocation(location))
       : area.locations.filter((location) => location.items.length > 0);
 
-    if (printableLocations.length === 0) {
+    if (printableLocations.length === 0 && !(mode === 'full' && hasAreaNotes)) {
       continue;
     }
 
@@ -872,7 +894,7 @@ async function renderProjectDetailPages(
     }
     const drawAreaIntro = (baseY: number, includeSummary: boolean) => {
       let y = drawAreaHeader(pdf, area.name, baseY, layout);
-      if (sanitizeText(area.notes)) {
+      if (hasAreaNotes) {
         const noteLines = pdf.splitTextToSize(sanitizeText(area.notes), layout.contentWidth - 2) as string[];
         pdf.setFont('helvetica', 'italic');
         pdf.setFontSize(8.5);
@@ -911,7 +933,7 @@ async function renderProjectDetailPages(
 
     const getFreshAreaStartY = (baseY: number, includeSummary: boolean) => {
       let freshY = baseY + 8;
-      if (sanitizeText(area.notes)) {
+      if (hasAreaNotes) {
         const noteLines = pdf.splitTextToSize(sanitizeText(area.notes), layout.contentWidth - 2) as string[];
         freshY += noteLines.length * 3.8 + 3;
       }
@@ -1009,7 +1031,13 @@ export async function generateProjectPDF(project: Project, mode: PdfExportMode =
   const exportProject = filterProjectForMode(project, mode);
   const generatedAt = getGeneratedAt();
 
-  const summaryPages = await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+  const summaryPages = hasRenderableContent(exportProject, mode)
+    ? await renderProjectDetailPages(pdf, exportProject, mode, logo, layout)
+    : (() => {
+        const messageY = renderCoverPage(pdf, exportProject, mode, logo, layout);
+        renderEmptyIssuesMessage(pdf, layout, messageY, getEmptyProjectMessage(mode));
+        return new Set<number>();
+      })();
   addFooter(pdf, layout, generatedAt, summaryPages);
   return pdf.output('blob');
 }
@@ -1021,16 +1049,39 @@ export async function generateMultiProjectPDF(projects: Project[], mode: PdfExpo
   const generatedAt = getGeneratedAt();
 
   const summaryPages = new Set<number>();
-  for (const [index, project] of projects.entries()) {
-    if (index > 0) {
+  let renderedProjectCount = 0;
+  for (const project of projects) {
+    const exportProject = filterProjectForMode(project, mode);
+
+    if (renderedProjectCount > 0) {
       pdf.addPage();
     }
 
-    const exportProject = filterProjectForMode(project, mode);
-    const projectSummaryPages = await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
-    for (const page of projectSummaryPages) {
-      summaryPages.add(page);
+    if (hasRenderableContent(exportProject, mode)) {
+      const projectSummaryPages = await renderProjectDetailPages(pdf, exportProject, mode, logo, layout);
+      for (const page of projectSummaryPages) {
+        summaryPages.add(page);
+      }
+    } else {
+      const messageY = renderCoverPage(pdf, exportProject, mode, logo, layout);
+      renderEmptyIssuesMessage(pdf, layout, messageY, getEmptyProjectMessage(mode));
     }
+
+    renderedProjectCount += 1;
+  }
+
+  if (renderedProjectCount === 0) {
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(71, 85, 105);
+    pdf.text(
+      mode === 'issues'
+        ? 'No issues recorded for the selected projects.'
+        : 'No checklist content recorded for the selected projects.',
+      layout.margin,
+      layout.contentTop
+    );
+    pdf.setTextColor(0, 0, 0);
   }
 
   addFooter(pdf, layout, generatedAt, summaryPages);

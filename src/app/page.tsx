@@ -383,7 +383,6 @@ export default function ProjectsPage() {
   const selectionMode = deleteMode || exportMode;
 
   useEffect(() => {
-    // Load saved sort preference
     const savedSort = localStorage.getItem(SORT_STORAGE_KEY);
     if (savedSort === 'alphabetical' || savedSort === 'issues' || savedSort === 'progress') {
       setSortOption(savedSort);
@@ -394,6 +393,9 @@ export default function ProjectsPage() {
     } else {
       setSortOption(quickSort);
     }
+  }, [quickSort]);
+
+  useEffect(() => {
     const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
     if (savedRecentAreaTypes) {
       try {
@@ -403,7 +405,7 @@ export default function ProjectsPage() {
       }
     }
     loadProjects();
-  }, [quickSort]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -840,7 +842,7 @@ export default function ProjectsPage() {
     setActionSheet(null);
   }
 
-  async function handleTrashProject(project: Project) {
+  const handleTrashProject = useCallback(async (project: Project) => {
     project.deletedAt = new Date();
     await saveProject(project);
     scheduleSync(project.id);
@@ -848,7 +850,7 @@ export default function ProjectsPage() {
     setProjects((prev) =>
       prev.map((entry) => (entry.id === project.id ? { ...project, areas: [...project.areas] } : entry))
     );
-  }
+  }, []);
 
   async function handleDeleteSelectedAreas() {
     if (!singleProject) return;
@@ -1417,7 +1419,7 @@ export default function ProjectsPage() {
                     onToggleMenu={handleToggleProjectMenu}
                     onCloseMenu={handleCloseProjectMenu}
                     onEditProject={handleOpenProjectEditor}
-                    onDeleteProject={(project) => void handleTrashProject(project)}
+                    onDeleteProject={handleTrashProject}
                     onLongPressSelect={handleProjectCardLongPress}
                   />
                 );

@@ -66,6 +66,7 @@ type ItemMetrics = {
 type LocationMetrics = {
   stats: StatusMetrics;
   pending: number;
+  progress: number;
   photoCount: number;
   commentCount: number;
 };
@@ -178,15 +179,15 @@ export default function AreaDetailPage() {
   useEffect(() => {
     if (!showHeaderMenu) return;
 
-    function handlePointerDown(event: PointerEvent) {
+    function handleDocumentClick(event: MouseEvent) {
       if (!headerMenuRef.current?.contains(event.target as Node)) {
         setShowHeaderMenu(false);
       }
     }
 
-    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('click', handleDocumentClick);
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('click', handleDocumentClick);
     };
   }, [showHeaderMenu]);
 
@@ -320,9 +321,11 @@ export default function AreaDetailPage() {
       }
 
       const locationPending = locationTotal - locationOk - locationIssues;
+      const locationReviewMetrics = getReviewMetrics(locationTotal, locationOk, locationIssues);
       locationMetrics.set(location.id, {
         stats: { total: locationTotal, ok: locationOk, issues: locationIssues },
         pending: locationPending,
+        progress: locationReviewMetrics.reviewedPercent,
         photoCount: locationPhotoCount,
         commentCount: locationCommentCount,
       });
@@ -375,16 +378,8 @@ export default function AreaDetailPage() {
         return a.name.localeCompare(b.name);
       }
 
-      const progressA = getReviewMetrics(
-        areaDerived?.locationMetrics.get(a.id)?.stats.total ?? 0,
-        areaDerived?.locationMetrics.get(a.id)?.stats.ok ?? 0,
-        areaDerived?.locationMetrics.get(a.id)?.stats.issues ?? 0
-      ).reviewedPercent;
-      const progressB = getReviewMetrics(
-        areaDerived?.locationMetrics.get(b.id)?.stats.total ?? 0,
-        areaDerived?.locationMetrics.get(b.id)?.stats.ok ?? 0,
-        areaDerived?.locationMetrics.get(b.id)?.stats.issues ?? 0
-      ).reviewedPercent;
+      const progressA = areaDerived?.locationMetrics.get(a.id)?.progress ?? 0;
+      const progressB = areaDerived?.locationMetrics.get(b.id)?.progress ?? 0;
       if (progressB !== progressA) return progressB - progressA;
       return a.name.localeCompare(b.name);
     });

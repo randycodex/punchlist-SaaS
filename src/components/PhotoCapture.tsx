@@ -9,7 +9,7 @@ interface PhotoCaptureProps {
   files: FileAttachment[];
   onAddPhoto: (imageData: string, thumbnail?: string) => void | Promise<void>;
   onAddPhotos?: (photos: Array<{ imageData: string; thumbnail?: string }>) => void | Promise<void>;
-  onAddFiles?: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void;
+  onAddFiles?: (files: Array<{ data: string; name: string; mimeType: string; size: number }>) => void | Promise<void>;
   onDeletePhoto: (photoId: string) => void;
   onDeleteFile: (fileId: string) => void;
   compactActions?: boolean;
@@ -38,6 +38,7 @@ export default function PhotoCapture({
   const pinchDistanceRef = useRef<number | null>(null);
   const pinchScaleRef = useRef(1);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const maxImageSize = 1280;
@@ -211,6 +212,46 @@ export default function PhotoCapture({
     });
   }
 
+  async function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    const imageFiles = selected.filter((file) => file.type.startsWith('image/'));
+    const nonImageFiles = selected.filter((file) => !file.type.startsWith('image/'));
+
+    setSavingPhotos(true);
+    try {
+      if (imageFiles.length > 0) {
+        const processedPhotos = await Promise.all(imageFiles.map((file) => fileToPhotoPayload(file)));
+        const readyPhotos = processedPhotos.filter(
+          (photo): photo is { imageData: string; thumbnail?: string } => photo !== null
+        );
+        if (readyPhotos.length > 0) {
+          if (onAddPhotos) {
+            await onAddPhotos(readyPhotos);
+          } else {
+            for (const photo of readyPhotos) {
+              await onAddPhoto(photo.imageData, photo.thumbnail);
+            }
+          }
+        }
+      }
+
+      if (nonImageFiles.length > 0 && onAddFiles) {
+        const processedFiles = await Promise.all(nonImageFiles.map((file) => fileToAttachmentPayload(file)));
+        const readyFiles = processedFiles.filter(
+          (file): file is { data: string; name: string; mimeType: string; size: number } => file !== null
+        );
+        if (readyFiles.length > 0) {
+          await onAddFiles(readyFiles);
+        }
+      }
+    } finally {
+      setSavingPhotos(false);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    }
+  }
+
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     if (selected.length === 0) return;
@@ -336,6 +377,16 @@ export default function PhotoCapture({
             <Camera className={compactActions ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
           </button>
         )}
+        <button
+          onClick={() => attachmentInputRef.current?.click()}
+          disabled={savingPhotos}
+          className={`flex items-center justify-center rounded-[1rem] bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 ${
+            compactActions ? 'h-10 w-10' : 'h-11 w-11'
+          }`}
+          aria-label="Add attachments"
+        >
+          <Paperclip className={compactActions ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
+        </button>
         {cameraError && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{cameraError}</p>}
         <input
           ref={cameraInputRef}
@@ -343,6 +394,14 @@ export default function PhotoCapture({
           accept="image/*"
           capture="environment"
           onChange={handlePhotoSelect}
+          disabled={savingPhotos}
+          className="hidden"
+        />
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          multiple
+          onChange={handleAttachmentSelect}
           disabled={savingPhotos}
           className="hidden"
         />
@@ -444,10 +503,11 @@ export default function PhotoCapture({
               <img
                 src={selectedPhoto}
                 alt="Full size"
-                className="max-h-[88vh] max-w-full rounded-2xl object-contain"
+                className="rounded-2xl object-contain"
                 style={{
-                  transform: `scale(${viewerScale})`,
-                  transformOrigin: 'center center',
+                  width: viewerScale === 1 ? 'auto' : `${viewerScale * 100}vw`,
+                  maxWidth: viewerScale === 1 ? '100%' : 'none',
+                  maxHeight: viewerScale === 1 ? '88vh' : 'none',
                   touchAction: 'none',
                 }}
               />

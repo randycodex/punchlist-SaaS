@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Area, Checkpoint, IssueState } from '@/types';
 import { getCheckpointIssueState } from '@/types';
 import PhotoCapture from '@/components/PhotoCapture';
@@ -143,29 +143,31 @@ export default function InspectionLocationCard({
   const customMenuRef = useRef<HTMLDivElement | null>(null);
   const customItemEditRef = useRef<HTMLDivElement | null>(null);
   const customCheckpointEditRef = useRef<HTMLDivElement | null>(null);
-  const visibleItems = showOnlyIssues
-    ? location.items.filter((item) => (itemMetrics.get(item.id)?.stats.issues ?? 0) > 0)
-    : location.items;
+  const cameraRequestTokenRef = useRef(0);
+  const activeCameraOnlyCheckpointId =
+    expandedCheckpointId === cameraOnlyCheckpointId ? cameraOnlyCheckpointId : null;
+  const visibleItems = useMemo(
+    () =>
+      showOnlyIssues
+        ? location.items.filter((item) => (itemMetrics.get(item.id)?.stats.issues ?? 0) > 0)
+        : location.items,
+    [showOnlyIssues, location.items, itemMetrics]
+  );
 
   useEffect(() => {
     if (!openCustomItemMenuId) return;
 
-    function handlePointerDown(event: PointerEvent) {
+    function handleDocumentClick(event: MouseEvent) {
       if (!customMenuRef.current?.contains(event.target as Node)) {
         setOpenCustomItemMenuId(null);
       }
     }
 
-    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('click', handleDocumentClick);
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('click', handleDocumentClick);
     };
   }, [openCustomItemMenuId]);
-
-  useEffect(() => {
-    if (expandedCheckpointId === cameraOnlyCheckpointId) return;
-    setCameraOnlyCheckpointId(null);
-  }, [cameraOnlyCheckpointId, expandedCheckpointId]);
 
   useEffect(() => {
     const hasInlineEdit = !!editingCustomItemId || !!editingCustomCheckpointId;
@@ -206,7 +208,8 @@ export default function InspectionLocationCard({
       setCameraOnlyCheckpointId((current) => current ?? null);
     }
 
-    setCameraRequest({ checkpointId, token: Date.now() });
+    cameraRequestTokenRef.current += 1;
+    setCameraRequest({ checkpointId, token: cameraRequestTokenRef.current });
   }
 
   return (
@@ -214,7 +217,7 @@ export default function InspectionLocationCard({
       className={
         hideHeader
           ? ''
-          : `${location.isCustom ? 'overflow-visible' : 'overflow-hidden'} rounded-[1.6rem] ${
+          : `${openCustomItemMenuId ? 'overflow-visible' : 'overflow-hidden'} rounded-[1.6rem] ${
               isSelected ? 'bg-gray-200 dark:bg-white/[0.09]' : 'card-surface-subtle'
             }`
       }
@@ -329,7 +332,6 @@ export default function InspectionLocationCard({
                     onSaveEdit={onSaveCustomItemEdit}
                     onCancelEdit={onCancelCustomItemEdit}
                     issueState={customIssueState}
-                    expanded={isExpandedCustomCheckpoint}
                     onToggleExpand={() =>
                       openCheckpointComments(location.id, item.id, customCheckpoint.id, customCheckpoint.comments)
                     }
@@ -415,7 +417,7 @@ export default function InspectionLocationCard({
                       onAddFiles={onAddFiles}
                       onDeletePhoto={onDeletePhoto}
                       onDeleteFile={onDeleteFile}
-                      showCommentEditor={cameraOnlyCheckpointId !== customCheckpoint.id}
+                      showCommentEditor={activeCameraOnlyCheckpointId !== customCheckpoint.id}
                       onCloseEditor={() =>
                         openCheckpointComments(location.id, item.id, customCheckpoint.id, customCheckpoint.comments)
                       }
@@ -585,7 +587,6 @@ export default function InspectionLocationCard({
                             onSaveEdit={onSaveCustomCheckpointEdit}
                             onCancelEdit={onCancelCustomCheckpointEdit}
                             issueState={issueState}
-                            expanded={isExpandedCheckpoint}
                             onToggleExpand={() =>
                               openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
                             }
@@ -678,7 +679,7 @@ export default function InspectionLocationCard({
                               onAddFiles={onAddFiles}
                               onDeletePhoto={onDeletePhoto}
                               onDeleteFile={onDeleteFile}
-                              showCommentEditor={cameraOnlyCheckpointId !== checkpoint.id}
+                              showCommentEditor={activeCameraOnlyCheckpointId !== checkpoint.id}
                               onCloseEditor={() =>
                                 openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
                               }
@@ -714,7 +715,6 @@ function CheckpointRow({
   onSaveEdit,
   onCancelEdit,
   issueState,
-  expanded,
   onToggleExpand,
   onToggleIssue,
   onOpenCamera,
@@ -729,7 +729,6 @@ function CheckpointRow({
   onSaveEdit?: () => void | Promise<void>;
   onCancelEdit?: () => void;
   issueState: IssueState;
-  expanded: boolean;
   onToggleExpand: () => void;
   onToggleIssue: () => void;
   onOpenCamera: () => void;

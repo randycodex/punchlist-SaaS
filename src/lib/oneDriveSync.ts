@@ -494,8 +494,14 @@ async function hydrateProjectPhotosFromOneDrive(
   }
 
   await runWithConcurrency(missingPhotos, 3, async ({ photo, driveItemId }) => {
-    const dataUrl = await downloadDriveItemAsDataUrl(token, driveItemId);
-    photo.imageData = dataUrl;
+    try {
+      const dataUrl = await downloadDriveItemAsDataUrl(token, driveItemId);
+      photo.imageData = dataUrl;
+    } catch (error) {
+      if (!isItemNotFoundError(error)) {
+        throw error;
+      }
+    }
   });
 
   return normalizedProject;
@@ -534,10 +540,15 @@ async function syncProjectPhotosToOneDrive(
     ? await listProjectPhotoFiles(token, matchingFolder.name, trashed, false)
     : [];
   const remoteNames = new Set(remotePhotos.map((photo) => photo.name));
+  const remotePhotoIds = new Set(
+    remotePhotos
+      .map((photo) => getPhotoIdFromFilename(photo.name))
+      .filter((photoId): photoId is string => Boolean(photoId))
+  );
 
   await runWithConcurrency(localPhotos.map((photo, index) => ({ photo, index })), 3, async ({ photo, index }) => {
     const filename = projectPhotoFilename(project, photo, index);
-    if (remoteNames.has(filename) || !photo.imageData) {
+    if (remoteNames.has(filename) || remotePhotoIds.has(photo.id) || !photo.imageData) {
       return;
     }
     const blob = await dataUrlToBlob(photo.imageData);
