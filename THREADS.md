@@ -24,6 +24,10 @@ Use one branch + one worktree per workstream.
 | Thread | Branch | Worktree Path | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|---|
 | Main integration | `main` | `.` | Stable baseline + merges | Active | You | Do release checks here |
-| PDF layout | `codex/pdf-layout` | `.worktrees/pdf-layout` | PDF headers, spacing, summaries | Planned | You | |
-| Sync behavior | `codex/sync-behavior` | `.worktrees/sync-behavior` | pull-to-sync, conflict handling | Planned | You | |
-| UI polish | `codex/ui-polish` | `.worktrees/ui-polish` | header, card spacing, interaction polish | Planned | You | |
+| UI / Layout | `codex/ui-layout` | `.worktrees/ui-layout` | Shared layout, navigation, menus, visual polish | Planned | You | |
+| Camera / Photos / Files | `codex/camera-photos-files` | `.worktrees/camera-photos-files` | Camera capture, attachments, previews, file handling | Planned | You | |
+| Performance / Stability | `codex/performance-stability` | `.worktrees/performance-stability` | Runtime errors, responsiveness, dependency/runtime fixes | Planned | You | |
+| Release / Deploy | `codex/release-deploy` | `.worktrees/release-deploy` | Build, environment setup, deploy readiness, release checks | Planned | You | |
+| Inspection Flow | `codex/inspection-flow` | `.worktrees/inspection-flow` | Project, area, and inspection walkthrough UX | Planned | You | |
+| PDF Export | `codex/pdf-export` | `.worktrees/pdf-export` | PDF generation, layout, export behavior | Planned | You | |
+| Sync / OneDrive | `codex/sync-onedrive` | `.worktrees/sync-onedrive` | OneDrive auth, sync behavior, conflict handling | Planned | You | |
