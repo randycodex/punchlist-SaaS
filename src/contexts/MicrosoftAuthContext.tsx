@@ -15,7 +15,7 @@ type MicrosoftAuthContextValue = {
   isReady: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  ensureAccessToken: () => Promise<string | null>;
+  ensureAccessToken: (options?: { interactive?: boolean }) => Promise<string | null>;
 };
 
 const MicrosoftAuthContext = createContext<MicrosoftAuthContextValue | undefined>(undefined);
@@ -126,7 +126,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
     setIsSignedIn(false);
   }
 
-  async function ensureAccessToken() {
+  async function ensureAccessToken(options?: { interactive?: boolean }) {
     if (!pca) return null;
     await pca.initialize();
     const account = getResolvedAccount(pca);
@@ -138,6 +138,9 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
       return tokenResult.accessToken;
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
+        if (!options?.interactive) {
+          return null;
+        }
         try {
           const tokenResult = await pca.acquireTokenPopup({ scopes: SCOPES, account });
           if (tokenResult.account) {

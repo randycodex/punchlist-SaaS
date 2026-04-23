@@ -654,6 +654,19 @@ function isAfterOrEqual(left: string, right: string | undefined) {
   return new Date(left).getTime() >= new Date(right).getTime();
 }
 
+function compareTimestampsWithTolerance(
+  left: string | Date | number | undefined,
+  right: string | Date | number | undefined,
+  toleranceMs = CLOCK_SKEW_TOLERANCE_MS
+) {
+  const leftMs = typeof left === 'number' ? left : timestampMs(left);
+  const rightMs = typeof right === 'number' ? right : timestampMs(right);
+  const difference = leftMs - rightMs;
+  if (difference > toleranceMs) return 1;
+  if (difference < -toleranceMs) return -1;
+  return 0;
+}
+
 function mergeSyncStates(
   localSyncStates: ProjectSyncStateMap,
   remoteSyncStates: ProjectSyncStateMap
@@ -945,7 +958,8 @@ export async function syncProjectsWithOneDrive(token: string): Promise<SyncResul
     const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
     const needsProjectFileMigration =
       remoteEntries.length > 0 && (!canonicalRemote || remoteEntries.some((entry) => entry.id !== canonicalRemote.id));
-    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS && !needsProjectFileMigration) {
+    const freshnessComparison = compareTimestampsWithTolerance(localUpdatedAt, remoteUpdatedAt);
+    if (freshnessComparison <= 0 && !needsProjectFileMigration) {
       await migrateLegacyProjectPhotos(token, fullProject, targetFolderName);
       await migrateLegacyProjectExports(
         token,
@@ -1024,7 +1038,13 @@ export async function pushProjectsToOneDrive(token: string, projectIds: string[]
     const remoteUpdatedAt = timestampMs(remote?.lastModifiedDateTime);
     const localUpdatedAt = getProjectUpdatedAt(localProject);
 
-    if (localUpdatedAt <= remoteUpdatedAt + CLOCK_SKEW_TOLERANCE_MS) {
+    const freshnessComparison = compareTimestampsWithTolerance(localUpdatedAt, remoteUpdatedAt);
+    if (freshnessComparison < 0) {
+      conflictsById.set(projectId, { id: projectId, name: localProject.projectName });
+      return;
+    }
+
+    if (freshnessComparison === 0) {
       return;
     }
 

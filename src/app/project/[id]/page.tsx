@@ -79,10 +79,10 @@ const AreaCard = memo(function AreaCard({
           onToggleSelection(area.id);
         }
       }}
-      className={`block rounded-2xl border p-4 transition-colors ${
+      className={`card-surface block rounded-[1.65rem] p-4 transition-all ${
         isSelected
-          ? 'bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500'
-          : 'bg-white/90 dark:bg-white/[0.055] border-gray-300 dark:border-white/[0.04] hover:border-gray-400 dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
+          ? 'bg-gray-100 border-gray-400 dark:bg-white/[0.08] dark:border-gray-500'
+          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.1)] dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -100,7 +100,7 @@ const AreaCard = memo(function AreaCard({
         >
           <div className="min-w-0">
             <div className="min-w-0 flex items-center gap-2">
-              <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
+              <h3 className="truncate text-[1.05rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{area.name}</h3>
             </div>
             <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/[0.12]">
@@ -121,7 +121,7 @@ const AreaCard = memo(function AreaCard({
               event.preventDefault();
             }
           }}
-          className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+          className="mt-1 flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -391,7 +391,7 @@ export default function ProjectDetailPage() {
     setSyncError(null);
     setSyncStatus('syncing');
     try {
-      const token = await ensureAccessToken();
+      const token = await ensureAccessToken({ interactive: true });
       if (!token) {
         setSyncError('Please sign in to sync.');
         setSyncStatus('needs-auth');
@@ -613,8 +613,8 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500 dark:border-gray-300"></div>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[var(--accent)] dark:border-white/10 dark:border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -626,13 +626,14 @@ export default function ProjectDetailPage() {
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
       <header className="header-stable shrink-0 border-b z-20">
-        <div className="mx-auto flex h-[4.75rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
+        <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
           <div className="flex w-full items-center gap-3">
-            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+              <div className="section-eyebrow">Project</div>
+              <h1 className="mt-1 truncate text-[1.2rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                 {project.projectName}
               </h1>
               <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
@@ -667,14 +668,14 @@ export default function ProjectDetailPage() {
       </header>
 
       {syncError && (
-        <div className="shrink-0 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/70 px-4 py-2 text-sm text-gray-700 dark:border-zinc-700 dark:bg-white/[0.03] dark:text-gray-200">
           {syncError}
         </div>
       )}
       {/* Areas List */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:px-5"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:px-5"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}
@@ -683,7 +684,7 @@ export default function ProjectDetailPage() {
         {!showTrash && activeAreas.length === 0 ? (
           <div className="mx-auto flex min-h-[calc(100%+1px)] w-full max-w-6xl flex-col">
             <div className="flex flex-1 items-center justify-center py-12">
-              <div className="w-full max-w-sm rounded-[1.75rem] border border-dashed border-gray-300 bg-white/70 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/70">
+              <div className="empty-state-card w-full max-w-sm rounded-[1.9rem] p-8 text-center">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-500 dark:bg-zinc-900 dark:text-gray-300">
                   <Building2 className="h-7 w-7" />
                 </div>
@@ -697,9 +698,9 @@ export default function ProjectDetailPage() {
           </div>
         ) : showTrash ? (
           trashedAreas.length === 0 ? (
-            <div className="text-center py-12">
-              <Trash2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Trash Is Empty</h2>
+            <div className="empty-state-card mx-auto max-w-md rounded-[2rem] p-10 text-center">
+              <Trash2 className="mx-auto mb-4 h-14 w-14 text-gray-300 dark:text-gray-600" />
+              <h2 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">Trash Is Empty</h2>
               <p className="text-gray-500 dark:text-gray-400">Deleted areas will show up here.</p>
             </div>
           ) : (
@@ -709,7 +710,7 @@ export default function ProjectDetailPage() {
                 return (
                   <div
                     key={area.id}
-                    className="rounded-lg border p-4 border-gray-300 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700"
+                    className="card-surface-subtle rounded-[1.5rem] p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -720,7 +721,7 @@ export default function ProjectDetailPage() {
                       </div>
                       <button
                         onClick={() => void handleRestoreArea(area.id)}
-                        className="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1 shrink-0"
+                        className="segmented-chip shrink-0 px-3 py-2 text-sm"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         Restore
@@ -757,7 +758,7 @@ export default function ProjectDetailPage() {
         <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-20 -translate-x-1/2">
           <button
             onClick={() => setShowAddArea(true)}
-            className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+            className="floating-action pointer-events-auto inline-flex h-14 w-[10.75rem] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition hover:translate-y-[-1px]"
           >
             <Plus className="h-4 w-4" />
             Add Area
@@ -788,18 +789,18 @@ export default function ProjectDetailPage() {
       )}
 
       {actionSheet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md">
-            <div className="menu-surface overflow-hidden rounded-[1.75rem]">
+            <div className="modal-panel overflow-hidden rounded-[1.8rem] p-2">
               <button
                 onClick={() => void handleDeleteSelectedAreas()}
-                className="accent-text w-full border-b border-gray-200 py-3 text-center text-[17px] dark:border-gray-700"
+                className="accent-text w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] transition hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
               >
                 Delete
               </button>
               <button
                 onClick={() => setActionSheet(null)}
-                className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white"
+                className="mt-1 w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] text-gray-900 transition hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.05]"
               >
                 Cancel
               </button>

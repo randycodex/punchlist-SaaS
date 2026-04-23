@@ -54,13 +54,14 @@ export default function AreaEditorModal({
   const selectedDefinition = getAreaTypeDefinition(value.areaTypeKey);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="menu-surface w-full max-w-md rounded-[1.75rem] p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="modal-panel w-full max-w-md rounded-[1.9rem] p-6">
+        <h2 className="mb-1 text-xl font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{title}</h2>
+        <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">Choose the area type and label details.</p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Area
             </label>
             <select
@@ -73,7 +74,7 @@ export default function AreaEditorModal({
                   customAreaName: e.target.value === 'custom' ? value.customAreaName : '',
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+              className="field-shell"
             >
               {orderedAreaTypes.map((definition) => (
                 <option key={definition.key} value={definition.key}>
@@ -85,7 +86,7 @@ export default function AreaEditorModal({
 
           {selectedDefinition.requiresUnitType && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Unit Type
               </label>
               <select
@@ -96,7 +97,7 @@ export default function AreaEditorModal({
                     unitType: e.target.value as ApartmentUnitType,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                className="field-shell"
               >
                 <option value="">Select unit type</option>
                 {APARTMENT_UNIT_TYPES.map((unitType) => (
@@ -110,7 +111,7 @@ export default function AreaEditorModal({
 
           {selectedDefinition.requiresCustomName && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Area Name
               </label>
               <input
@@ -122,14 +123,14 @@ export default function AreaEditorModal({
                     customAreaName: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                className="field-shell"
                 placeholder="Enter custom area name"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Number / Floor
             </label>
             <input
@@ -141,17 +142,17 @@ export default function AreaEditorModal({
                   areaNumber: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+              className="field-shell"
               placeholder="e.g., 306, 12F, B1"
             />
           </div>
 
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="mt-6 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="flex-1 rounded-2xl border border-gray-300/90 bg-white/70 px-4 py-3 font-medium text-gray-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
             Cancel
           </button>
@@ -161,7 +162,7 @@ export default function AreaEditorModal({
               (selectedDefinition.requiresUnitType && !value.unitType) ||
               (selectedDefinition.requiresCustomName && !value.customAreaName.trim())
             }
-            className="flex-1 rounded-2xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             {submitLabel}
           </button>

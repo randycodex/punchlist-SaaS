@@ -149,10 +149,10 @@ const ProjectCard = memo(function ProjectCard({
       onPointerUp={clearLongPress}
       onPointerCancel={clearLongPress}
       onPointerLeave={clearLongPress}
-      className={`select-none rounded-[1.5rem] border p-4 transition-colors [-webkit-touch-callout:none] ${
+      className={`card-surface select-none rounded-[1.7rem] p-4 transition-all [-webkit-touch-callout:none] ${
         isSelected
-          ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
-          : 'border-gray-300 bg-white/90 hover:border-gray-400 dark:border-white/[0.04] dark:bg-white/[0.055] dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
+          ? '!border-gray-400 !bg-gray-100 dark:!border-gray-500 dark:!bg-white/[0.08]'
+          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.1)] dark:hover:border-white/[0.08] dark:hover:bg-white/[0.07]'
       } ${selectionMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -170,7 +170,7 @@ const ProjectCard = memo(function ProjectCard({
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{project.projectName}</h3>
+              <h3 className="truncate text-[1.05rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{project.projectName}</h3>
             </div>
             <p className={`mt-1 truncate text-sm ${project.address ? 'text-gray-500 dark:text-gray-300' : 'text-gray-400 dark:text-gray-400'}`}>
               {project.address || 'No address added'}
@@ -194,7 +194,7 @@ const ProjectCard = memo(function ProjectCard({
                 onToggleMenu(project.id);
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              className="rounded-full p-2 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+              className="rounded-[1rem] border border-black/5 bg-white/60 p-2 text-gray-400 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
               aria-label={`Project actions for ${project.projectName}`}
             >
               <MoreVertical className="w-4 h-4" />
@@ -202,13 +202,13 @@ const ProjectCard = memo(function ProjectCard({
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={onCloseMenu} />
-                <div className="menu-surface absolute right-0 z-20 mt-2 w-44 rounded-2xl">
+                <div className="menu-surface absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-[1.3rem] p-1.5">
                   <button
                     onClick={() => {
                       onCloseMenu();
                       onEditProject(project);
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-2 rounded-[1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <Pencil className="w-4 h-4" />
                     Edit Project
@@ -218,7 +218,7 @@ const ProjectCard = memo(function ProjectCard({
                       onCloseMenu();
                       onDeleteProject(project);
                     }}
-                    className="accent-text flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="accent-text flex w-full items-center gap-2 rounded-[1rem] px-4 py-3 text-left text-sm transition hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -239,7 +239,7 @@ const ProjectCard = memo(function ProjectCard({
               }
             }}
             onPointerDown={(event) => event.stopPropagation()}
-            className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white [-webkit-touch-callout:none]"
+            className="mt-0.5 rounded-[1rem] border border-transparent p-1.5 text-gray-400 transition hover:border-black/5 hover:bg-white hover:text-gray-700 dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/[0.08] dark:hover:text-white [-webkit-touch-callout:none]"
             aria-label={`Open ${project.projectName}`}
           >
             <ChevronRight className="w-5 h-5" />
@@ -284,10 +284,10 @@ const HomeAreaCard = memo(function HomeAreaCard({
           onToggleSelection(area.id);
         }
       }}
-      className={`card-surface-subtle select-none touch-manipulation [-webkit-touch-callout:none] rounded-[1.5rem] p-4 transition-colors ${
+      className={`card-surface-subtle select-none touch-manipulation [-webkit-touch-callout:none] rounded-[1.6rem] p-4 transition-all ${
         isSelected
-          ? '!border-gray-400 !bg-gray-200 dark:!border-gray-500 dark:!bg-gray-700'
-          : 'hover:border-gray-400 dark:hover:border-zinc-500'
+          ? '!border-gray-400 !bg-gray-100 dark:!border-gray-500 dark:!bg-white/[0.08]'
+          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:hover:border-white/[0.08]'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
@@ -307,8 +307,8 @@ const HomeAreaCard = memo(function HomeAreaCard({
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{area.name}</h3>
-              <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">{areaStats.total} items</span>
+              <h3 className="truncate text-[1.03rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{area.name}</h3>
+              <span className="segmented-chip shrink-0 px-2.5 py-1 text-[11px]">{areaStats.total} items</span>
             </div>
             <MetadataLine className="mt-2" issues={areaStats.issues} notes={commentCount} photos={photoCount} />
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/[0.12]">
@@ -330,7 +330,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
             }
           }}
           onPointerDown={(event) => event.stopPropagation()}
-          className="mt-0.5 rounded-full p-1 text-gray-400 transition hover:bg-black/[0.04] hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 [-webkit-touch-callout:none]"
+          className="mt-0.5 rounded-[1rem] border border-transparent p-1.5 text-gray-400 transition hover:border-black/5 hover:bg-white hover:text-gray-700 dark:hover:border-white/10 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 [-webkit-touch-callout:none]"
           style={{ WebkitTapHighlightColor: 'transparent' }}
           aria-label={`Open ${area.name}`}
         >
@@ -1147,8 +1147,8 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500 dark:border-gray-300"></div>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[var(--accent)] dark:border-white/10 dark:border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -1158,11 +1158,12 @@ export default function ProjectsPage() {
       {(singleProjectMainView || showTrash || selectionMode) && (
         <header className="header-stable shrink-0 border-b z-20">
           {(singleProjectMainView || showTrash) && (
-            <div className="mx-auto flex h-[4.75rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
+            <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
               <div className="min-w-0 flex-1">
                 {singleProjectMainView ? (
                   <>
-                    <h1 className="truncate text-lg font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+                    <div className="section-eyebrow">Project View</div>
+                    <h1 className="mt-1 truncate text-[1.2rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                       {singleProject.projectName}
                     </h1>
                     <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
@@ -1171,7 +1172,8 @@ export default function ProjectsPage() {
                   </>
                 ) : (
                   <>
-                    <h1 className="text-lg font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+                    <div className="section-eyebrow">Archive</div>
+                    <h1 className="mt-1 text-[1.2rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                       Trash
                     </h1>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -1184,7 +1186,7 @@ export default function ProjectsPage() {
                 <div className="ml-3 flex items-center gap-3">
                   <button
                     onClick={cancelSelectionMode}
-                    className="text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                    className="rounded-full px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-black/[0.04] hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
                   >
                     Cancel
                   </button>
@@ -1204,10 +1206,10 @@ export default function ProjectsPage() {
             </div>
           )}
           {selectionMode && !singleProjectMainView && (
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-800 sm:px-5">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-3 border-t border-gray-200/80 px-4 py-3 dark:border-gray-800 sm:px-5">
             <button
               onClick={cancelSelectionMode}
-              className="text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+              className="rounded-full px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-black/[0.04] hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
             >
               Cancel
             </button>
@@ -1215,7 +1217,7 @@ export default function ProjectsPage() {
               <button
                 onClick={() => void handleExportSelectedConfirm()}
                 disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/5 bg-white/70 text-gray-700 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08] disabled:opacity-40"
                 aria-label="Export selected projects"
               >
                 {exportingSelected || exportingSelectedToDrive ? (
@@ -1251,18 +1253,18 @@ export default function ProjectsPage() {
         </header>
       )}
       {syncError && (
-        <div className="shrink-0 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/70 px-4 py-2 text-sm text-gray-700 dark:border-zinc-700 dark:bg-white/[0.03] dark:text-gray-200">
           {syncError}
         </div>
       )}
       {syncConflicts.length > 0 && (
-        <div className="shrink-0 px-4 py-2 text-sm border-b border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/70 px-4 py-3 text-sm dark:border-zinc-700 dark:bg-white/[0.03]">
           <div className="text-gray-700 dark:text-gray-200">Conflicts detected:</div>
-          <div className="flex flex-wrap gap-2 mt-1">
+          <div className="mt-2 flex flex-wrap gap-2">
             {syncConflicts.map((conflict) => (
               <span
                 key={conflict.id}
-                className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-700 dark:bg-zinc-700 dark:border-zinc-600 dark:text-gray-200"
+                className="segmented-chip px-3 py-1 text-xs"
               >
                 {conflict.name}
               </span>
@@ -1274,7 +1276,7 @@ export default function ProjectsPage() {
       {/* Content */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:px-5"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:px-5"
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
@@ -1282,9 +1284,9 @@ export default function ProjectsPage() {
       >
         {showTrash ? (
           trashedProjects.length === 0 ? (
-          <div className="text-center py-12">
-            <Trash2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Trash Is Empty</h2>
+          <div className="empty-state-card mx-auto max-w-md rounded-[2rem] p-10 text-center">
+            <Trash2 className="mx-auto mb-4 h-14 w-14 text-gray-300 dark:text-gray-600" />
+            <h2 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">Trash Is Empty</h2>
             <p className="text-gray-500 dark:text-gray-400">Deleted projects stay here for 30 days before permanent removal.</p>
           </div>
           ) : (
@@ -1326,10 +1328,10 @@ export default function ProjectsPage() {
                     onPointerUp={clearLongPress}
                     onPointerCancel={clearLongPress}
                     onPointerLeave={clearLongPress}
-                    className={`rounded-lg border p-4 transition-colors ${
+                    className={`card-surface-subtle rounded-[1.5rem] p-4 transition-all ${
                       isSelected
-                        ? 'border-gray-500 bg-gray-200 dark:bg-zinc-700 dark:border-zinc-500'
-                        : 'border-gray-300 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700'
+                        ? 'border-gray-500 bg-gray-100 dark:bg-white/[0.08] dark:border-zinc-500'
+                        : 'hover:-translate-y-px hover:border-black/10 dark:hover:border-white/[0.08]'
                     } ${deleteMode ? 'cursor-pointer' : ''} select-none touch-manipulation [-webkit-touch-callout:none]`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -1350,7 +1352,7 @@ export default function ProjectsPage() {
                           onClick={() => void handleRestoreProject(project.id)}
                           onContextMenu={(event) => event.preventDefault()}
                           onPointerDown={(event) => event.stopPropagation()}
-                          className="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1"
+                          className="segmented-chip px-3 py-2 text-sm"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           Restore
@@ -1367,7 +1369,7 @@ export default function ProjectsPage() {
           <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
             {sortedAreas.length === 0 ? (
               <div className="flex min-h-[50vh] items-center justify-center py-12">
-                <div className="w-full max-w-sm rounded-[1.75rem] border border-dashed border-gray-300 bg-white/70 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/70">
+                <div className="empty-state-card w-full max-w-sm rounded-[1.9rem] p-8 text-center">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">No areas yet</h2>
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     Add the first area to turn this project into an active inspection dashboard.
@@ -1396,7 +1398,7 @@ export default function ProjectsPage() {
           <div className="list-stack mx-auto min-h-[calc(100%+1px)] w-full max-w-6xl">
             {sortedProjects.length === 0 ? (
               <div className="flex min-h-[50vh] items-center justify-center py-12">
-                <div className="w-full max-w-sm rounded-[1.75rem] border border-dashed border-gray-300 bg-white/70 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/70">
+                <div className="empty-state-card w-full max-w-sm rounded-[1.9rem] p-8 text-center">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">No projects yet</h2>
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     Create a project to start tracking units, issues, and inspection progress.
@@ -1437,7 +1439,7 @@ export default function ProjectsPage() {
                 setAreaTargetProjectId(singleProject.id);
                 setShowAddArea(true);
               }}
-              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+            className="floating-action pointer-events-auto inline-flex h-14 w-[10.75rem] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition hover:translate-y-[-1px]"
             >
               <Plus className="h-4 w-4" />
               Add Area
@@ -1445,7 +1447,7 @@ export default function ProjectsPage() {
           ) : (
             <button
               onClick={() => setShowNewProject(true)}
-              className="pointer-events-auto inline-flex h-14 w-[10.5rem] items-center justify-center gap-2 rounded-full bg-zinc-600 px-5 text-sm font-semibold text-white shadow-xl shadow-black/15 transition hover:bg-zinc-500 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+            className="floating-action pointer-events-auto inline-flex h-14 w-[11.25rem] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition hover:translate-y-[-1px]"
             >
               <Plus className="h-4 w-4" />
               Add Project
@@ -1470,17 +1472,18 @@ export default function ProjectsPage() {
       />
 
       {showAreaProjectPicker && !singleProjectMainView && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 p-4 pointer-events-none">
+        <div className="modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
           <div className="w-full max-w-md pointer-events-auto">
-            <div className="rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose Project</h2>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="modal-panel rounded-[1.8rem] p-5">
+              <h2 className="mb-1 text-xl font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">Choose Project</h2>
+              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Pick the project that should receive the new area.</p>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Project
               </label>
               <select
                 value={areaTargetProjectId ?? ''}
                 onChange={(e) => setAreaTargetProjectId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                className="field-shell"
               >
                 <option value="">Select project</option>
                 {sortedProjects.map((project) => (
@@ -1495,7 +1498,7 @@ export default function ProjectsPage() {
                     setShowAreaProjectPicker(false);
                     setAreaTargetProjectId(null);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="flex-1 rounded-2xl border border-gray-300/90 bg-white/70 px-4 py-3 font-medium text-gray-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
                 >
                   Cancel
                 </button>
@@ -1506,7 +1509,7 @@ export default function ProjectsPage() {
                     setShowAddArea(true);
                   }}
                   disabled={!areaTargetProjectId}
-                  className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
+                  className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 disabled:opacity-50"
                 >
                   Continue
                 </button>
@@ -1518,56 +1521,57 @@ export default function ProjectsPage() {
 
       {/* New Project Modal */}
       {showNewProject && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-zinc-800 rounded-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Project</h2>
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="modal-panel w-full max-w-md rounded-[1.9rem] p-6">
+            <h2 className="mb-1 text-xl font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">New Project</h2>
+            <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">Create a polished inspection workspace with the basics filled in.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Project Name *
                 </label>
                 <input
                   type="text"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                  className="field-shell"
                   placeholder="Enter project name"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Address
                 </label>
                 <input
                   type="text"
                   value={newProjectAddress}
                   onChange={(e) => setNewProjectAddress(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                  className="field-shell"
                   placeholder="Enter address"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Inspected By
                 </label>
                 <input
                   type="text"
                   value={newProjectInspector}
                   onChange={(e) => setNewProjectInspector(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                  className="field-shell"
                   placeholder="Enter inspector name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   GC Name
                 </label>
                 <input
                   type="text"
                   value={newProjectGcName}
                   onChange={(e) => setNewProjectGcName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                  className="field-shell"
                   placeholder="Enter GC name"
                 />
               </div>
@@ -1581,14 +1585,14 @@ export default function ProjectsPage() {
                   setNewProjectInspector('');
                   setNewProjectGcName('');
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 rounded-2xl border border-gray-300/90 bg-white/70 px-4 py-3 font-medium text-gray-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim()}
-                className="flex-1 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Create
               </button>
@@ -1607,26 +1611,26 @@ export default function ProjectsPage() {
       )}
 
       {actionSheet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md">
-            <div className="rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
+            <div className="modal-panel overflow-hidden rounded-[1.8rem] p-2">
               {actionSheet === 'export' ? (
                 <>
                   <button
                     onClick={() => void handleExportSelectedToDrive()}
-                    className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700"
+                    className="w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] text-gray-900 transition hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.05]"
                   >
                     OneDrive
                   </button>
                   <button
                     onClick={() => void handleExportSelectedLocal()}
-                    className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700"
+                    className="w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] text-gray-900 transition hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.05]"
                   >
                     Local
                   </button>
                   <button
                     onClick={() => setActionSheet(null)}
-                    className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white"
+                    className="mt-1 w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] text-gray-900 transition hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.05]"
                   >
                     Cancel
                   </button>
@@ -1641,13 +1645,13 @@ export default function ProjectsPage() {
                       }
                       void handleDeleteSelectedProjects();
                     }}
-                    className="accent-text w-full border-b border-gray-200 py-3 text-center text-[17px] dark:border-gray-700"
+                    className="accent-text w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] transition hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
                   >
                     Delete
                   </button>
                   <button
                     onClick={() => setActionSheet(null)}
-                    className="w-full py-3 text-center text-[17px] text-gray-900 dark:text-white"
+                    className="mt-1 w-full rounded-[1.1rem] px-4 py-3 text-center text-[17px] text-gray-900 transition hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.05]"
                   >
                     Cancel
                   </button>

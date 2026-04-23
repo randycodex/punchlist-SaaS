@@ -161,7 +161,7 @@ export default function PersistentTopBar() {
           <Link
             href="/"
             aria-label="Go to projects"
-            className="flex shrink-0 items-center rounded-2xl"
+            className="flex shrink-0 items-center rounded-[1.15rem] border border-black/5 bg-white/70 p-1 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
             onClick={() => {
               if (showAuth || homeMenuState.context === 'project') {
                 window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action: 'clear-trash' } }));
@@ -186,16 +186,16 @@ export default function PersistentTopBar() {
             />
             <button
               onClick={() => setShowHomeMenu((current) => !current)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition hover:bg-black/[0.04] hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
               aria-label="Open app menu"
             >
               <MoreVertical className="h-5 w-5" />
             </button>
             {showHomeMenu && (
-              <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[14rem] rounded-2xl py-1">
+              <div className="menu-surface absolute right-0 top-[calc(100%+0.65rem)] z-40 min-w-[15rem] overflow-hidden rounded-[1.6rem] p-2">
                 {showAuth && (
-                  <div className="px-3 py-2">
-                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                  <div className="px-1 py-1">
+                    <div className="space-y-2 rounded-[1.25rem] bg-black/[0.03] p-2.5 dark:bg-white/[0.03]">
                       <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
                         Sort
                       </div>
@@ -219,8 +219,8 @@ export default function PersistentTopBar() {
                 )}
                 {!showAuth && (
                   <>
-                  <div className="px-3 py-2">
-                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                  <div className="px-1 py-1">
+                    <div className="space-y-2 rounded-[1.25rem] bg-black/[0.03] p-2.5 dark:bg-white/[0.03]">
                       <button
                         onClick={() => dispatchHomeAction('toggle-issues-only')}
                         className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.04]"
@@ -240,12 +240,12 @@ export default function PersistentTopBar() {
                       </button>
                     </div>
                   </div>
-                  <div className="border-t border-gray-200 dark:border-zinc-700" />
-                  <div className="px-3 py-2">
+                  <div className="mx-1 my-1 border-t border-gray-200/80 dark:border-zinc-700" />
+                  <div className="px-1 py-1">
                     <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
                       Sort
                     </div>
-                    <div className="space-y-2 rounded-2xl bg-black/[0.03] p-2 dark:bg-white/[0.03]">
+                    <div className="space-y-2 rounded-[1.25rem] bg-black/[0.03] p-2.5 dark:bg-white/[0.03]">
                       {sortOptions.map(({ value, label, icon: Icon }) => (
                         <button
                           key={value}
@@ -266,7 +266,7 @@ export default function PersistentTopBar() {
                 )}
                 <button
                   onClick={() => dispatchHomeAction('sync-now')}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                 >
                   <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin text-[var(--accent)]' : ''}`} />
                   Sync now
@@ -274,7 +274,7 @@ export default function PersistentTopBar() {
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('edit-project')}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <Pencil className="h-4 w-4" />
                     Edit project
@@ -283,7 +283,7 @@ export default function PersistentTopBar() {
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('toggle-selection')}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <MoreVertical className="h-4 w-4" />
                     {homeMenuState.selectionMode ? 'Cancel selection' : 'Select'}
@@ -292,7 +292,7 @@ export default function PersistentTopBar() {
                 {homeMenuState.isSingleProject && (
                   <button
                     onClick={() => dispatchHomeAction('export-project')}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <FileDown className="h-4 w-4" />
                     Export project
@@ -301,7 +301,7 @@ export default function PersistentTopBar() {
                 {homeMenuState.context !== 'project' && (
                   <button
                     onClick={() => dispatchHomeAction('new-project')}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <PlusSquare className="h-4 w-4" />
                     Add project
@@ -310,7 +310,7 @@ export default function PersistentTopBar() {
                 {homeMenuState.canAddArea && !homeMenuState.isSingleProject && (
                   <button
                     onClick={() => dispatchHomeAction('new-area')}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <FolderPlus className="h-4 w-4" />
                     Add area
@@ -318,7 +318,7 @@ export default function PersistentTopBar() {
                 )}
                 <button
                   onClick={() => dispatchHomeAction('toggle-trash')}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                 >
                   <Trash2 className="h-4 w-4" />
                   {homeMenuState.showTrash ? 'Hide trash' : 'Trash'}
@@ -328,7 +328,7 @@ export default function PersistentTopBar() {
                     onClick={() => {
                       dispatchHomeAction('auth');
                     }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <LogIn className="h-4 w-4" />
                     Sign in
@@ -338,7 +338,7 @@ export default function PersistentTopBar() {
                     onClick={() => {
                       dispatchHomeAction('auth');
                     }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                   >
                     <LogOut className="h-4 w-4" />
                     Sign out
@@ -354,7 +354,7 @@ export default function PersistentTopBar() {
               aria-label={indicatorLabel[status]}
               className={`sync-indicator h-2.5 w-2.5 rounded-full shrink-0 ${indicatorClasses[status]}`}
             />
-            <div className="truncate text-right text-sm font-semibold tracking-[-0.01em] text-gray-700 dark:text-gray-200">
+            <div className="truncate rounded-full border border-black/5 bg-white/60 px-3 py-1.5 text-right text-sm font-semibold tracking-[-0.01em] text-gray-700 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200">
               {projectTitle}
             </div>
           </div>

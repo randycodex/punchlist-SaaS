@@ -647,11 +647,47 @@ function estimateAreaSummaryHeight(pdf: jsPDF, areaSummary: SummaryArea | undefi
   }, 0) + 3;
 }
 
+function getAreaSummaryRowHeight(
+  pdf: jsPDF,
+  section: SummaryArea['sections'][number],
+  subItemColumnWidth: number,
+  commentsColumnWidth: number
+) {
+  const entryLines = section.entries.reduce((linesTotal, entry) => {
+    const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
+    const commentLines = entry.comment
+      ? (pdf.splitTextToSize(entry.comment, commentsColumnWidth - 2) as string[])
+      : [];
+    return linesTotal + Math.max(1, subItemLines.length, commentLines.length);
+  }, 0);
+
+  return Math.max(6.5, entryLines * 4.1 + 1.5);
+}
+
+function renderAreaSummaryTableHeader(
+  pdf: jsPDF,
+  layout: LayoutMetrics,
+  y: number
+) {
+  const { tableWidth, sectionColumnWidth, subItemColumnWidth, commentsColumnWidth } = getAreaSummaryColumns(layout);
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.8);
+  pdf.text('AREA', layout.margin + 0.5, y);
+  pdf.text('INSPECTED ITEM', layout.margin + 0.5 + sectionColumnWidth, y);
+  pdf.text('COMMENTS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth, y);
+  pdf.text('PHOTOS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth + commentsColumnWidth, y);
+  pdf.text('ISSUES QTY', layout.margin + tableWidth - 1, y, { align: 'right' });
+
+  return y + 5;
+}
+
 function renderAreaSummaryBlock(
   pdf: jsPDF,
   areaSummary: SummaryArea | undefined,
   layout: LayoutMetrics,
-  startY: number
+  startY: number,
+  startSummaryPage: () => number
 ) {
   if (!areaSummary || areaSummary.sections.length === 0) {
     return startY;
@@ -665,29 +701,27 @@ function renderAreaSummaryBlock(
   pdf.setTextColor(71, 85, 105);
   pdf.text('Summary', layout.margin, y);
   y += 5;
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.8);
-  pdf.text('AREA', layout.margin + 0.5, y);
-  pdf.text('INSPECTED ITEM', layout.margin + 0.5 + sectionColumnWidth, y);
-  pdf.text('COMMENTS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth, y);
-  pdf.text('PHOTOS', layout.margin + 0.5 + sectionColumnWidth + subItemColumnWidth + commentsColumnWidth, y);
-  pdf.text('ISSUES QTY', layout.margin + tableWidth - 1, y, { align: 'right' });
-  y += 5;
+  y = renderAreaSummaryTableHeader(pdf, layout, y);
 
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8.1);
   pdf.setTextColor(55, 65, 81);
 
   for (const section of areaSummary.sections) {
-    const entryLines = section.entries.reduce((linesTotal, entry) => {
-      const subItemLines = pdf.splitTextToSize(entry.subItem, subItemColumnWidth - 2) as string[];
-      const commentLines = entry.comment
-        ? (pdf.splitTextToSize(entry.comment, commentsColumnWidth - 2) as string[])
-        : [];
-      return linesTotal + Math.max(1, subItemLines.length, commentLines.length);
-    }, 0);
-    const rowHeight = Math.max(6.5, entryLines * 4.1 + 1.5);
+    const rowHeight = getAreaSummaryRowHeight(pdf, section, subItemColumnWidth, commentsColumnWidth);
+    if (y + rowHeight > layout.contentBottom) {
+      y = startSummaryPage();
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text('Summary (continued)', layout.margin, y);
+      y += 5;
+      y = renderAreaSummaryTableHeader(pdf, layout, y);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8.1);
+      pdf.setTextColor(55, 65, 81);
+    }
+
     const rowTextY = y;
     const sectionX = layout.margin + 0.5;
     const subItemX = sectionX + sectionColumnWidth;
@@ -904,7 +938,7 @@ async function renderProjectDetailPages(
         y += noteLines.length * 3.8 + 3;
       }
       if (includeSummary) {
-        y = renderAreaSummaryBlock(pdf, areaSummary, layout, y);
+        y = renderAreaSummaryBlock(pdf, areaSummary, layout, y, () => startAreaPage(false));
       }
       return y;
     };

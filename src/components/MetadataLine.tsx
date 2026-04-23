@@ -1,5 +1,7 @@
 'use client';
 
+import { AlertTriangle, Camera, MessageSquare, type LucideIcon } from 'lucide-react';
+
 function formatPart(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
@@ -17,13 +19,14 @@ export default function MetadataLine({
   issuesOnly?: boolean;
   className?: string;
 }) {
-  const parts: Array<{ key: string; text: string; className: string }> = [];
+  const parts: Array<{ key: string; text: string; className: string; icon: LucideIcon }> = [];
 
   if (issues > 0) {
     parts.push({
       key: 'issues',
       text: formatPart(issues, 'issue', 'issues'),
       className: 'accent-text',
+      icon: AlertTriangle,
     });
   }
 
@@ -32,6 +35,7 @@ export default function MetadataLine({
       key: 'notes',
       text: formatPart(notes, 'note', 'notes'),
       className: 'metric-secondary',
+      icon: MessageSquare,
     });
   }
 
@@ -40,6 +44,7 @@ export default function MetadataLine({
       key: 'photos',
       text: formatPart(photos, 'photo', 'photos'),
       className: 'metric-secondary',
+      icon: Camera,
     });
   }
 
@@ -47,12 +52,15 @@ export default function MetadataLine({
 
   return (
     <div className={`metric-line text-sm ${className}`.trim()}>
-      {parts.map((part, index) => (
-        <span key={part.key} className={part.className}>
-          {index > 0 ? '· ' : ''}
-          {part.text}
-        </span>
-      ))}
+      {parts.map((part) => {
+        const Icon = part.icon;
+        return (
+          <span key={part.key} className={`${part.className} inline-flex items-center gap-1.5`}>
+            <Icon className="h-3.5 w-3.5 opacity-80" />
+            {part.text}
+          </span>
+        );
+      })}
     </div>
   );
 }

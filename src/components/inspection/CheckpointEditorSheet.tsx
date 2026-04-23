@@ -40,7 +40,7 @@ export default function CheckpointEditorSheet({
   void onClose;
 
   const content = (
-    <div className={`flex w-full flex-col ${inline ? '' : 'menu-surface max-h-[92vh] max-w-xl rounded-[30px] overflow-hidden p-4'}`}>
+    <div className={`flex w-full flex-col ${inline ? '' : 'modal-panel max-h-[92vh] max-w-xl overflow-hidden rounded-[30px] p-4'}`}>
       <div className={`flex-1 space-y-4 overflow-y-auto ${inline ? 'px-1 pt-1 pb-2' : 'pb-2'}`}>
         <PhotoCapture
           photos={checkpoint.photos}
@@ -58,7 +58,7 @@ export default function CheckpointEditorSheet({
             value={commentText}
             onChange={(e) => onCommentChange(e.target.value)}
             onBlur={onSave}
-            className="min-h-[108px] w-full rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-zinc-900/75 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-[#ef4e24]/25"
+            className="field-shell min-h-[108px] text-sm"
             placeholder="Add inspection note"
           />
           {recentComments.length > 0 && (
@@ -67,7 +67,7 @@ export default function CheckpointEditorSheet({
                 <button
                   key={comment}
                   onClick={() => onCommentChange(comment)}
-                  className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+                  className="segmented-chip px-3 py-1.5 text-left text-xs transition hover:bg-white dark:hover:bg-white/[0.08]"
                 >
                   {comment}
                 </button>
@@ -84,7 +84,7 @@ export default function CheckpointEditorSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
       {content}
     </div>
   );

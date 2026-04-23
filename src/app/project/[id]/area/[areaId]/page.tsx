@@ -989,7 +989,7 @@ export default function AreaDetailPage() {
     setSyncError(null);
     setSyncStatus('syncing');
     try {
-      const token = await ensureAccessToken();
+      const token = await ensureAccessToken({ interactive: true });
       if (!token) {
         setSyncError('Please sign in to sync.');
         setSyncStatus('needs-auth');
@@ -1224,8 +1224,8 @@ export default function AreaDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500 dark:border-gray-300"></div>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[var(--accent)] dark:border-white/10 dark:border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -1247,25 +1247,26 @@ export default function AreaDetailPage() {
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">
       <header className="header-stable shrink-0 border-b z-20">
-        <div className="mx-auto flex h-[4.75rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
+        <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
           <div className="flex w-full items-center gap-3">
             <Link
               href={returnToHome ? '/' : `/project/${project.id}`}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
+              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div className="min-w-0 flex flex-1 items-baseline gap-2">
-              <h1 className="truncate text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+            <div className="min-w-0 flex flex-1 flex-col">
+              <div className="section-eyebrow">Inspection</div>
+              <h1 className="truncate text-[1.12rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                 {areaTitle}
               </h1>
             </div>
             <button
               onClick={() => setInspectionShowOnlyIssues(!inspectionShowOnlyIssues)}
-              className={`flex h-10 items-center gap-2 rounded-full px-3 text-sm transition ${
+              className={`flex h-10 items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                 inspectionShowOnlyIssues
                   ? 'accent-tint accent-text'
-                  : 'bg-black/[0.04] text-gray-500 hover:text-gray-900 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:text-white'
+                  : 'border border-black/5 bg-white/70 text-gray-500 shadow-sm hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
               }`}
               aria-label={inspectionShowOnlyIssues ? 'Show all items' : 'Show only issues'}
               aria-pressed={inspectionShowOnlyIssues}
@@ -1275,20 +1276,20 @@ export default function AreaDetailPage() {
             <div ref={headerMenuRef} className="relative">
               <button
                 onClick={() => setShowHeaderMenu((current) => !current)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
+                className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-200"
                 aria-label="Area actions"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
               {showHeaderMenu && (
-                <div className="menu-surface absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[14rem] rounded-[1.5rem] p-3">
+                <div className="menu-surface absolute right-0 top-[calc(100%+0.6rem)] z-40 w-[14rem] rounded-[1.5rem] p-2">
                   <div className="space-y-1">
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false);
                         void handleSync();
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
                     >
                       <RefreshCw className="h-4 w-4" />
                       Sync now
@@ -1299,7 +1300,7 @@ export default function AreaDetailPage() {
                         setAreaForm(getAreaFormValue(area));
                         setShowEditArea(true);
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-[0.98rem] text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.06]"
                     >
                       <MoreVertical className="h-4 w-4" />
                       Edit area
@@ -1333,14 +1334,14 @@ export default function AreaDetailPage() {
       </header>
 
       {syncError && (
-        <div className="shrink-0 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/70 px-4 py-2 text-sm text-gray-700 dark:border-zinc-700 dark:bg-white/[0.03] dark:text-gray-200">
           {syncError}
         </div>
       )}
       {/* Inspection Items */}
       <main
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+3rem)] sm:px-5"
+        className="flex-1 min-h-0 overflow-y-scroll overscroll-y-contain touch-pan-y px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+3.5rem)] sm:px-5"
         onTouchStartCapture={handlePullStart}
         onTouchMoveCapture={handlePullMove}
         onTouchEndCapture={handlePullEnd}

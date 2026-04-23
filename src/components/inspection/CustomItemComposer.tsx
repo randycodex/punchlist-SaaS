@@ -60,7 +60,7 @@ export default function CustomItemComposer({
       <div className="px-1 pt-1">
         <button
           onClick={onOpen}
-          className="flex w-full items-center rounded-[1rem] px-6 py-3 text-left text-sm font-medium text-gray-700 transition dark:text-gray-200"
+          className="segmented-chip w-full justify-center rounded-[1.2rem] px-6 py-3 text-sm transition hover:bg-white dark:hover:bg-white/[0.08]"
         >
           {triggerLabel}
         </button>
@@ -70,7 +70,7 @@ export default function CustomItemComposer({
 
   return (
     <div ref={composerRef} className="px-1 pt-1">
-      <div className="space-y-3">
+      <div className="card-surface-subtle space-y-3 rounded-[1.5rem] p-3">
         <input
           type="text"
           value={value}
@@ -81,7 +81,7 @@ export default function CustomItemComposer({
               onSubmit();
             }
           }}
-          className="w-full rounded-[1rem] bg-gray-100/90 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-zinc-900/70 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-[#ef4e24]/25"
+          className="field-shell"
           placeholder={valuePlaceholder}
           autoFocus
         />
@@ -96,7 +96,7 @@ export default function CustomItemComposer({
                 onSubmit();
               }
             }}
-            className="w-full rounded-[1rem] bg-gray-100/90 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-zinc-900/70 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-[#ef4e24]/25"
+            className="field-shell"
             placeholder={secondaryValuePlaceholder}
           />
         )}
@@ -104,7 +104,7 @@ export default function CustomItemComposer({
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className="rounded-[1rem] bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+            className="rounded-[1rem] bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
           >
             {submitLabel}
           </button>

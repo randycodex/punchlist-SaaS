@@ -8,7 +8,7 @@ type AreaNotesCardProps = {
 
 export default function AreaNotesCard({ value, onChange, onBlur }: AreaNotesCardProps) {
   return (
-    <div className="px-1 pt-1">
+    <div className="card-surface-subtle rounded-[1.6rem] px-4 py-4">
       <div className="section-eyebrow">General Notes</div>
       <textarea
         value={value}
@@ -16,7 +16,7 @@ export default function AreaNotesCard({ value, onChange, onBlur }: AreaNotesCard
         onBlur={(e) => onBlur(e.target.value)}
         placeholder="Add general notes for this area"
         rows={4}
-        className="mt-2 w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-[#ef4e24]/25"
+        className="field-shell mt-3 min-h-[128px] resize-none text-sm"
       />
     </div>
   );

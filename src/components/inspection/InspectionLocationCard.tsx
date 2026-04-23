@@ -217,7 +217,7 @@ export default function InspectionLocationCard({
       className={
         hideHeader
           ? ''
-          : `${openCustomItemMenuId ? 'overflow-visible' : 'overflow-hidden'} rounded-[1.6rem] ${
+          : `${openCustomItemMenuId ? 'overflow-visible' : 'overflow-hidden'} rounded-[1.7rem] ${
               isSelected ? 'bg-gray-200 dark:bg-white/[0.09]' : 'card-surface-subtle'
             }`
       }
@@ -237,7 +237,7 @@ export default function InspectionLocationCard({
         >
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="text-[1.02rem] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
+              <div className="text-[1.02rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                 {location.name}
               </div>
               <MetadataLine className="mt-1" issues={locationStats.issues} issuesOnly />
@@ -260,14 +260,14 @@ export default function InspectionLocationCard({
                       event.stopPropagation();
                       setOpenCustomItemMenuId((current) => (current === location.id ? null : location.id));
                     }}
-                    className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                    className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
                     aria-label={`More actions for ${location.name}`}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </button>
                   {openCustomItemMenuId === location.id && (
                     <div
-                      className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                      className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl p-1.5"
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => event.stopPropagation()}
                     >
@@ -278,7 +278,7 @@ export default function InspectionLocationCard({
                           setOpenCustomItemMenuId(null);
                           await onEditCustomLocation?.(location.id, location.name);
                         }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-3 rounded-[1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                       >
                         <Pencil className="h-4 w-4" />
                         Edit item
@@ -290,7 +290,7 @@ export default function InspectionLocationCard({
                           setOpenCustomItemMenuId(null);
                           await onDeleteCustomLocation?.(location.id);
                         }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-3 rounded-[1rem] px-4 py-3 text-left text-sm text-[var(--accent)] transition hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete item
@@ -363,14 +363,14 @@ export default function InspectionLocationCard({
                             event.stopPropagation();
                             setOpenCustomItemMenuId((current) => (current === item.id ? null : item.id));
                           }}
-                          className="flex h-12 w-12 items-center justify-center rounded-[1.15rem] bg-black/[0.05] text-gray-500 transition hover:bg-black/[0.08] hover:text-gray-700 dark:bg-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+                    className="flex h-12 w-12 items-center justify-center rounded-[1.15rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
                           aria-label={`More actions for ${item.name}`}
                         >
                           <MoreVertical className="h-5 w-5" />
                         </button>
                         {openCustomItemMenuId === item.id && (
                           <div
-                            className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl py-1"
+                            className="menu-surface absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[10rem] rounded-2xl p-1.5"
                             onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => event.stopPropagation()}
                           >
@@ -381,7 +381,7 @@ export default function InspectionLocationCard({
                                 setOpenCustomItemMenuId(null);
                                 await onEditCustomItem?.(location.id, item.id, item.name);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-3 rounded-[1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
                             >
                               <Pencil className="h-4 w-4" />
                               Edit item
@@ -393,7 +393,7 @@ export default function InspectionLocationCard({
                                 setOpenCustomItemMenuId(null);
                                 await onDeleteCustomItem?.(location.id, item.id);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[var(--accent)] hover:bg-gray-50 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-3 rounded-[1rem] px-4 py-3 text-left text-sm text-[var(--accent)] transition hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
                             >
                               <Trash2 className="h-4 w-4" />
                               Delete item
@@ -437,7 +437,7 @@ export default function InspectionLocationCard({
                 {isEditingCustomItem ? (
                   <div
                     ref={customItemEditRef}
-                    className="card-surface-subtle w-full rounded-[1.3rem] px-4 py-3 text-left"
+                    className="card-surface-subtle w-full rounded-[1.4rem] px-4 py-3 text-left"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
@@ -740,10 +740,10 @@ function CheckpointRow({
   return (
     <div
       ref={editableLabel ? editContainerRef : undefined}
-      className={`rounded-[1.35rem] border px-3 py-3 transition ${
+      className={`rounded-[1.35rem] border px-3.5 py-3.5 transition ${
         issueState === 'open'
-          ? 'border-transparent accent-tint'
-          : 'border-transparent bg-gray-50/85 dark:bg-white/[0.04]'
+          ? 'border-[rgba(var(--accent-rgb),0.14)] accent-tint'
+          : 'border-black/5 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -770,7 +770,7 @@ function CheckpointRow({
           </div>
         ) : (
           <div className="min-w-0 flex-1 text-left">
-            <div className="text-[0.98rem] font-normal text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
+            <div className="text-[0.98rem] font-normal tracking-[-0.01em] text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
           </div>
         )}
         <div className="flex shrink-0 items-center gap-2">
@@ -803,7 +803,7 @@ function CheckpointRow({
                 className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
                   noteCount > 0
                     ? 'accent-bg text-white shadow-sm'
-                    : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
+                    : 'border border-black/5 bg-white/70 text-gray-400 shadow-sm hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
                 }`}
                 aria-label={`Open note editor for ${checkpoint.name}`}
               >
@@ -817,7 +817,7 @@ function CheckpointRow({
                 className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
                   photoCount > 0
                     ? 'accent-bg text-white shadow-sm'
-                    : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
+                    : 'border border-black/5 bg-white/70 text-gray-400 shadow-sm hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
                 }`}
                 aria-label={`Open camera for ${checkpoint.name}`}
               >
@@ -831,7 +831,7 @@ function CheckpointRow({
                 className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
                   issueState === 'open'
                     ? 'accent-bg text-white shadow-sm'
-                    : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
+                    : 'border border-black/5 bg-white/70 text-gray-400 shadow-sm hover:bg-white hover:text-[var(--accent)] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08]'
                 }`}
                 aria-label={`Flag issue for ${checkpoint.name}`}
               >
@@ -912,7 +912,7 @@ function InlineCheckpointEditor({
               className={`flex h-9 w-9 items-center justify-center rounded-[0.95rem] transition ${
                 expanded
                   ? 'bg-white text-gray-700 shadow-sm dark:bg-white/[0.09] dark:text-white'
-                  : 'text-gray-400 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
+                  : 'border border-black/5 bg-white/70 text-gray-400 shadow-sm hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
               }`}
               aria-label={`Toggle note editor for ${checkpoint.name}`}
             >
@@ -925,7 +925,7 @@ function InlineCheckpointEditor({
               className={`flex h-9 w-9 items-center justify-center rounded-[0.95rem] transition ${
                 issueState === 'open'
                   ? 'accent-bg text-white shadow-sm'
-                  : 'text-gray-400 hover:bg-white/70 hover:text-[var(--accent)] dark:text-gray-400 dark:hover:bg-white/[0.08]'
+                  : 'border border-black/5 bg-white/70 text-gray-400 shadow-sm hover:bg-white hover:text-[var(--accent)] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08]'
               }`}
               aria-label={`Flag issue for ${checkpoint.name}`}
             >
@@ -951,7 +951,7 @@ function InlineCheckpointEditor({
             value={commentText}
             onChange={(e) => onCommentChange(e.target.value)}
             onBlur={(e) => void onCommentBlur(locationId, itemId, checkpoint.id, e.target.value)}
-            className="min-h-[88px] w-full resize-none rounded-[1rem] bg-gray-100/90 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ef4e24]/20 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-[#ef4e24]/25"
+            className="field-shell min-h-[96px] resize-none text-sm"
             placeholder="Add inspection note"
           />
           {recentComments.length > 0 && (
@@ -960,7 +960,7 @@ function InlineCheckpointEditor({
                 <button
                   key={comment}
                   onClick={() => onCommentChange(comment)}
-                  className="rounded-full bg-gray-100 px-3 py-1.5 text-left text-xs text-gray-700 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:bg-white/[0.1] dark:hover:text-white"
+                  className="segmented-chip px-3 py-1.5 text-left text-xs transition hover:bg-white hover:text-gray-900 dark:hover:bg-white/[0.1] dark:hover:text-white"
                 >
                   {comment}
                 </button>

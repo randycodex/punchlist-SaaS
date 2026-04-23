@@ -46,7 +46,7 @@ After updating env vars, restart the dev server or redeploy.
 
 ## Production Release Notes
 
-Use [`.env.example`](/Users/randy/Documents/X_CODING/punchlist-pwa/.env.example) as the baseline for local and Vercel environment setup.
+Use [`.env.example`](./.env.example) as the baseline for local and Vercel environment setup.
 
 Required public env vars for production:
 
@@ -54,6 +54,14 @@ Required public env vars for production:
 NEXT_PUBLIC_MS_CLIENT_ID=your_microsoft_app_client_id
 NEXT_PUBLIC_MS_TENANT_ID=your_uai_tenant_id_or_organizations
 NEXT_PUBLIC_MS_REDIRECT_URI=https://your-production-domain/
+```
+
+Default local baseline in [`.env.example`](./.env.example):
+
+```bash
+NEXT_PUBLIC_MS_CLIENT_ID=376ef496-5fa7-447d-9559-2e128a6b74a4
+NEXT_PUBLIC_MS_TENANT_ID=organizations
+NEXT_PUBLIC_MS_REDIRECT_URI=http://localhost:3000/
 ```
 
 Vercel notes:
