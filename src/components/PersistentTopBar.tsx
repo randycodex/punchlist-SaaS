@@ -161,7 +161,7 @@ export default function PersistentTopBar() {
           <Link
             href="/"
             aria-label="Go to projects"
-            className="flex shrink-0 items-center rounded-[1.15rem] border border-black/5 bg-white/70 p-1 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+            className="flex shrink-0 items-center rounded-[1.15rem] bg-transparent p-1 transition"
             onClick={() => {
               if (showAuth || homeMenuState.context === 'project') {
                 window.dispatchEvent(new CustomEvent('punchlist-home-menu-action', { detail: { action: 'clear-trash' } }));

@@ -112,9 +112,7 @@ html:not(.dark) {
 }
 
 .header-stable {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0)),
-    var(--surface);
+  background: var(--surface);
   border-color: var(--surface-border);
   transform: translateZ(0);
   backface-visibility: hidden;
