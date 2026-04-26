@@ -1,6 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Project, Area, Location, Item, Checkpoint, PhotoAttachment, FileAttachment } from '@/types';
-import type { AreaTypeKey, ApartmentUnitType } from '@/lib/areas';
+import type { AreaTypeKey, ApartmentUnitType, FacadeOrientation } from '@/lib/areas';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CheckpointMediaRecord {
@@ -262,7 +262,7 @@ export function createArea(
   sortOrder: number,
   options?: {
     areaTypeKey?: AreaTypeKey;
-    unitType?: ApartmentUnitType | '';
+    unitType?: ApartmentUnitType | FacadeOrientation | '';
     customAreaName?: string;
     areaNumber?: string;
   }

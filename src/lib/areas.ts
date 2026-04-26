@@ -5,6 +5,7 @@ export type AreaTypeKey =
   | 'amenity_space'
   | 'apartment_unit'
   | 'ats'
+  | 'facade'
   | 'bike_storage'
   | 'corridor'
   | 'custom'
@@ -36,17 +37,22 @@ export type AreaTypeKey =
 
 export type ApartmentUnitType = 'EFF' | '1BR' | '2BR' | '3BR';
 
+export type FacadeOrientation = 'South' | 'North' | 'East' | 'West';
+
+export const FACADE_ORIENTATIONS: FacadeOrientation[] = ['South', 'North', 'East', 'West'];
+
 export type AreaTypeDefinition = {
   key: AreaTypeKey;
   label: string;
   templateKey: AreaTemplateKey;
   requiresUnitType?: boolean;
+  requiresOrientation?: boolean;
   requiresCustomName?: boolean;
 };
 
 export type AreaFormValue = {
   areaTypeKey: AreaTypeKey;
-  unitType: ApartmentUnitType | '';
+  unitType: ApartmentUnitType | FacadeOrientation | '';
   customAreaName: string;
   areaNumber: string;
 };
@@ -62,6 +68,7 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'custom', label: 'Custom', templateKey: 'commonArea', requiresCustomName: true },
   { key: 'egress', label: 'Egress', templateKey: 'commonArea' },
   { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'commonArea' },
+  { key: 'facade', label: 'Facade', templateKey: 'commonArea', requiresOrientation: true },
   { key: 'electrical_room', label: 'Electrical Room', templateKey: 'commonArea' },
   { key: 'elevator_control_room', label: 'Elevator Control Room', templateKey: 'commonArea' },
   { key: 'fire_pump', label: 'Fire Pump', templateKey: 'commonArea' },
@@ -137,8 +144,8 @@ export function buildAreaName(form: AreaFormValue): string {
   const baseName = definition.requiresCustomName ? form.customAreaName.trim() : definition.label;
   const areaNumber = form.areaNumber.trim();
 
-  if (form.areaTypeKey === 'apartment_unit') {
-    return [baseName, form.unitType, areaNumber].filter(Boolean).join(' - ').trim();
+  if (form.areaTypeKey === 'apartment_unit' || form.areaTypeKey === 'facade') {
+    return [baseName, form.unitType].filter(Boolean).join(' - ').trim();
   }
 
   return [baseName, areaNumber].filter(Boolean).join(' - ').trim();
@@ -155,9 +162,12 @@ export function getDefaultAreaFormValue(): AreaFormValue {
 
 export function getAreaFormValue(area?: Area | null): AreaFormValue {
   const areaTypeKey = resolveAreaTypeKey(area);
-  const unitType = APARTMENT_UNIT_TYPES.includes(area?.unitType as ApartmentUnitType)
-    ? (area?.unitType as ApartmentUnitType)
-    : '';
+  const unitType =
+    areaTypeKey === 'facade'
+      ? (FACADE_ORIENTATIONS.includes(area?.unitType as FacadeOrientation) ? (area?.unitType as FacadeOrientation) : '')
+      : APARTMENT_UNIT_TYPES.includes(area?.unitType as ApartmentUnitType)
+        ? (area?.unitType as ApartmentUnitType)
+        : '';
 
   return {
     areaTypeKey,

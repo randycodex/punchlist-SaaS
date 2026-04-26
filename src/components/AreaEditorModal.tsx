@@ -4,10 +4,12 @@ import { useMemo } from 'react';
 import {
   APARTMENT_UNIT_TYPES,
   AREA_TYPE_DEFINITIONS,
+  FACADE_ORIENTATIONS,
   getAreaTypeDefinition,
   type AreaFormValue,
   type AreaTypeKey,
   type ApartmentUnitType,
+  type FacadeOrientation,
 } from '@/lib/areas';
 
 type AreaEditorModalProps = {
@@ -109,6 +111,31 @@ export default function AreaEditorModal({
             </div>
           )}
 
+          {selectedDefinition.requiresOrientation && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Orientation
+              </label>
+              <select
+                value={value.unitType}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    unitType: e.target.value as FacadeOrientation,
+                  })
+                }
+                className="field-shell"
+              >
+                <option value="">Select orientation</option>
+                {FACADE_ORIENTATIONS.map((orientation) => (
+                  <option key={orientation} value={orientation}>
+                    {orientation}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {selectedDefinition.requiresCustomName && (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -129,23 +156,25 @@ export default function AreaEditorModal({
             </div>
           )}
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Number / Floor
-            </label>
-            <input
-              type="text"
-              value={value.areaNumber}
-              onChange={(e) =>
-                onChange({
-                  ...value,
-                  areaNumber: e.target.value,
-                })
-              }
-              className="field-shell"
-              placeholder="e.g., 306, 12F, B1"
-            />
-          </div>
+          {!selectedDefinition.requiresOrientation && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Number / Floor
+              </label>
+              <input
+                type="text"
+                value={value.areaNumber}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    areaNumber: e.target.value,
+                  })
+                }
+                className="field-shell"
+                placeholder="e.g., 306, 12F, B1"
+              />
+            </div>
+          )}
 
         </div>
 
@@ -160,6 +189,7 @@ export default function AreaEditorModal({
             onClick={onSubmit}
             disabled={
               (selectedDefinition.requiresUnitType && !value.unitType) ||
+              (selectedDefinition.requiresOrientation && !value.unitType) ||
               (selectedDefinition.requiresCustomName && !value.customAreaName.trim())
             }
             className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
