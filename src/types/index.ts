@@ -93,6 +93,7 @@ export interface Location {
   areaId: string;
   name: string;
   isCustom?: boolean;
+  sectionLabel?: string;
   sortOrder: number;
   items: Item[];
   createdAt: Date;

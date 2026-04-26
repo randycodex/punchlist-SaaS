@@ -10,6 +10,7 @@ interface TemplateItem {
 interface TemplateLocation {
   name: string;
   items: TemplateItem[];
+  sectionLabel?: string;
 }
 
 const facadeBrickTemplate: TemplateLocation[] = [
@@ -329,6 +330,7 @@ function populateArea(
     location.name = templateLocation.name;
     location.sortOrder = locationIndex;
     location.updatedAt = now;
+    location.sectionLabel = templateLocation.sectionLabel;
     location.items = reconcileItems(
       location,
       existingLocation?.items ?? [],
@@ -363,7 +365,13 @@ export function applyTemplateToArea(area: Area): void {
           GFRC: facadeGFRCTemplate,
           EIFS: facadeEIFSTemplate,
         };
-        const merged = facadeTypes.flatMap((t) => typeTemplateMap[t] ?? []);
+        const merged: TemplateLocation[] = [];
+        for (const t of facadeTypes) {
+          const locs = typeTemplateMap[t] ?? [];
+          locs.forEach((loc, i) => {
+            merged.push({ ...loc, sectionLabel: facadeTypes.length > 1 && i === 0 ? t : undefined });
+          });
+        }
         if (merged.length > 0) { populateArea(area, merged); return; }
       }
     }

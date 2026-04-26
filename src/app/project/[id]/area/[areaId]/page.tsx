@@ -1371,6 +1371,11 @@ export default function AreaDetailPage() {
                 locationRefs.current.set(location.id, node);
               }}
             >
+              {location.sectionLabel && (
+                <div className="px-1 pb-1 pt-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                  {location.sectionLabel}
+                </div>
+              )}
               <InspectionLocationCard
                 location={location}
                 locationMetric={areaDerived?.locationMetrics.get(location.id)}
