@@ -12,6 +12,15 @@ interface TemplateLocation {
   items: TemplateItem[];
 }
 
+const commonAreaItems: TemplateItem[] = [
+  { name: 'Ceiling', checkpoints: ['Paint', 'Clean'] },
+  { name: 'Wall', checkpoints: ['Paint', 'Clean'] },
+  { name: 'Base', checkpoints: ['Surface', 'Clean'] },
+  { name: 'Floor', checkpoints: ['Paint', 'Clean'] },
+  { name: 'Light Fixture', checkpoints: ['Operational', 'Bulb', 'Cleaning'] },
+  { name: 'Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Threshold'] },
+];
+
 const stairsTemplate: TemplateLocation[] = [
   {
     name: 'Stairs',
@@ -285,6 +294,11 @@ export function applyTemplateToArea(area: Area): void {
 
   if (definition.templateKey === 'stairs') {
     populateArea(area, stairsTemplate);
+    return;
+  }
+
+  if (definition.templateKey === 'commonArea') {
+    populateArea(area, [{ name: area.name, items: commonAreaItems }]);
     return;
   }
 

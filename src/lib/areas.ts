@@ -1,6 +1,6 @@
 import type { Area } from '@/types';
 
-export type AreaTemplateKey = 'apartment' | 'halfBathroom' | 'notesOnly' | 'stairs';
+export type AreaTemplateKey = 'apartment' | 'commonArea' | 'halfBathroom' | 'notesOnly' | 'stairs';
 export type AreaTypeKey =
   | 'amenity_space'
   | 'apartment_unit'
@@ -54,37 +54,37 @@ export type AreaFormValue = {
 export const APARTMENT_UNIT_TYPES: ApartmentUnitType[] = ['EFF', '1BR', '2BR', '3BR'];
 
 export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
-  { key: 'amenity_space', label: 'Amenity Space', templateKey: 'notesOnly' },
+  { key: 'amenity_space', label: 'Amenity Space', templateKey: 'commonArea' },
   { key: 'apartment_unit', label: 'Apartment / Unit', templateKey: 'apartment', requiresUnitType: true },
-  { key: 'ats', label: 'ATS', templateKey: 'notesOnly' },
-  { key: 'bike_storage', label: 'Bike Storage', templateKey: 'notesOnly' },
-  { key: 'corridor', label: 'Corridor', templateKey: 'notesOnly' },
+  { key: 'ats', label: 'ATS', templateKey: 'commonArea' },
+  { key: 'bike_storage', label: 'Bike Storage', templateKey: 'commonArea' },
+  { key: 'corridor', label: 'Corridor', templateKey: 'commonArea' },
   { key: 'custom', label: 'Custom', templateKey: 'notesOnly', requiresCustomName: true },
-  { key: 'egress', label: 'Egress', templateKey: 'notesOnly' },
-  { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'notesOnly' },
-  { key: 'electrical_room', label: 'Electrical Room', templateKey: 'notesOnly' },
-  { key: 'elevator_control_room', label: 'Elevator Control Room', templateKey: 'notesOnly' },
-  { key: 'fire_pump', label: 'Fire Pump', templateKey: 'notesOnly' },
-  { key: 'hot_water', label: 'Hot Water', templateKey: 'notesOnly' },
-  { key: 'it_closet', label: 'IT Closet', templateKey: 'notesOnly' },
-  { key: 'it_room', label: 'IT Room', templateKey: 'notesOnly' },
-  { key: 'janitor', label: 'Janitor', templateKey: 'notesOnly' },
-  { key: 'laundry', label: 'Laundry', templateKey: 'notesOnly' },
-  { key: 'lobby', label: 'Lobby', templateKey: 'notesOnly' },
-  { key: 'mail_area', label: 'Mail Area', templateKey: 'notesOnly' },
-  { key: 'mechanical', label: 'Mechanical', templateKey: 'notesOnly' },
-  { key: 'multipurpose', label: 'Multipurpose', templateKey: 'notesOnly' },
-  { key: 'office', label: 'Office', templateKey: 'notesOnly' },
-  { key: 'parcel_room', label: 'Parcel Room', templateKey: 'notesOnly' },
-  { key: 'public_toilet', label: 'Public Toilet', templateKey: 'notesOnly' },
-  { key: 'refuse', label: 'Refuse', templateKey: 'notesOnly' },
-  { key: 'security', label: 'Security', templateKey: 'notesOnly' },
+  { key: 'egress', label: 'Egress', templateKey: 'commonArea' },
+  { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'commonArea' },
+  { key: 'electrical_room', label: 'Electrical Room', templateKey: 'commonArea' },
+  { key: 'elevator_control_room', label: 'Elevator Control Room', templateKey: 'commonArea' },
+  { key: 'fire_pump', label: 'Fire Pump', templateKey: 'commonArea' },
+  { key: 'hot_water', label: 'Hot Water', templateKey: 'commonArea' },
+  { key: 'it_closet', label: 'IT Closet', templateKey: 'commonArea' },
+  { key: 'it_room', label: 'IT Room', templateKey: 'commonArea' },
+  { key: 'janitor', label: 'Janitor', templateKey: 'commonArea' },
+  { key: 'laundry', label: 'Laundry', templateKey: 'commonArea' },
+  { key: 'lobby', label: 'Lobby', templateKey: 'commonArea' },
+  { key: 'mail_area', label: 'Mail Area', templateKey: 'commonArea' },
+  { key: 'mechanical', label: 'Mechanical', templateKey: 'commonArea' },
+  { key: 'multipurpose', label: 'Multipurpose', templateKey: 'commonArea' },
+  { key: 'office', label: 'Office', templateKey: 'commonArea' },
+  { key: 'parcel_room', label: 'Parcel Room', templateKey: 'commonArea' },
+  { key: 'public_toilet', label: 'Public Toilet', templateKey: 'commonArea' },
+  { key: 'refuse', label: 'Refuse', templateKey: 'commonArea' },
+  { key: 'security', label: 'Security', templateKey: 'commonArea' },
   { key: 'stairs', label: 'Stairs', templateKey: 'stairs' },
-  { key: 'storage', label: 'Storage', templateKey: 'notesOnly' },
-  { key: 'super_office', label: "Super's Office", templateKey: 'notesOnly' },
-  { key: 'trash_compactor', label: 'Trash Compactor', templateKey: 'notesOnly' },
-  { key: 'vestibule', label: 'Vestibule', templateKey: 'notesOnly' },
-  { key: 'water_room', label: 'Water Room', templateKey: 'notesOnly' },
+  { key: 'storage', label: 'Storage', templateKey: 'commonArea' },
+  { key: 'super_office', label: "Super's Office", templateKey: 'commonArea' },
+  { key: 'trash_compactor', label: 'Trash Compactor', templateKey: 'commonArea' },
+  { key: 'vestibule', label: 'Vestibule', templateKey: 'commonArea' },
+  { key: 'water_room', label: 'Water Room', templateKey: 'commonArea' },
 ];
 
 const definitionByKey = new Map<string, AreaTypeDefinition>(AREA_TYPE_DEFINITIONS.map((definition) => [definition.key, definition]));
