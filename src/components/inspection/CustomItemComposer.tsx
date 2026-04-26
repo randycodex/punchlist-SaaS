@@ -60,7 +60,7 @@ export default function CustomItemComposer({
       <div className="px-1 pt-1">
         <button
           onClick={onOpen}
-          className="segmented-chip w-full justify-center rounded-[1.2rem] px-6 py-3 text-sm transition hover:bg-white dark:hover:bg-white/[0.08]"
+          className="w-full justify-center rounded-[1.2rem] border border-dashed border-white/20 bg-white/[0.03] px-6 py-3 text-sm text-gray-400 transition hover:border-white/30 hover:bg-white/[0.06] hover:text-gray-200 dark:text-gray-400"
         >
           {triggerLabel}
         </button>
