@@ -5,11 +5,13 @@ import {
   APARTMENT_UNIT_TYPES,
   AREA_TYPE_DEFINITIONS,
   FACADE_ORIENTATIONS,
+  FACADE_TYPES,
   getAreaTypeDefinition,
   type AreaFormValue,
   type AreaTypeKey,
   type ApartmentUnitType,
   type FacadeOrientation,
+  type FacadeType,
 } from '@/lib/areas';
 
 type AreaEditorModalProps = {
@@ -74,6 +76,7 @@ export default function AreaEditorModal({
                   areaTypeKey: e.target.value as AreaTypeKey,
                   unitType: e.target.value === 'apartment_unit' ? value.unitType : '',
                   customAreaName: e.target.value === 'custom' ? value.customAreaName : '',
+                  areaNumber: e.target.value === 'facade' ? value.areaNumber : '',
                 })
               }
               className="field-shell"
@@ -136,6 +139,31 @@ export default function AreaEditorModal({
             </div>
           )}
 
+          {selectedDefinition.requiresFacadeType && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Type
+              </label>
+              <select
+                value={value.areaNumber}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    areaNumber: e.target.value as FacadeType,
+                  })
+                }
+                className="field-shell"
+              >
+                <option value="">Select type</option>
+                {FACADE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {selectedDefinition.requiresCustomName && (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -190,6 +218,7 @@ export default function AreaEditorModal({
             disabled={
               (selectedDefinition.requiresUnitType && !value.unitType) ||
               (selectedDefinition.requiresOrientation && !value.unitType) ||
+              (selectedDefinition.requiresFacadeType && !value.areaNumber) ||
               (selectedDefinition.requiresCustomName && !value.customAreaName.trim())
             }
             className="flex-1 rounded-2xl bg-zinc-900 px-4 py-3 font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"

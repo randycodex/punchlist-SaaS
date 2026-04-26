@@ -12,6 +12,63 @@ interface TemplateLocation {
   items: TemplateItem[];
 }
 
+const facadeBrickTemplate: TemplateLocation[] = [
+  {
+    name: 'Masonry Units',
+    items: [{ name: 'Masonry Units', checkpoints: ['Cracking', 'Spalling', 'Staining', 'Erosion'] }],
+  },
+  {
+    name: 'Mortar Joints',
+    items: [{ name: 'Mortar Joints', checkpoints: ['Cracking', 'Erosion', 'Efflorescence', 'Repointing'] }],
+  },
+  {
+    name: 'Structure',
+    items: [{ name: 'Structure', checkpoints: ['Bulging', 'Lintels', 'Ties', 'Expansion Joints'] }],
+  },
+  {
+    name: 'Waterproofing',
+    items: [{ name: 'Waterproofing', checkpoints: ['Flashing', 'Weepholes', 'Sealants', 'Infiltration'] }],
+  },
+];
+
+const facadeGFRCTemplate: TemplateLocation[] = [
+  {
+    name: 'Panels',
+    items: [{ name: 'Panels', checkpoints: ['Cracking', 'Crazing', 'Delamination', 'Spalling'] }],
+  },
+  {
+    name: 'Connections',
+    items: [{ name: 'Connections', checkpoints: ['Anchors', 'Corrosion', 'Bearings', 'Fasteners'] }],
+  },
+  {
+    name: 'Joints',
+    items: [{ name: 'Joints', checkpoints: ['Sealants', 'Compression', 'Adhesion', 'Backer Rod'] }],
+  },
+  {
+    name: 'Finish',
+    items: [{ name: 'Finish', checkpoints: ['Coating', 'Fading', 'Patching', 'Streaking'] }],
+  },
+];
+
+const facadeEIFSTemplate: TemplateLocation[] = [
+  {
+    name: 'Finish Coat',
+    items: [{ name: 'Finish Coat', checkpoints: ['Cracking', 'Impact', 'Staining', 'Fading'] }],
+  },
+  {
+    name: 'Base Coat',
+    items: [{ name: 'Base Coat', checkpoints: ['Delamination', 'Mesh', 'Hollow', 'Separation'] }],
+  },
+  {
+    name: 'Terminations',
+    items: [{ name: 'Terminations', checkpoints: ['Flashing', 'Perimeter', 'Weep Screed', 'Penetrations'] }],
+  },
+  {
+    name: 'Moisture',
+    items: [{ name: 'Moisture', checkpoints: ['Pooling', 'Saturation', 'Drainage', 'Infiltration'] }],
+  },
+];
+
 const commonAreaItems: TemplateItem[] = [
   { name: 'Ceiling', checkpoints: ['Paint', 'Clean'] },
   { name: 'Wall', checkpoints: ['Paint', 'Clean'] },
@@ -298,6 +355,12 @@ export function applyTemplateToArea(area: Area): void {
   }
 
   if (definition.templateKey === 'commonArea') {
+    if (area.areaTypeKey === 'facade') {
+      const facadeType = area.areaNumber;
+      if (facadeType === 'Bricks') { populateArea(area, facadeBrickTemplate); return; }
+      if (facadeType === 'GFRC') { populateArea(area, facadeGFRCTemplate); return; }
+      if (facadeType === 'EIFS') { populateArea(area, facadeEIFSTemplate); return; }
+    }
     populateArea(area, [{ name: area.name, items: commonAreaItems }]);
     return;
   }

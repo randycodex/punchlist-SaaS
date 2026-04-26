@@ -1,6 +1,6 @@
 import type { Area } from '@/types';
 
-export type AreaTemplateKey = 'apartment' | 'commonArea' | 'halfBathroom' | 'notesOnly' | 'stairs';
+export type AreaTemplateKey = 'apartment' | 'commonArea' | 'facadeBrick' | 'facadeGFRC' | 'facadeEIFS' | 'halfBathroom' | 'notesOnly' | 'stairs';
 export type AreaTypeKey =
   | 'amenity_space'
   | 'apartment_unit'
@@ -38,8 +38,10 @@ export type AreaTypeKey =
 export type ApartmentUnitType = 'EFF' | '1BR' | '2BR' | '3BR';
 
 export type FacadeOrientation = 'South' | 'North' | 'East' | 'West';
+export type FacadeType = 'Bricks' | 'GFRC' | 'EIFS';
 
 export const FACADE_ORIENTATIONS: FacadeOrientation[] = ['South', 'North', 'East', 'West'];
+export const FACADE_TYPES: FacadeType[] = ['Bricks', 'GFRC', 'EIFS'];
 
 export type AreaTypeDefinition = {
   key: AreaTypeKey;
@@ -47,6 +49,7 @@ export type AreaTypeDefinition = {
   templateKey: AreaTemplateKey;
   requiresUnitType?: boolean;
   requiresOrientation?: boolean;
+  requiresFacadeType?: boolean;
   requiresCustomName?: boolean;
 };
 
@@ -68,7 +71,7 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'custom', label: 'Custom', templateKey: 'commonArea', requiresCustomName: true },
   { key: 'egress', label: 'Egress', templateKey: 'commonArea' },
   { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'commonArea' },
-  { key: 'facade', label: 'Facade', templateKey: 'commonArea', requiresOrientation: true },
+  { key: 'facade', label: 'Facade', templateKey: 'commonArea', requiresOrientation: true, requiresFacadeType: true },
   { key: 'electrical_room', label: 'Electrical Room', templateKey: 'commonArea' },
   { key: 'elevator_control_room', label: 'Elevator Control Room', templateKey: 'commonArea' },
   { key: 'fire_pump', label: 'Fire Pump', templateKey: 'commonArea' },
