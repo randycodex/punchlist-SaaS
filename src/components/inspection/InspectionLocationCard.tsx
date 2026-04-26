@@ -489,8 +489,8 @@ export default function InspectionLocationCard({
                 ) : (
                   <button
                     onClick={() => void onToggleItem(item.id)}
-                    className={`card-surface-subtle w-full rounded-[1.3rem] px-4 py-3 text-left transition ${
-                      isItemExpanded ? 'bg-[var(--surface)] dark:bg-white/[0.07]' : 'hover:bg-[var(--surface-strong)] dark:hover:bg-white/[0.06]'
+                    className={`w-full rounded-[1.3rem] px-4 py-3 text-left transition border border-black/5 bg-white/70 dark:border-[#793302]/40 dark:bg-[#793302] ${
+                      isItemExpanded ? '' : 'hover:bg-[var(--surface-strong)] dark:hover:bg-[#793302]/80'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-4">
