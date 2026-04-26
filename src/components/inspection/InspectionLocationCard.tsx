@@ -743,7 +743,7 @@ function CheckpointRow({
       className={`rounded-[1.35rem] border px-3.5 py-3.5 transition ${
         issueState === 'open'
           ? 'border-[rgba(var(--accent-rgb),0.14)] accent-tint'
-          : 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950'
+          : 'border-blue-200 bg-blue-50 dark:border-[#582630]/60 dark:bg-[#582630]'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
