@@ -1238,11 +1238,11 @@ export default function AreaDetailPage() {
     ? [area.unitType?.trim(), area.areaNumber?.trim()].filter(Boolean).join(' - ') || area.name
     : area.name;
 
-  const supportsInlineLocationCustomItems = area.areaTypeKey !== 'custom';
+  const supportsInlineLocationCustomItems = true;
   const supportsCustomSubareas = isApartmentArea(area) && !deleteMode;
   const supportsGlobalCustomItems = !supportsInlineLocationCustomItems && !deleteMode;
   const flattenSingleStairsLocation =
-    !deleteMode && !isApartmentArea(area) && area.areaTypeKey !== 'custom' && sortedStandardLocations.length === 1;
+    !deleteMode && !isApartmentArea(area) && sortedStandardLocations.length === 1;
 
   return (
     <div className="app-page h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)] flex flex-col overflow-hidden">

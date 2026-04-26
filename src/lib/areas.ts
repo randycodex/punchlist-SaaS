@@ -59,7 +59,7 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'ats', label: 'ATS', templateKey: 'commonArea' },
   { key: 'bike_storage', label: 'Bike Storage', templateKey: 'commonArea' },
   { key: 'corridor', label: 'Corridor', templateKey: 'commonArea' },
-  { key: 'custom', label: 'Custom', templateKey: 'notesOnly', requiresCustomName: true },
+  { key: 'custom', label: 'Custom', templateKey: 'commonArea', requiresCustomName: true },
   { key: 'egress', label: 'Egress', templateKey: 'commonArea' },
   { key: 'electrical_closet', label: 'Electrical Closet', templateKey: 'commonArea' },
   { key: 'electrical_room', label: 'Electrical Room', templateKey: 'commonArea' },
