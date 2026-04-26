@@ -41,9 +41,7 @@
 }
 
 body {
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.45), transparent 40%),
-    linear-gradient(180deg, var(--surface-muted) 0%, var(--background) 18%, var(--background) 100%);
+  background: var(--background);
   color: var(--foreground);
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -66,9 +64,7 @@ button,
 }
 
 .dark body {
-  background:
-    radial-gradient(circle at top, rgba(148, 163, 184, 0.06), transparent 32%),
-    linear-gradient(180deg, var(--surface-strong) 0%, var(--background) 18%, var(--background) 100%);
+  background: var(--background);
 }
 
 .app-shell {
@@ -199,15 +195,11 @@ html:not(.dark) {
 }
 
 .app-page {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, transparent 13%),
-    var(--background);
+  background: var(--background);
 }
 
 .dark .app-page {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 13%),
-    var(--background);
+  background: var(--background);
 }
 
 .card-surface {
@@ -295,17 +287,13 @@ html:not(.dark) {
 }
 
 .floating-action {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0)),
-    #3f3f46;
+  background: #3f3f46;
   color: white;
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.2);
 }
 
 .dark .floating-action {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-    #27272a;
+  background: #27272a;
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.34);
 }
 
@@ -316,9 +304,7 @@ html:not(.dark) {
 }
 
 .modal-panel {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0)),
-    var(--surface-elevated);
+  background: var(--surface-elevated);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow-strong);
 }
@@ -352,17 +338,13 @@ html:not(.dark) {
 
 .empty-state-card {
   border: 1px dashed rgba(107, 114, 128, 0.28);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.58)),
-    var(--surface);
+  background: var(--surface);
   box-shadow: var(--surface-shadow);
 }
 
 .dark .empty-state-card {
   border-color: rgba(255, 255, 255, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
-    var(--surface);
+  background: var(--surface);
 }
 
 .segmented-chip {
