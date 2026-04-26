@@ -743,7 +743,7 @@ function CheckpointRow({
       className={`rounded-[1.35rem] border px-3.5 py-3.5 transition ${
         issueState === 'open'
           ? 'border-[rgba(var(--accent-rgb),0.14)] accent-tint'
-          : 'border-black/5 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]'
+          : 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -770,7 +770,7 @@ function CheckpointRow({
           </div>
         ) : (
           <div className="min-w-0 flex-1 text-left">
-            <div className="text-[0.98rem] font-normal tracking-[-0.01em] text-blue-600 dark:text-blue-400">{label ?? checkpoint.name}</div>
+            <div className="text-[0.98rem] font-normal tracking-[-0.01em] text-gray-900 dark:text-white">{label ?? checkpoint.name}</div>
           </div>
         )}
         <div className="flex shrink-0 items-center gap-2">
