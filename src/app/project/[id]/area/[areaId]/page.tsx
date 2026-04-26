@@ -366,6 +366,9 @@ export default function AreaDetailPage() {
   );
 
   const sortedStandardLocations = useMemo(() => {
+    const hasSectionLabels = filteredStandardLocations.some((l) => l.sectionLabel);
+    if (hasSectionLabels) return [...filteredStandardLocations].sort((a, b) => a.sortOrder - b.sortOrder);
+
     return [...filteredStandardLocations].sort((a, b) => {
       if (quickSort === 'alphabetical') {
         return a.name.localeCompare(b.name);
@@ -1364,14 +1367,17 @@ export default function AreaDetailPage() {
               onSubmit={() => void handleSubmitCustomItem()}
             />
           )}
-          {sortedStandardLocations.map((location) => (
+          {sortedStandardLocations.map((location, index) => {
+            const prevLabel = index > 0 ? sortedStandardLocations[index - 1].sectionLabel : undefined;
+            const showSectionHeader = location.sectionLabel && location.sectionLabel !== prevLabel;
+            return (
             <div
               key={location.id}
               ref={(node) => {
                 locationRefs.current.set(location.id, node);
               }}
             >
-              {location.sectionLabel && (
+              {showSectionHeader && (
                 <div className="px-1 pb-1 pt-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                   {location.sectionLabel}
                 </div>
@@ -1528,7 +1534,8 @@ export default function AreaDetailPage() {
                 }
               />
             </div>
-          ))}
+            );
+          })}
           {supportsCustomSubareas ? (
             <CustomItemComposer
               open={showCustomSubareaComposer}

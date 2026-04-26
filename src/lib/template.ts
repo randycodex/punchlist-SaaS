@@ -368,8 +368,8 @@ export function applyTemplateToArea(area: Area): void {
         const merged: TemplateLocation[] = [];
         for (const t of facadeTypes) {
           const locs = typeTemplateMap[t] ?? [];
-          locs.forEach((loc, i) => {
-            merged.push({ ...loc, sectionLabel: facadeTypes.length > 1 && i === 0 ? t : undefined });
+          locs.forEach((loc) => {
+            merged.push({ ...loc, sectionLabel: facadeTypes.length > 1 ? t : undefined });
           });
         }
         if (merged.length > 0) { populateArea(area, merged); return; }
