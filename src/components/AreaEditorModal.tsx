@@ -144,23 +144,28 @@ export default function AreaEditorModal({
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Type
               </label>
-              <select
-                value={value.areaNumber}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    areaNumber: e.target.value as FacadeType,
-                  })
-                }
-                className="field-shell"
-              >
-                <option value="">Select type</option>
-                {FACADE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-2 rounded-[1rem] border border-[var(--surface-border)] bg-white/70 px-4 py-3 dark:bg-white/[0.05]">
+                {FACADE_TYPES.map((type) => {
+                  const selected = value.areaNumber.split(',').filter(Boolean).includes(type);
+                  return (
+                    <label key={type} className="flex cursor-pointer items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => {
+                          const current = value.areaNumber.split(',').filter(Boolean);
+                          const next = selected
+                            ? current.filter((t) => t !== type)
+                            : [...current, type];
+                          onChange({ ...value, areaNumber: next.join(',') });
+                        }}
+                        className="h-4 w-4 accent-[var(--accent)]"
+                      />
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{type}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           )}
 

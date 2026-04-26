@@ -356,10 +356,16 @@ export function applyTemplateToArea(area: Area): void {
 
   if (definition.templateKey === 'commonArea') {
     if (area.areaTypeKey === 'facade') {
-      const facadeType = area.areaNumber;
-      if (facadeType === 'Bricks') { populateArea(area, facadeBrickTemplate); return; }
-      if (facadeType === 'GFRC') { populateArea(area, facadeGFRCTemplate); return; }
-      if (facadeType === 'EIFS') { populateArea(area, facadeEIFSTemplate); return; }
+      const facadeTypes = (area.areaNumber ?? '').split(',').filter(Boolean);
+      if (facadeTypes.length > 0) {
+        const typeTemplateMap: Record<string, TemplateLocation[]> = {
+          Bricks: facadeBrickTemplate,
+          GFRC: facadeGFRCTemplate,
+          EIFS: facadeEIFSTemplate,
+        };
+        const merged = facadeTypes.flatMap((t) => typeTemplateMap[t] ?? []);
+        if (merged.length > 0) { populateArea(area, merged); return; }
+      }
     }
     populateArea(area, [{ name: area.name, items: commonAreaItems }]);
     return;
