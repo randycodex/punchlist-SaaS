@@ -474,6 +474,7 @@ export default function AreaDetailPage() {
 
     const originalTypeKey = targetArea.areaTypeKey;
     const originalUnitType = targetArea.unitType;
+    const originalAreaNumber = targetArea.areaNumber;
     const nextName = buildAreaName(areaForm);
     targetArea.name = nextName;
     targetArea.areaTypeKey = areaForm.areaTypeKey;
@@ -483,7 +484,8 @@ export default function AreaDetailPage() {
 
     const templateChanged =
       originalTypeKey !== areaForm.areaTypeKey ||
-      originalUnitType !== (areaForm.unitType || undefined);
+      originalUnitType !== (areaForm.unitType || undefined) ||
+      originalAreaNumber !== (areaForm.areaNumber.trim() || undefined);
     if (templateChanged) {
       if (
         areaHasRecordedActivity(targetArea) &&
