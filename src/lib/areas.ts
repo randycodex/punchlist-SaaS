@@ -1,6 +1,6 @@
 import type { Area } from '@/types';
 
-export type AreaTemplateKey = 'apartment' | 'commonArea' | 'facadeBrick' | 'facadeGFRC' | 'facadeEIFS' | 'halfBathroom' | 'notesOnly' | 'stairs';
+export type AreaTemplateKey = 'apartment' | 'commonArea' | 'facadeBrick' | 'facadeGFRC' | 'facadeEIFS' | 'halfBathroom' | 'notesOnly' | 'stairs' | 'vestibule' | 'lobby' | 'mailArea' | 'security';
 export type AreaTypeKey =
   | 'amenity_space'
   | 'apartment_unit'
@@ -80,20 +80,20 @@ export const AREA_TYPE_DEFINITIONS: AreaTypeDefinition[] = [
   { key: 'it_room', label: 'IT Room', templateKey: 'commonArea' },
   { key: 'janitor', label: 'Janitor', templateKey: 'commonArea' },
   { key: 'laundry', label: 'Laundry', templateKey: 'commonArea' },
-  { key: 'lobby', label: 'Lobby', templateKey: 'commonArea' },
-  { key: 'mail_area', label: 'Mail Area', templateKey: 'commonArea' },
+  { key: 'lobby', label: 'Lobby', templateKey: 'lobby' },
+  { key: 'mail_area', label: 'Mail Area', templateKey: 'mailArea' },
   { key: 'mechanical', label: 'Mechanical', templateKey: 'commonArea' },
   { key: 'multipurpose', label: 'Multipurpose', templateKey: 'commonArea' },
   { key: 'office', label: 'Office', templateKey: 'commonArea' },
   { key: 'parcel_room', label: 'Parcel Room', templateKey: 'commonArea' },
   { key: 'public_toilet', label: 'Public Toilet', templateKey: 'commonArea' },
   { key: 'refuse', label: 'Refuse', templateKey: 'commonArea' },
-  { key: 'security', label: 'Security', templateKey: 'commonArea' },
+  { key: 'security', label: 'Security', templateKey: 'security' },
   { key: 'stairs', label: 'Stairs', templateKey: 'stairs' },
   { key: 'storage', label: 'Storage', templateKey: 'commonArea' },
   { key: 'super_office', label: "Super's Office", templateKey: 'commonArea' },
   { key: 'trash_compactor', label: 'Trash Compactor', templateKey: 'commonArea' },
-  { key: 'vestibule', label: 'Vestibule', templateKey: 'commonArea' },
+  { key: 'vestibule', label: 'Vestibule', templateKey: 'vestibule' },
   { key: 'water_room', label: 'Water Room', templateKey: 'commonArea' },
 ];
 

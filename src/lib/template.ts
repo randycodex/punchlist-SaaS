@@ -79,6 +79,89 @@ const commonAreaItems: TemplateItem[] = [
   { name: 'Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Threshold'] },
 ];
 
+const vestibuleTemplate: TemplateLocation[] = [
+  {
+    name: 'Vestibule',
+    items: [
+      ...commonAreaItems,
+      { name: 'Building Entry Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Sweep', 'Stop', 'FireRating Label'] },
+      { name: 'Wall Paint', checkpoints: ['Walls', 'Ceiling'] },
+      { name: 'Tile', checkpoints: ['Chipping', 'Grout', 'Caulk', 'Clean'] },
+      { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
+      { name: 'Signage', checkpoints: ['Condition', 'Legible', 'Secure'] },
+      { name: 'Intercom', checkpoints: ['Operational', 'Square', 'Clean'] },
+      { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+      { name: 'Outlets', checkpoints: ['Operational', 'Cover', 'Clean', 'Square'] },
+      { name: 'Ventilation', checkpoints: ['Cover', 'Clean', 'Square'] },
+      { name: 'Clean', checkpoints: ['Yes'] },
+    ],
+  },
+];
+
+const lobbyTemplate: TemplateLocation[] = [
+  {
+    name: 'Lobby',
+    items: [
+      ...commonAreaItems,
+      { name: 'Lobby Entry Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Sweep', 'Stop', 'FireRating Label'] },
+      { name: 'Mech Closet', checkpoints: ['Door', 'Paint', 'Clean'] },
+      { name: 'Closet', checkpoints: ['Door', 'Paint', 'Shelving', 'Clean'] },
+      { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
+      { name: 'Tile', checkpoints: ['Chipping', 'Grout', 'Caulk', 'Clean'] },
+      { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
+      { name: 'Signage', checkpoints: ['Condition', 'Legible', 'Secure'] },
+      { name: 'Fire Extinguisher', checkpoints: ['Mounted', 'Charged', 'Accessible'] },
+      { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+      { name: 'Outlets', checkpoints: ['Operational', 'Cover', 'Clean', 'Square'] },
+      { name: 'Ventilation', checkpoints: ['Cover', 'Clean', 'Square'] },
+      { name: 'Elev. 1 Entrance', checkpoints: ['Door', 'Frame', 'Threshold', 'Indicator'] },
+      { name: 'Elev. 2 Entrance', checkpoints: ['Door', 'Frame', 'Threshold', 'Indicator'] },
+      { name: 'Clean', checkpoints: ['Yes'] },
+    ],
+  },
+];
+
+const mailAreaTemplate: TemplateLocation[] = [
+  {
+    name: 'Mail Area',
+    items: [
+      ...commonAreaItems,
+      { name: 'Mail Boxes', checkpoints: ['Doors', 'Locks', 'Labels', 'Condition'] },
+      { name: 'Tile', checkpoints: ['Chipping', 'Grout', 'Caulk', 'Clean'] },
+      { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
+      { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
+      { name: 'Signage', checkpoints: ['Condition', 'Legible', 'Secure'] },
+      { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+      { name: 'Outlets', checkpoints: ['Operational', 'Cover', 'Clean', 'Square'] },
+      { name: 'Ventilation', checkpoints: ['Cover', 'Clean', 'Square'] },
+      { name: 'Clean', checkpoints: ['Yes'] },
+      { name: 'General', checkpoints: ['Condition', 'Clean'] },
+    ],
+  },
+];
+
+const securityTemplate: TemplateLocation[] = [
+  {
+    name: 'Security',
+    items: [
+      ...commonAreaItems,
+      { name: 'Entry Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Stop', 'FireRating Label'] },
+      { name: 'Closet Door', checkpoints: ['Hardware', 'Closer', 'Paint', 'Stop'] },
+      { name: 'Closet', checkpoints: ['Paint', 'Shelving', 'Clean'] },
+      { name: 'Paint', checkpoints: ['Walls', 'Ceiling'] },
+      { name: 'Intercom', checkpoints: ['Operational', 'Square', 'Clean'] },
+      { name: 'Sprinkler', checkpoints: ['Cover', 'Clean', 'Flush'] },
+      { name: 'Elec. Panel', checkpoints: ['Door', 'Clean', 'Flush'] },
+      { name: 'Security Window', checkpoints: ['Glazing', 'Frame', 'Locks', 'Caulk'] },
+      { name: 'Flooring', checkpoints: ['Adhesion', 'Edges', 'Joints', 'Finish'] },
+      { name: 'Outlets', checkpoints: ['Operational', 'Cover', 'Clean', 'Square'] },
+      { name: 'A/C', checkpoints: ['Operational', 'Thermostat', 'Cover', 'Clean'] },
+      { name: 'Windows', checkpoints: ['Operational', 'Locks', 'Caulking', 'Frame'] },
+      { name: 'Clean', checkpoints: ['Yes'] },
+    ],
+  },
+];
+
 const stairsTemplate: TemplateLocation[] = [
   {
     name: 'Stairs',
@@ -353,6 +436,26 @@ export function applyTemplateToArea(area: Area): void {
 
   if (definition.templateKey === 'stairs') {
     populateArea(area, stairsTemplate);
+    return;
+  }
+
+  if (definition.templateKey === 'vestibule') {
+    populateArea(area, vestibuleTemplate);
+    return;
+  }
+
+  if (definition.templateKey === 'lobby') {
+    populateArea(area, lobbyTemplate);
+    return;
+  }
+
+  if (definition.templateKey === 'mailArea') {
+    populateArea(area, mailAreaTemplate);
+    return;
+  }
+
+  if (definition.templateKey === 'security') {
+    populateArea(area, securityTemplate);
     return;
   }
 
