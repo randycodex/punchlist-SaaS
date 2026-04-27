@@ -1256,7 +1256,7 @@ export default function AreaDetailPage() {
           <div className="flex w-full items-center gap-3">
             <Link
               href={returnToHome ? '/' : `/project/${project.id}`}
-              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
+              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
@@ -1271,7 +1271,7 @@ export default function AreaDetailPage() {
               className={`flex h-10 items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                 inspectionShowOnlyIssues
                   ? 'accent-tint accent-text'
-                  : 'border border-black/5 bg-white/70 text-gray-500 shadow-sm hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
+                  : 'border border-black/5 bg-white/70 text-gray-500 hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
               }`}
               aria-label={inspectionShowOnlyIssues ? 'Show all items' : 'Show only issues'}
               aria-pressed={inspectionShowOnlyIssues}
@@ -1281,7 +1281,7 @@ export default function AreaDetailPage() {
             <div ref={headerMenuRef} className="relative">
               <button
                 onClick={() => setShowHeaderMenu((current) => !current)}
-                className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-200"
+                className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-200"
                 aria-label="Area actions"
               >
                 <MoreVertical className="w-4 h-4" />

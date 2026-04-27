@@ -152,7 +152,7 @@ const ProjectCard = memo(function ProjectCard({
       className={`card-surface select-none rounded-[1.7rem] p-4 transition-all [-webkit-touch-callout:none] ${
         isSelected
           ? '!border-gray-400 !bg-gray-100 dark:!border-gray-500 dark:!bg-white/[0.08]'
-          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.1)] dark:hover:border-white/[0.08] dark:hover:bg-white/[0.07]'
+          : 'hover:-translate-y-px hover:border-black/10 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.07]'
       } ${selectionMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -194,7 +194,7 @@ const ProjectCard = memo(function ProjectCard({
                 onToggleMenu(project.id);
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              className="rounded-[1rem] border border-black/5 bg-white/60 p-2 text-gray-400 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+              className="rounded-[1rem] border border-black/5 bg-white/60 p-2 text-gray-400 transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
               aria-label={`Project actions for ${project.projectName}`}
             >
               <MoreVertical className="w-4 h-4" />
@@ -287,7 +287,7 @@ const HomeAreaCard = memo(function HomeAreaCard({
       className={`card-surface-subtle select-none touch-manipulation [-webkit-touch-callout:none] rounded-[1.6rem] p-4 transition-all ${
         isSelected
           ? '!border-gray-400 !bg-gray-100 dark:!border-gray-500 dark:!bg-white/[0.08]'
-          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:hover:border-white/[0.08]'
+          : 'hover:-translate-y-px hover:border-black/10 dark:hover:border-white/[0.08]'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
@@ -1162,8 +1162,7 @@ export default function ProjectsPage() {
               <div className="min-w-0 flex-1">
                 {singleProjectMainView ? (
                   <>
-                    <div className="section-eyebrow">Project View</div>
-                    <h1 className="mt-1 truncate text-[1.2rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
+                    <h1 className="truncate text-[1.2rem] font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">
                       {singleProject.projectName}
                     </h1>
                     <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
@@ -1217,7 +1216,7 @@ export default function ProjectsPage() {
               <button
                 onClick={() => void handleExportSelectedConfirm()}
                 disabled={exportingSelected || exportingSelectedToDrive || selectedProjectIds.size === 0}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/5 bg-white/70 text-gray-700 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08] disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/5 bg-white/70 text-gray-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08] disabled:opacity-40"
                 aria-label="Export selected projects"
               >
                 {exportingSelected || exportingSelectedToDrive ? (

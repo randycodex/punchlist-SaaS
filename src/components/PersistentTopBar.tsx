@@ -186,7 +186,7 @@ export default function PersistentTopBar() {
             />
             <button
               onClick={() => setShowHomeMenu((current) => !current)}
-              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 transition hover:bg-white hover:text-gray-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
               aria-label="Open app menu"
             >
               <MoreVertical className="h-5 w-5" />
@@ -354,7 +354,7 @@ export default function PersistentTopBar() {
               aria-label={indicatorLabel[status]}
               className={`sync-indicator h-2.5 w-2.5 rounded-full shrink-0 ${indicatorClasses[status]}`}
             />
-            <div className="truncate rounded-full border border-black/5 bg-white/60 px-3 py-1.5 text-right text-sm font-semibold tracking-[-0.01em] text-gray-700 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200">
+            <div className="truncate rounded-full border border-black/5 bg-white/60 px-3 py-1.5 text-right text-sm font-semibold tracking-[-0.01em] text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200">
               {projectTitle}
             </div>
           </div>

@@ -82,7 +82,7 @@ const AreaCard = memo(function AreaCard({
       className={`card-surface block rounded-[1.65rem] p-4 transition-all ${
         isSelected
           ? 'bg-gray-100 border-gray-400 dark:bg-white/[0.08] dark:border-gray-500'
-          : 'hover:-translate-y-px hover:border-black/10 hover:shadow-[0_18px_40px_rgba(15,23,42,0.1)] dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
+          : 'hover:-translate-y-px hover:border-black/10 dark:hover:bg-white/[0.07] dark:hover:border-white/[0.08]'
       } ${deleteMode ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-start gap-3">
@@ -121,7 +121,7 @@ const AreaCard = memo(function AreaCard({
               event.preventDefault();
             }
           }}
-          className="mt-1 flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 shadow-sm transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
+          className="mt-1 flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-500 transition hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.12] dark:hover:text-white"
           aria-label={`Open ${area.name}`}
         >
           <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -628,7 +628,7 @@ export default function ProjectDetailPage() {
       <header className="header-stable shrink-0 border-b z-20">
         <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
           <div className="flex w-full items-center gap-3">
-            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0 flex-1">
