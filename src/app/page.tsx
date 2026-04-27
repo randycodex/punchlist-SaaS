@@ -1330,7 +1330,7 @@ export default function ProjectsPage() {
                     onPointerLeave={clearLongPress}
                     className={`card-surface-subtle rounded-[1.5rem] p-4 transition-all ${
                       isSelected
-                        ? 'border-gray-500 bg-gray-100 dark:bg-white/[0.08] dark:border-zinc-500'
+                        ? '!border-gray-400 !bg-gray-100 dark:!border-gray-500 dark:!bg-white/[0.08]'
                         : 'hover:-translate-y-px hover:border-black/10 dark:hover:border-white/[0.08]'
                     } ${deleteMode ? 'cursor-pointer' : ''} select-none touch-manipulation [-webkit-touch-callout:none]`}
                   >

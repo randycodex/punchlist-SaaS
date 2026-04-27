@@ -337,48 +337,63 @@ async function migrateLegacyProjectExports(
   });
 }
 
+async function migratePhotosToFolder(
+  token: string,
+  photoFiles: Awaited<ReturnType<typeof listProjectPhotoFiles>>,
+  destinationFolderPath: string
+) {
+  await runWithConcurrency(
+    photoFiles.filter((file) => file.id),
+    3,
+    async (file) => {
+      try {
+        await moveDriveItemToFolder(token, file.id, destinationFolderPath);
+      } catch (error) {
+        if (isItemNotFoundError(error)) {
+          return;
+        }
+        if (!(error instanceof Error) || !error.message.toLowerCase().includes('already exists')) {
+          throw error;
+        }
+        try {
+          await deleteDriveItem(token, file.id);
+        } catch (deleteError) {
+          if (!isItemNotFoundError(deleteError)) {
+            throw deleteError;
+          }
+        }
+      }
+    }
+  );
+}
+
 async function migrateLegacyProjectPhotos(
   token: string,
   project: Pick<Project, 'id' | 'projectName' | 'oneDriveFolderName' | 'deletedAt'>,
   targetFolderName: string
 ) {
   const trashed = isProjectInTrash(project);
-  const sourceFolderNames = uniqueFolderNames([
+  const destinationFolderPath = getProjectPhotosFolderPath(targetFolderName, trashed);
+
+  // When trash state changes (trash or restore), photos live in the opposite path.
+  // Move them to the correct destination before the old folder is deleted.
+  const crossStatePhotos = await listProjectPhotoFiles(token, targetFolderName, !trashed, false);
+  if (crossStatePhotos.length > 0) {
+    await migratePhotosToFolder(token, crossStatePhotos, destinationFolderPath);
+  }
+
+  const legacySourceNames = uniqueFolderNames([
     currentProjectFolderName(project),
     ...getLegacyProjectFolderNames(project),
   ]).filter((folderName) => folderName !== targetFolderName);
 
-  if (sourceFolderNames.length === 0) {
+  if (legacySourceNames.length === 0) {
     return;
   }
 
-  const destinationFolderPath = getProjectPhotosFolderPath(targetFolderName, trashed);
-
-  await runWithConcurrency(sourceFolderNames, 2, async (sourceFolderName) => {
+  await runWithConcurrency(legacySourceNames, 2, async (sourceFolderName) => {
     const photoFiles = await listProjectPhotoFiles(token, sourceFolderName, trashed, false);
-    await runWithConcurrency(
-      photoFiles.filter((file) => file.id),
-      3,
-      async (file) => {
-        try {
-          await moveDriveItemToFolder(token, file.id, destinationFolderPath);
-        } catch (error) {
-          if (isItemNotFoundError(error)) {
-            return;
-          }
-          if (!(error instanceof Error) || !error.message.toLowerCase().includes('already exists')) {
-            throw error;
-          }
-          try {
-            await deleteDriveItem(token, file.id);
-          } catch (deleteError) {
-            if (!isItemNotFoundError(deleteError)) {
-              throw deleteError;
-            }
-          }
-        }
-      }
-    );
+    await migratePhotosToFolder(token, photoFiles, destinationFolderPath);
   });
 }
 
