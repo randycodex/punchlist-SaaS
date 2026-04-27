@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  MessageSquare,
   MoreVertical,
   Pencil,
   Trash2,
@@ -813,10 +812,13 @@ function CheckpointRow({
     <div
       ref={editableLabel ? editContainerRef : undefined}
       className={`rounded-[1.35rem] px-3.5 py-3.5 transition ${
+        !editableLabel ? 'cursor-pointer' : ''
+      } ${
         issueState === 'open'
           ? 'accent-tint dark:bg-[#882D17]'
           : 'bg-blue-50 dark:bg-[#44362F]'
       }`}
+      onClick={!editableLabel ? onToggleExpand : undefined}
     >
       <div className="flex items-center justify-between gap-3">
         {editableLabel ? (
@@ -867,20 +869,6 @@ function CheckpointRow({
             </>
           ) : (
             <>
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleExpand();
-                }}
-                className={`flex h-10 w-10 items-center justify-center rounded-[1rem] transition ${
-                  noteCount > 0
-                    ? 'accent-bg text-white'
-                    : 'border border-black/5 bg-white/70 text-gray-400 hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
-                }`}
-                aria-label={`Open note editor for ${checkpoint.name}`}
-              >
-                <MessageSquare className="h-4 w-4" />
-              </button>
               <button
                 onClick={(event) => {
                   event.stopPropagation();
@@ -936,8 +924,6 @@ function InlineCheckpointEditor({
   openCameraSignal,
   issueState,
   onToggleIssue,
-  expanded,
-  onToggleExpand,
 }: {
   checkpoint: Checkpoint;
   locationId: string;
@@ -956,8 +942,6 @@ function InlineCheckpointEditor({
   openCameraSignal?: number;
   issueState?: IssueState;
   onToggleIssue?: () => void;
-  expanded?: boolean;
-  onToggleExpand?: () => void;
 }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
 
@@ -976,21 +960,8 @@ function InlineCheckpointEditor({
 
   return (
     <div ref={editorRef} className="space-y-2.5 px-1 pb-1 pt-1">
-      {(onToggleIssue || onToggleExpand) && (
+      {onToggleIssue && (
         <div className="flex items-center justify-end gap-2">
-          {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className={`flex h-9 w-9 items-center justify-center rounded-[0.95rem] transition ${
-                expanded
-                  ? 'bg-white text-gray-700 dark:bg-white/[0.09] dark:text-white'
-                  : 'border border-black/5 bg-white/70 text-gray-400 hover:bg-white hover:text-gray-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-gray-100'
-              }`}
-              aria-label={`Toggle note editor for ${checkpoint.name}`}
-            >
-              <MessageSquare className="h-4 w-4" />
-            </button>
-          )}
           {onToggleIssue && (
             <button
               onClick={onToggleIssue}
