@@ -432,6 +432,72 @@ export default function InspectionLocationCard({
 
             const isItemExpanded = expandedItems.has(item.id);
             const isEditingCustomItem = editingCustomItemId === item.id;
+            // When a location has exactly one non-custom item sharing the same name,
+            // skip the item header and render checkpoints directly (no redundant wrapper).
+            const hideItemHeader =
+              !item.isCustom &&
+              visibleItems.filter((i) => !i.isCustom).length === 1 &&
+              item.name.trim().toLowerCase() === location.name.trim().toLowerCase();
+
+            if (hideItemHeader) {
+              const filteredCheckpoints = item.checkpoints.filter(
+                (checkpoint) => !showOnlyIssues || getCheckpointIssueState(checkpoint) !== 'none'
+              );
+              return (
+                <div key={item.id} ref={(node) => registerItemRef(item.id, node)} className="space-y-2.5">
+                  {filteredCheckpoints.map((checkpoint) => {
+                    const issueState = getCheckpointIssueState(checkpoint);
+                    const isExpandedCheckpoint = expandedCheckpointId === checkpoint.id;
+                    return (
+                      <div key={checkpoint.id} className="space-y-2">
+                        <CheckpointRow
+                          checkpoint={checkpoint}
+                          issueState={issueState}
+                          onToggleExpand={() =>
+                            openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
+                          }
+                          onToggleIssue={() =>
+                            void onUpdateCheckpointStatus(
+                              location.id,
+                              item.id,
+                              checkpoint.id,
+                              issueState === 'open' ? 'pending' : 'open'
+                            )
+                          }
+                          onOpenCamera={() => {
+                            openCheckpointCamera(location.id, item.id, checkpoint.id, checkpoint.comments);
+                          }}
+                        />
+                        {isExpandedCheckpoint && (
+                          <InlineCheckpointEditor
+                            checkpoint={checkpoint}
+                            locationId={location.id}
+                            itemId={item.id}
+                            commentText={commentText}
+                            recentComments={recentComments}
+                            onCommentChange={onCommentChange}
+                            onCommentBlur={onCommentBlur}
+                            onAddPhoto={onAddPhoto}
+                            onAddPhotos={onAddPhotos}
+                            onAddFiles={onAddFiles}
+                            onDeletePhoto={onDeletePhoto}
+                            onDeleteFile={onDeleteFile}
+                            showCommentEditor={activeCameraOnlyCheckpointId !== checkpoint.id}
+                            onCloseEditor={() =>
+                              openCheckpointComments(location.id, item.id, checkpoint.id, checkpoint.comments)
+                            }
+                            openCameraSignal={
+                              cameraRequest?.checkpointId === checkpoint.id ? cameraRequest.token : undefined
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+
             return (
               <div key={item.id} ref={(node) => registerItemRef(item.id, node)}>
                 {isEditingCustomItem ? (
