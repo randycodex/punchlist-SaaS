@@ -808,8 +808,8 @@ function CheckpointRow({
       ref={editableLabel ? editContainerRef : undefined}
       className={`rounded-[1.35rem] border px-3.5 py-3.5 transition ${
         issueState === 'open'
-          ? 'border-[rgba(var(--accent-rgb),0.14)] accent-tint'
-          : 'border-blue-200 bg-blue-50 dark:border-[#502201]/60 dark:bg-[#502201]'
+          ? 'border-[rgba(var(--accent-rgb),0.14)] dark:border-transparent accent-tint dark:bg-[#882D17]'
+          : 'border-blue-200 bg-blue-50 dark:border-transparent dark:bg-[#44362F]'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
