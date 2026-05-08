@@ -36,6 +36,7 @@ export interface Organization {
   name: string;
   slug: string;
   firmType?: 'architecture' | 'construction' | 'owner' | 'consultant' | 'developer' | 'other';
+  defaultChecklistTemplateName?: string;
   logoAssetId?: string;
   branding?: FirmBrandingSettings;
   subscriptionTier?: SubscriptionTier;

@@ -37,12 +37,16 @@ type RequestOptions = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 
-async function request<T>(path: string, init: RequestInit = {}, options: RequestOptions = {}): Promise<T> {
-  if (!API_BASE_URL) {
-    throw new SaaSApiError('NEXT_PUBLIC_API_BASE_URL is not configured.', 0);
+function getApiUrl(path: string) {
+  if (API_BASE_URL) {
+    return `${API_BASE_URL}${path}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return `/api${path}`;
+}
+
+async function request<T>(path: string, init: RequestInit = {}, options: RequestOptions = {}): Promise<T> {
+  const response = await fetch(getApiUrl(path), {
     ...init,
     signal: options.signal,
     headers: {
@@ -71,6 +75,25 @@ async function request<T>(path: string, init: RequestInit = {}, options: Request
 
 export function getSaaSSnapshot(options?: RequestOptions) {
   return request<SaaSSnapshot>('/v1/snapshot', {}, options);
+}
+
+export function updateCurrentOrganization(
+  payload: {
+    name: string;
+    firmType?: Organization['firmType'];
+    reportTitle?: string;
+    reportFooter?: string;
+    primaryColor?: string;
+    showPreparedBy?: boolean;
+    defaultChecklistTemplateName?: string;
+  },
+  options?: RequestOptions
+) {
+  return request<Organization>(
+    '/v1/organizations/current',
+    { method: 'PUT', body: JSON.stringify(payload) },
+    options
+  );
 }
 
 export function upsertProject(project: SaaSProject, options?: RequestOptions) {
