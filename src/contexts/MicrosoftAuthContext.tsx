@@ -46,7 +46,7 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [isReady, setIsReady] = useState(() => !clientId || !tenantId || !redirectUri);
+  const [isReady, setIsReady] = useState(false);
 
   const pca = useMemo(() => {
     if (!clientId || !tenantId || !redirectUri) return null;
@@ -64,7 +64,12 @@ export function MicrosoftAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    if (!pca) return;
+    if (!pca) {
+      Promise.resolve().then(() => {
+        if (active) setIsReady(true);
+      });
+      return;
+    }
 
     pca
       .initialize()

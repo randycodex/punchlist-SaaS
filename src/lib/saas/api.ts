@@ -1,0 +1,110 @@
+import type {
+  AssetObject,
+  OfflineMutation,
+  Organization,
+  OrganizationMembership,
+  ProjectPermission,
+  SaaSProject,
+  SaaSUser,
+  TemplateDefinition,
+} from '@/lib/saas/types';
+
+export interface SaaSSnapshot {
+  user: SaaSUser;
+  organizations: Organization[];
+  memberships: OrganizationMembership[];
+  projects: SaaSProject[];
+  permissions: ProjectPermission[];
+  templates: TemplateDefinition[];
+  assets: AssetObject[];
+}
+
+export class SaaSApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly details?: unknown
+  ) {
+    super(message);
+    this.name = 'SaaSApiError';
+  }
+}
+
+type RequestOptions = {
+  accessToken?: string;
+  signal?: AbortSignal;
+};
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ?? '';
+
+async function request<T>(path: string, init: RequestInit = {}, options: RequestOptions = {}): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new SaaSApiError('NEXT_PUBLIC_API_BASE_URL is not configured.', 0);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    signal: options.signal,
+    headers: {
+      'content-type': 'application/json',
+      ...(options.accessToken ? { authorization: `Bearer ${options.accessToken}` } : {}),
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    let details: unknown;
+    try {
+      details = await response.json();
+    } catch {
+      details = await response.text().catch(() => undefined);
+    }
+    throw new SaaSApiError(`API request failed: ${response.status}`, response.status, details);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export function getSaaSSnapshot(options?: RequestOptions) {
+  return request<SaaSSnapshot>('/v1/snapshot', {}, options);
+}
+
+export function upsertProject(project: SaaSProject, options?: RequestOptions) {
+  return request<SaaSProject>(
+    `/v1/organizations/${project.organizationId}/projects/${project.id}`,
+    { method: 'PUT', body: JSON.stringify(project) },
+    options
+  );
+}
+
+export function deleteSaaSProject(organizationId: string, projectId: string, options?: RequestOptions) {
+  return request<void>(
+    `/v1/organizations/${organizationId}/projects/${projectId}`,
+    { method: 'DELETE' },
+    options
+  );
+}
+
+export function upsertTemplate(template: TemplateDefinition, options?: RequestOptions) {
+  const organizationId = template.organizationId ?? 'system';
+  return request<TemplateDefinition>(
+    `/v1/organizations/${organizationId}/templates/${template.id}`,
+    { method: 'PUT', body: JSON.stringify(template) },
+    options
+  );
+}
+
+export function flushOfflineMutation(mutation: OfflineMutation, options?: RequestOptions) {
+  return request<unknown>(
+    mutation.endpoint,
+    {
+      method: mutation.operation === 'delete' ? 'DELETE' : 'PUT',
+      body: mutation.operation === 'delete' ? undefined : JSON.stringify(mutation.payload),
+    },
+    options
+  );
+}

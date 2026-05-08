@@ -169,8 +169,8 @@ export default function PersistentTopBar() {
             }}
           >
             <Image
-              src="/uai-logo.png"
-              alt="UAI Logo"
+              src="/icons/icon-512x512.png"
+              alt="Punchlist"
               width={40}
               height={40}
               className="object-contain"

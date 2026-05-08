@@ -54,7 +54,7 @@ type SummaryArea = {
 
 async function loadLogoBase64(): Promise<string | null> {
   try {
-    const response = await fetch('/uai-logo.png');
+    const response = await fetch('/icons/icon-512x512.png');
     const blob = await response.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();

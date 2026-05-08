@@ -5,13 +5,13 @@ import PersistentTopBar from "@/components/PersistentTopBar";
 import Script from "next/script";
 
 export const metadata: Metadata = {
-  title: "UAI PUNCHLIST APP",
+  title: "Punchlist",
   description: "Construction inspection app for architects",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "UAI PUNCHLIST APP",
+    title: "Punchlist",
   },
 };
 

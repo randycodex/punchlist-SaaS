@@ -1,5 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Project, Area, Location, Item, Checkpoint, PhotoAttachment, FileAttachment } from '@/types';
+import type { OfflineMutation } from '@/lib/saas/types';
 import type { AreaTypeKey, ApartmentUnitType, FacadeOrientation } from '@/lib/areas';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,6 +21,11 @@ interface PunchListDB extends DBSchema {
     key: string;
     value: CheckpointMediaRecord;
     indexes: { 'by-project': string };
+  };
+  offlineMutations: {
+    key: string;
+    value: OfflineMutation;
+    indexes: { 'by-status': string; 'by-project': string };
   };
 }
 
@@ -146,7 +152,7 @@ function hydrateProjectMedia(project: Project, mediaRecords: CheckpointMediaReco
 
 function getDB() {
   if (!dbPromise) {
-    dbPromise = openDB<PunchListDB>('punchlist-db', 2, {
+    dbPromise = openDB<PunchListDB>('punchlist-db', 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('projects')) {
           const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
@@ -158,10 +164,67 @@ function getDB() {
           const mediaStore = db.createObjectStore('checkpointMedia', { keyPath: 'checkpointId' });
           mediaStore.createIndex('by-project', 'projectId');
         }
+
+        if (!db.objectStoreNames.contains('offlineMutations')) {
+          const mutationStore = db.createObjectStore('offlineMutations', { keyPath: 'id' });
+          mutationStore.createIndex('by-status', 'status');
+          mutationStore.createIndex('by-project', 'projectId');
+        }
       },
     });
   }
   return dbPromise;
+}
+
+export async function queueOfflineMutation(
+  mutation: Omit<OfflineMutation, 'id' | 'status' | 'attempts' | 'createdAt' | 'updatedAt'>
+): Promise<OfflineMutation> {
+  const db = await getDB();
+  const now = new Date();
+  const record: OfflineMutation = {
+    ...mutation,
+    id: uuidv4(),
+    status: 'pending',
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await db.put('offlineMutations', record);
+  return record;
+}
+
+export async function getPendingOfflineMutations(): Promise<OfflineMutation[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('offlineMutations', 'by-status', 'pending');
+}
+
+export async function markOfflineMutationSyncing(id: string): Promise<void> {
+  const db = await getDB();
+  const mutation = await db.get('offlineMutations', id);
+  if (!mutation) return;
+  await db.put('offlineMutations', {
+    ...mutation,
+    status: 'syncing',
+    attempts: mutation.attempts + 1,
+    updatedAt: new Date(),
+  });
+}
+
+export async function markOfflineMutationFailed(id: string, errorMessage: string): Promise<void> {
+  const db = await getDB();
+  const mutation = await db.get('offlineMutations', id);
+  if (!mutation) return;
+  await db.put('offlineMutations', {
+    ...mutation,
+    status: 'failed',
+    errorMessage,
+    updatedAt: new Date(),
+  });
+}
+
+export async function completeOfflineMutation(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('offlineMutations', id);
 }
 
 // Project operations

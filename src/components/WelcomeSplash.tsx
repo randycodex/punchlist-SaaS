@@ -32,8 +32,8 @@ export default function WelcomeSplash({ children }: { children: ReactNode }) {
         style={{ backgroundColor: 'var(--surface)' }}
       >
         <Image
-          src="/uai-logo.png"
-          alt="UAI Logo"
+          src="/icons/icon-512x512.png"
+          alt="Punchlist"
           width={220}
           height={120}
           priority

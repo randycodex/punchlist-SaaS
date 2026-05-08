@@ -11,15 +11,15 @@ export function getMicrosoftErrorMessage(error: unknown, fallback: string): stri
   if (!rawMessage) return fallback;
 
   if (message.includes('aadsts50020') || message.includes('user account') && message.includes('identity provider')) {
-    return 'This Microsoft account is not in the UAI tenant. Use a UAI work email.';
+    return 'This Microsoft account is not allowed for this workspace. Use an approved work account or ask an admin to invite you.';
   }
 
   if (message.includes('access_denied')) {
-    return 'Microsoft blocked this account from using UAI PUNCHLIST APP. Contact UAI IT.';
+    return 'Microsoft blocked this account from using Punchlist. Contact your workspace admin.';
   }
 
   if (message.includes('consent') || message.includes('interaction_required')) {
-    return 'Microsoft sign-in needs tenant approval for this account. Contact UAI IT.';
+    return 'Microsoft sign-in needs tenant approval for this account. Contact your workspace admin.';
   }
 
   if (
@@ -52,7 +52,7 @@ export function getMicrosoftErrorMessage(error: unknown, fallback: string): stri
     message.includes('mysite host is not found') ||
     message.includes('unable to retrieve user\'s mysite url')
   ) {
-    return 'This user does not have OneDrive ready yet. Ask them to open OneDrive once or contact UAI IT.';
+    return 'This user does not have OneDrive ready yet. Ask them to open OneDrive once or contact their workspace admin.';
   }
 
   return `${fallback} ${rawMessage}`;
