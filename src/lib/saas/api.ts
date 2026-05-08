@@ -64,7 +64,11 @@ async function request<T>(path: string, init: RequestInit = {}, options: Request
     } catch {
       details = await response.text().catch(() => undefined);
     }
-    throw new SaaSApiError(`API request failed: ${response.status}`, response.status, details);
+    const messageFromBody =
+      typeof details === 'object' && details !== null && 'error' in details && typeof (details as any).error === 'string'
+        ? String((details as any).error)
+        : `API request failed: ${response.status}`;
+    throw new SaaSApiError(messageFromBody, response.status, details);
   }
 
   if (response.status === 204) {

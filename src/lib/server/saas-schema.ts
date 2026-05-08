@@ -58,7 +58,7 @@ async function runSchema() {
     create table if not exists zoning_reports (
       id text primary key,
       organization_id text not null references organizations(id) on delete cascade,
-      project_id text not null,
+      project_id text,
       title text not null,
       address text,
       borough text,
@@ -71,6 +71,12 @@ async function runSchema() {
       updated_at timestamptz not null default now()
     )
   `;
+
+  // Allow zoning reports that are not tied to a punchlist project yet.
+  await sql`
+    alter table zoning_reports
+    alter column project_id drop not null
+  `.catch(() => undefined);
 
   await sql`
     create table if not exists zoning_report_sections (
