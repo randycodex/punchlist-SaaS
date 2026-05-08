@@ -8,6 +8,7 @@ import type {
   SaaSUser,
   TemplateDefinition,
 } from '@/lib/saas/types';
+import type { ZoningReport, ZoningReportItem, ZoningReportSummary, ZoningWorksheet } from '@/lib/zoning/types';
 
 export interface SaaSSnapshot {
   user: SaaSUser;
@@ -128,6 +129,74 @@ export function flushOfflineMutation(mutation: OfflineMutation, options?: Reques
       method: mutation.operation === 'delete' ? 'DELETE' : 'PUT',
       body: mutation.operation === 'delete' ? undefined : JSON.stringify(mutation.payload),
     },
+    options
+  );
+}
+
+export function listZoningReports(options?: RequestOptions) {
+  return request<{ reports: ZoningReportSummary[] }>('/v1/zoning/reports', {}, options);
+}
+
+export function createZoningReport(
+  payload: {
+    projectId?: string;
+    title?: string;
+    address?: string;
+    borough?: string;
+    block?: string;
+    lot?: string;
+    zoningDistrict?: string;
+    commercialOverlay?: string;
+    specialDistrict?: string;
+  },
+  options?: RequestOptions
+) {
+  return request<ZoningWorksheet>(
+    '/v1/zoning/reports',
+    { method: 'POST', body: JSON.stringify(payload) },
+    options
+  );
+}
+
+export function getZoningReport(reportId: string, options?: RequestOptions) {
+  return request<ZoningWorksheet>(`/v1/zoning/reports/${reportId}`, {}, options);
+}
+
+export function updateZoningReport(
+  reportId: string,
+  payload: {
+    title?: string;
+    address?: string;
+    borough?: string;
+    block?: string;
+    lot?: string;
+    zoningDistrict?: string;
+    commercialOverlay?: string;
+    specialDistrict?: string;
+  },
+  options?: RequestOptions
+) {
+  return request<ZoningReport>(
+    `/v1/zoning/reports/${reportId}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
+    options
+  );
+}
+
+export function updateZoningReportItem(
+  reportId: string,
+  itemId: string,
+  payload: {
+    value: string;
+    source: string;
+    status: ZoningReportItem['status'];
+    notes?: string;
+  },
+  options?: RequestOptions
+) {
+  return request<ZoningReportItem>(
+    `/v1/zoning/reports/${reportId}/items/${itemId}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
     options
   );
 }

@@ -125,14 +125,14 @@ async function upsertCurrentUser(userId: string, activeOrganizationId?: string |
       ${email},
       ${name},
       ${user.imageUrl ?? null},
-      ${activeOrganizationId ?? null},
+      ${null},
       ${sql.array(providers)}
     )
     on conflict (id) do update set
       email = excluded.email,
       name = excluded.name,
       avatar_url = excluded.avatar_url,
-      default_organization_id = coalesce(excluded.default_organization_id, app_users.default_organization_id),
+      default_organization_id = app_users.default_organization_id,
       auth_providers = excluded.auth_providers,
       updated_at = now()
     returning *
@@ -226,7 +226,7 @@ export async function syncClerkState() {
   } as never);
 
   const activeOrganizationId = orgId ?? orgList.data?.[0]?.organization?.id ?? null;
-  const user = await upsertCurrentUser(userId, activeOrganizationId);
+  const user = await upsertCurrentUser(userId);
 
   for (const membership of orgList.data ?? []) {
     await upsertOrganizationAndMembership(

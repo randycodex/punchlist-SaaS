@@ -15,7 +15,7 @@ export type ZoningSectionKey =
 export interface ZoningReport {
   id: string;
   organizationId?: string;
-  projectId: string;
+  projectId?: string;
   title: string;
   address: string;
   borough: string;
@@ -27,6 +27,23 @@ export interface ZoningReport {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type ZoningReportSummary = Pick<
+  ZoningReport,
+  | 'id'
+  | 'organizationId'
+  | 'projectId'
+  | 'title'
+  | 'address'
+  | 'borough'
+  | 'block'
+  | 'lot'
+  | 'zoningDistrict'
+  | 'commercialOverlay'
+  | 'specialDistrict'
+  | 'createdAt'
+  | 'updatedAt'
+>;
 
 export interface ZoningReportSection {
   id: string;

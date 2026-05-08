@@ -642,7 +642,7 @@ export default function ProjectDetailPage() {
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link
-                  href={`/app/projects/${project.id}/zoning`}
+                  href={`/app/zoning?projectId=${encodeURIComponent(project.id)}&address=${encodeURIComponent(project.address || '')}`}
                   className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08]"
                 >
                   <FileSearch className="h-4 w-4" />

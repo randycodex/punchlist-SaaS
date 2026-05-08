@@ -1,13 +1,13 @@
-import ZoningDashboard from '@/components/zoning/ZoningDashboard';
+import { redirect } from 'next/navigation';
 
-type ZoningPageProps = {
+type ProjectZoningPageProps = {
   params: Promise<{
     projectId: string;
   }>;
 };
 
-export default async function ProjectZoningPage({ params }: ZoningPageProps) {
+export default async function ProjectZoningPage({ params }: ProjectZoningPageProps) {
   const { projectId } = await params;
 
-  return <ZoningDashboard projectId={projectId} />;
+  redirect(`/app/zoning?projectId=${encodeURIComponent(projectId)}`);
 }
