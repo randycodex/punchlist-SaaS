@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "thread:new": "bash ./scripts/new-thread.sh",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^3.28.0",
+    "@clerk/nextjs": "^7.3.2",
     "html2canvas": "^1.4.1",
     "idb": "^8.0.3",
     "jspdf": "^4.0.0",

@@ -3,13 +3,13 @@ import withPWAInit from "next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  register: false,
+  register: true,
   skipWaiting: true,
-  disable: true,
+  disable: process.env.NODE_ENV !== "production",
 });
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  // Keep production builds on Webpack for stability.
 };
 
 export default withPWA(nextConfig);

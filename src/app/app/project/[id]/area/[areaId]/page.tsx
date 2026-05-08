@@ -137,7 +137,7 @@ export default function AreaDetailPage() {
 
   useEffect(() => {
     if (!id || !areaId) {
-      router.push('/');
+      router.push('/app');
       return;
     }
     const savedRecentComments = localStorage.getItem(RECENT_COMMENTS_STORAGE_KEY);
@@ -242,7 +242,7 @@ export default function AreaDetailPage() {
       setReturnToHome(activeProjectCount === 1);
       if (projectData) {
         if (projectData.deletedAt) {
-          router.push('/');
+          router.push('/app');
           return;
         }
         setProject(projectData);
@@ -260,14 +260,14 @@ export default function AreaDetailPage() {
           }
           setArea(areaData);
         } else {
-          router.push(`/project/${id}`);
+          router.push(`/app/project/${id}`);
         }
       } else {
-        router.push('/');
+        router.push('/app');
       }
     } catch (error) {
       console.error('Failed to load data:', error);
-      router.push('/');
+      router.push('/app');
     } finally {
       setLoading(false);
     }
@@ -1255,7 +1255,7 @@ export default function AreaDetailPage() {
         <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
           <div className="flex w-full items-center gap-3">
             <Link
-              href={returnToHome ? '/' : `/project/${project.id}`}
+              href={returnToHome ? '/app' : `/app/project/${project.id}`}
               className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
             >
               <ArrowLeft className="w-5 h-5" />

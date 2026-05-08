@@ -8,7 +8,8 @@ import { useMicrosoftAuth } from '@/contexts/MicrosoftAuthContext';
 import { useSyncStatus } from '@/contexts/SyncStatusContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { getProject } from '@/lib/db';
-import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, Pencil, FileDown, RefreshCw } from 'lucide-react';
+import { MoreVertical, LogOut, LogIn, ArrowDownAZ, Clock3, BarChart3, PlusSquare, FolderPlus, Trash2, Pencil, FileDown, RefreshCw, Settings } from 'lucide-react';
+import ClerkAppControls from '@/components/saas/ClerkAppControls';
 
 const projectTitleCache = new Map<string, string>();
 type SortOption = 'alphabetical' | 'issues' | 'progress';
@@ -29,8 +30,8 @@ export default function PersistentTopBar() {
   const { isReady, isSignedIn } = useMicrosoftAuth();
   const { status } = useSyncStatus();
   const { homeShowOnlyIssues, projectShowOnlyIssues, quickSort } = useAppSettings();
-  const showAuth = pathname === '/';
-  const isProjectOverview = /^\/project\/[^/]+$/.test(pathname);
+  const showAuth = pathname === '/app';
+  const isProjectOverview = /^\/app\/project\/[^/]+$/.test(pathname);
   const showTopMenu = showAuth || isProjectOverview;
   const [projectTitle, setProjectTitle] = useState('');
   const [showHomeMenu, setShowHomeMenu] = useState(false);
@@ -46,11 +47,11 @@ export default function PersistentTopBar() {
   });
   const menuRef = useRef<HTMLDivElement | null>(null);
   const projectId = useMemo(() => {
-    if (!pathname.startsWith('/project/')) {
+    if (!pathname.startsWith('/app/project/')) {
       return '';
     }
     const segments = pathname.split('/').filter(Boolean);
-    return segments[1] ?? '';
+    return segments[2] ?? '';
   }, [pathname]);
 
   const indicatorClasses = {
@@ -159,7 +160,7 @@ export default function PersistentTopBar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href="/"
+            href="/app"
             aria-label="Go to projects"
             className="flex shrink-0 items-center transition"
             onClick={() => {
@@ -180,6 +181,7 @@ export default function PersistentTopBar() {
         </div>
         {showTopMenu && isReady && !homeMenuState.showTrash && (
           <div ref={menuRef} className="relative flex items-center gap-2">
+            <ClerkAppControls />
             <span
               aria-label={indicatorLabel[status]}
               className={`sync-indicator h-2.5 w-2.5 rounded-full ${indicatorClasses[status]}`}
@@ -271,6 +273,14 @@ export default function PersistentTopBar() {
                   <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin text-[var(--accent)]' : ''}`} />
                   Sync now
                 </button>
+                <Link
+                  href="/app/settings/firm"
+                  onClick={() => setShowHomeMenu(false)}
+                  className="flex w-full items-center gap-3 rounded-[1.1rem] px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-black/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.05]"
+                >
+                  <Settings className="h-4 w-4" />
+                  Firm settings
+                </Link>
                 {(homeMenuState.context === 'project' || homeMenuState.isSingleProject) && (
                   <button
                     onClick={() => dispatchHomeAction('edit-project')}

@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import AppProviders from "@/components/AppProviders";
-import PersistentTopBar from "@/components/PersistentTopBar";
 import Script from "next/script";
+import RootShell from "@/components/RootShell";
+import { ClerkProvider } from "@clerk/nextjs";
+import { clerkSignInUrl, clerkSignUpUrl, isClerkConfigured } from "@/lib/auth/clerkConfig";
+
+const SHOULD_CLEANUP_PWA = process.env.NEXT_PUBLIC_PWA_DISABLE === "true";
 
 export const metadata: Metadata = {
   title: "Punchlist",
@@ -28,7 +31,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const page = (
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
@@ -50,58 +53,67 @@ export default function RootLayout({
             })();
           `}
         </Script>
-        <Script id="pwa-cleanup" strategy="beforeInteractive">
-          {`
-            (function () {
-              if (!('serviceWorker' in navigator) || !('localStorage' in window)) return;
-              var cleanupKey = 'punchlist:pwa-cleanup-v1';
-              try {
-                if (localStorage.getItem(cleanupKey) === 'done') return;
-              } catch (e) {}
+        {SHOULD_CLEANUP_PWA ? (
+          <Script id="pwa-cleanup" strategy="beforeInteractive">
+            {`
+              (function () {
+                if (!('serviceWorker' in navigator) || !('localStorage' in window)) return;
+                var cleanupKey = 'punchlist:pwa-cleanup-v1';
+                try {
+                  if (localStorage.getItem(cleanupKey) === 'done') return;
+                } catch (e) {}
 
-              window.addEventListener('load', function () {
-                var unregisterPromise = navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                  return Promise.all(
-                    registrations.map(function (registration) {
-                      return registration.unregister();
-                    })
-                  );
-                });
-
-                var cacheCleanupPromise = Promise.resolve();
-                if ('caches' in window) {
-                  cacheCleanupPromise = caches.keys().then(function (keys) {
-                    var staleKeys = keys.filter(function (key) {
-                      return key.indexOf('workbox') !== -1 || key.indexOf('precache') !== -1 || key.indexOf('runtime') !== -1;
-                    });
+                window.addEventListener('load', function () {
+                  var unregisterPromise = navigator.serviceWorker.getRegistrations().then(function (registrations) {
                     return Promise.all(
-                      staleKeys.map(function (key) {
-                        return caches.delete(key);
+                      registrations.map(function (registration) {
+                        return registration.unregister();
                       })
                     );
                   });
-                }
 
-                Promise.all([unregisterPromise, cacheCleanupPromise]).finally(function () {
-                  try {
-                    localStorage.setItem(cleanupKey, 'done');
-                  } catch (e) {}
+                  var cacheCleanupPromise = Promise.resolve();
+                  if ('caches' in window) {
+                    cacheCleanupPromise = caches.keys().then(function (keys) {
+                      var staleKeys = keys.filter(function (key) {
+                        return key.indexOf('workbox') !== -1 || key.indexOf('precache') !== -1 || key.indexOf('runtime') !== -1;
+                      });
+                      return Promise.all(
+                        staleKeys.map(function (key) {
+                          return caches.delete(key);
+                        })
+                      );
+                    });
+                  }
+
+                  Promise.all([unregisterPromise, cacheCleanupPromise]).finally(function () {
+                    try {
+                      localStorage.setItem(cleanupKey, 'done');
+                    } catch (e) {}
+                  });
                 });
-              });
-            })();
-          `}
-        </Script>
+              })();
+            `}
+          </Script>
+        ) : null}
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="font-sans antialiased">
-        <div className="safe-top-shim" />
-        <div className="app-shell">
-          <AppProviders>
-            <PersistentTopBar />
-            {children}
-          </AppProviders>
-        </div>
+        <RootShell>{children}</RootShell>
       </body>
     </html>
+  );
+
+  if (!isClerkConfigured) {
+    return page;
+  }
+
+  return (
+    <ClerkProvider
+      signInUrl={clerkSignInUrl}
+      signUpUrl={clerkSignUpUrl}
+    >
+      {page}
+    </ClerkProvider>
   );
 }

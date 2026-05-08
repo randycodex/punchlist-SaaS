@@ -87,7 +87,7 @@ const AreaCard = memo(function AreaCard({
     >
       <div className="flex items-start gap-3">
         <Link
-          href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
+          href={deleteMode ? '#' : `/app/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
@@ -112,7 +112,7 @@ const AreaCard = memo(function AreaCard({
           </div>
         </Link>
         <Link
-          href={deleteMode ? '#' : `/project/${projectId}/area/${area.id}`}
+          href={deleteMode ? '#' : `/app/project/${projectId}/area/${area.id}`}
           onClick={(event) => {
             if (deleteMode) event.preventDefault();
           }}
@@ -177,7 +177,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!id) {
-      router.push('/');
+      router.push('/app');
       return;
     }
     const savedRecentAreaTypes = localStorage.getItem(RECENT_AREA_TYPES_STORAGE_KEY);
@@ -227,16 +227,16 @@ export default function ProjectDetailPage() {
       const data = await getProject(id);
       if (data) {
         if (data.deletedAt) {
-          router.push('/');
+          router.push('/app');
           return;
         }
         setProject(data);
       } else {
-        router.push('/');
+        router.push('/app');
       }
     } catch (error) {
       console.error('Failed to load project:', error);
-      router.push('/');
+      router.push('/app');
     } finally {
       setLoading(false);
     }
@@ -628,7 +628,7 @@ export default function ProjectDetailPage() {
       <header className="header-stable shrink-0 border-b z-20">
         <div className="mx-auto flex min-h-[4.9rem] w-full max-w-6xl items-center px-4 py-3 sm:px-5">
           <div className="flex w-full items-center gap-3">
-            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]">
+            <Link href="/app" className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-black/5 bg-white/70 text-gray-600 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0 flex-1">

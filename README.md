@@ -16,6 +16,8 @@ Multi-tenant inspection and punchlist product. The current app remains a PWA, bu
 
 ## Architecture Baseline
 
+The selected commercial path is Clerk for authentication and organizations, Neon Postgres for relational storage, and Vercel for hosting.
+
 The SaaS backend should provide:
 
 - Postgres for relational records: users, organizations, memberships, roles, projects, templates, subscription state, and asset metadata.
@@ -41,12 +43,26 @@ Environment baseline:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/app
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/app/onboarding
+
+DATABASE_URL=
+
 NEXT_PUBLIC_MS_CLIENT_ID=376ef496-5fa7-447d-9559-2e128a6b74a4
 NEXT_PUBLIC_MS_TENANT_ID=organizations
 NEXT_PUBLIC_MS_REDIRECT_URI=http://localhost:3000/
 ```
 
-Microsoft auth is currently still used by the legacy OneDrive sync path. The SaaS auth layer should replace that with backend-issued sessions and make Microsoft just one provider among several.
+Clerk keys activate real login/signup and protect `/app` routes. Without Clerk keys, the app keeps rendering local placeholder auth screens so development and builds still work.
+
+`DATABASE_URL` is reserved for the Neon Postgres phase. Project storage remains IndexedDB/local-first in the current phase.
+
+Microsoft auth is currently still used by the legacy OneDrive sync path. Keep it visible for now as legacy export/sync, but do not treat OneDrive as the future core storage layer.
 
 ## Important Repo Boundary
 
