@@ -55,6 +55,78 @@ async function runSchema() {
   `;
 
   await sql`
+    create table if not exists zoning_reports (
+      id text primary key,
+      organization_id text not null references organizations(id) on delete cascade,
+      project_id text not null,
+      title text not null,
+      address text,
+      borough text,
+      block text,
+      lot text,
+      zoning_district text,
+      commercial_overlay text,
+      special_district text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
+    create table if not exists zoning_report_sections (
+      id text primary key,
+      report_id text not null references zoning_reports(id) on delete cascade,
+      section_key text not null,
+      title text not null,
+      description text,
+      sort_order integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
+    create table if not exists zoning_report_items (
+      id text primary key,
+      report_id text not null references zoning_reports(id) on delete cascade,
+      section text not null,
+      field text not null,
+      value text,
+      source text,
+      status text not null,
+      notes text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
+    create table if not exists zoning_manual_flags (
+      id text primary key,
+      report_id text not null references zoning_reports(id) on delete cascade,
+      title text not null,
+      description text not null,
+      severity text not null default 'medium',
+      reference text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
+    create table if not exists zoning_references (
+      id text primary key,
+      report_id text not null references zoning_reports(id) on delete cascade,
+      label text not null,
+      source text not null,
+      url text,
+      notes text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
     alter table app_users
     add constraint app_users_default_organization_fk
     foreign key (default_organization_id)
