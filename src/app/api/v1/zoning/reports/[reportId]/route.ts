@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getOrCreateZoningReport, getZoningWorksheet, updateZoningReport } from '@/lib/server/zoning-reports';
+import { deleteZoningReport, getOrCreateZoningReport, getZoningWorksheet, updateZoningReport } from '@/lib/server/zoning-reports';
 
 type RouteContext = {
   params: Promise<{
@@ -14,9 +14,12 @@ type UpdateReportBody = {
   borough?: string;
   block?: string;
   lot?: string;
+  bbl?: string;
+  zipCode?: string;
   zoningDistrict?: string;
   commercialOverlay?: string;
   specialDistrict?: string;
+  zoningMap?: string;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -56,6 +59,28 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json(report);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to update zoning report.';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  }
+
+  const { reportId } = await context.params;
+
+  if (reportId === 'new') {
+    return NextResponse.json({ error: 'Invalid report id.' }, { status: 400 });
+  }
+
+  try {
+    await deleteZoningReport(reportId);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to delete zoning report.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

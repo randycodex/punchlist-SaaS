@@ -64,9 +64,13 @@ async function runSchema() {
       borough text,
       block text,
       lot text,
+      bbl text,
+      zip_code text,
       zoning_district text,
       commercial_overlay text,
       special_district text,
+      zoning_map text,
+      open_data jsonb not null default '{}'::jsonb,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
@@ -77,6 +81,10 @@ async function runSchema() {
     alter table zoning_reports
     alter column project_id drop not null
   `.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists bbl text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists zip_code text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists zoning_map text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists open_data jsonb not null default '{}'::jsonb`.catch(() => undefined);
 
   await sql`
     create table if not exists zoning_report_sections (
@@ -98,6 +106,12 @@ async function runSchema() {
       section text not null,
       field text not null,
       value text,
+      zr_section text,
+      item_description text,
+      permitted_required text,
+      proposed text,
+      result text,
+      evaluation_mode text,
       source text,
       status text not null,
       notes text,
@@ -105,6 +119,13 @@ async function runSchema() {
       updated_at timestamptz not null default now()
     )
   `;
+
+  await sql`alter table zoning_report_items add column if not exists zr_section text`.catch(() => undefined);
+  await sql`alter table zoning_report_items add column if not exists item_description text`.catch(() => undefined);
+  await sql`alter table zoning_report_items add column if not exists permitted_required text`.catch(() => undefined);
+  await sql`alter table zoning_report_items add column if not exists proposed text`.catch(() => undefined);
+  await sql`alter table zoning_report_items add column if not exists result text`.catch(() => undefined);
+  await sql`alter table zoning_report_items add column if not exists evaluation_mode text`.catch(() => undefined);
 
   await sql`
     create table if not exists zoning_manual_flags (

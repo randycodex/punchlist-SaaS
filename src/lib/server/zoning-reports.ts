@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { ensureSaaSSchema } from '@/lib/server/saas-schema';
 import { syncClerkState } from '@/lib/server/saas-sync';
 import { sql } from '@/lib/server/neon';
+import { lookupNYCParcelZoningFacts, type NYCParcelZoningFacts } from '@/lib/server/nyc-zoning-data';
 import { mockZoningWorksheet } from '@/lib/zoning/mockZoningData';
 import type {
   ZoningManualFlag,
@@ -26,9 +27,13 @@ type ZoningReportRow = {
   borough: string | null;
   block: string | null;
   lot: string | null;
+  bbl: string | null;
+  zip_code: string | null;
   zoning_district: string | null;
   commercial_overlay: string | null;
   special_district: string | null;
+  zoning_map: string | null;
+  open_data: NYCParcelZoningFacts | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -48,6 +53,12 @@ type ZoningItemRow = {
   section: ZoningSectionKey;
   field: string;
   value: string | null;
+  zr_section: string | null;
+  item_description: string | null;
+  permitted_required: string | null;
+  proposed: string | null;
+  result: ZoningReportItem['result'] | null;
+  evaluation_mode: ZoningReportItem['evaluationMode'] | null;
   source: string | null;
   status: ZoningReportItem['status'];
   notes: string | null;
@@ -80,9 +91,12 @@ export type UpsertZoningReportInput = {
   borough?: string;
   block?: string;
   lot?: string;
+  bbl?: string;
+  zipCode?: string;
   zoningDistrict?: string;
   commercialOverlay?: string;
   specialDistrict?: string;
+  zoningMap?: string;
 };
 
 function mapReport(row: ZoningReportRow): ZoningReport {
@@ -95,16 +109,162 @@ function mapReport(row: ZoningReportRow): ZoningReport {
     borough: row.borough ?? '',
     block: row.block ?? '',
     lot: row.lot ?? '',
+    bbl: row.bbl ?? undefined,
+    zipCode: row.zip_code ?? undefined,
     zoningDistrict: row.zoning_district ?? '',
     commercialOverlay: row.commercial_overlay ?? undefined,
     specialDistrict: row.special_district ?? undefined,
+    zoningMap: row.zoning_map ?? undefined,
+    openData: row.open_data ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
+function hasMeaningfulOpenData(row: ZoningReportRow) {
+  return Boolean(
+    row.open_data &&
+      Object.keys(row.open_data).length > 0 &&
+      row.open_data.latitude &&
+      row.open_data.longitude &&
+      row.open_data.parcelGeometry,
+  );
+}
+
+async function hydrateZoningReportIfNeeded(row: ZoningReportRow, organizationId: string) {
+  if (row.bbl && row.zoning_district && row.zoning_map && hasMeaningfulOpenData(row)) {
+    return row;
+  }
+
+  const lookedUp = await lookupNYCParcelZoningFacts({
+    address: row.address ?? undefined,
+    borough: row.borough ?? undefined,
+    bbl: row.bbl ?? undefined,
+    zipCode: row.zip_code ?? undefined,
+  });
+
+  if (!lookedUp.bbl && !lookedUp.zoningDistrict && !lookedUp.zoningMap) {
+    return row;
+  }
+
+  const [updated] = await sql<ZoningReportRow[]>`
+    update zoning_reports
+    set
+      address = coalesce(nullif(address, ''), ${lookedUp.address ?? null}),
+      borough = coalesce(nullif(borough, ''), ${lookedUp.borough ?? null}),
+      block = coalesce(nullif(block, ''), ${lookedUp.block ?? null}),
+      lot = coalesce(nullif(lot, ''), ${lookedUp.lot ?? null}),
+      bbl = coalesce(bbl, ${lookedUp.bbl ?? null}),
+      zip_code = coalesce(zip_code, ${lookedUp.zipCode ?? null}),
+      zoning_district = coalesce(nullif(zoning_district, ''), ${lookedUp.zoningDistrict ?? null}),
+      commercial_overlay = coalesce(commercial_overlay, ${lookedUp.commercialOverlay ?? null}),
+      special_district = coalesce(special_district, ${lookedUp.specialDistrict ?? null}),
+      zoning_map = coalesce(zoning_map, ${lookedUp.zoningMap ?? null}),
+      open_data = ${sql.json({ ...(row.open_data ?? {}), ...lookedUp })},
+      updated_at = now()
+    where id = ${row.id}
+      and organization_id = ${organizationId}
+    returning *
+  `;
+
+  const hydrated = updated ?? row;
+  await syncObjectiveZoningItems(hydrated.id, mapReport(hydrated));
+  return hydrated;
+}
+
+function reportValue(report: ZoningReport, key: string) {
+  const openData = report.openData ?? {};
+  const value = openData[key];
+  if (Array.isArray(value)) return value.join(' / ');
+  return typeof value === 'string' ? value : '';
+}
+
+function objectiveItemValues(report: ZoningReport) {
+  const district = [report.zoningDistrict, report.commercialOverlay].filter(Boolean).join(' / ');
+  const specialDistrict = report.specialDistrict ? ` / Special District ${report.specialDistrict}` : '';
+  const blockLot = [report.block ? `Block ${report.block}` : '', report.lot ? `Lot ${report.lot}` : '']
+    .filter(Boolean)
+    .join(', ');
+  const addressParts = [report.address, report.zipCode].filter(Boolean).join(', ');
+  const transitNote = reportValue(report, 'communityDistrict')
+    ? `Community District ${reportValue(report, 'communityDistrict')}; verify Transit Zone applicability against ZR Appendix I.`
+    : '';
+
+  return [
+    {
+      itemId: 'address',
+      permittedRequired: addressParts,
+      source: 'NYC GeoSearch / PLUTO',
+      status: 'auto_filled' as const,
+      notes: report.openData?.sourceVersion ? `PLUTO ${report.openData.sourceVersion}` : '',
+    },
+    {
+      itemId: 'block-lot',
+      permittedRequired: blockLot,
+      source: 'NYC GeoSearch / Zoning Tax Lot Database',
+      status: 'auto_filled' as const,
+      notes: report.bbl ? `BBL ${report.bbl}` : '',
+    },
+    {
+      itemId: 'zoning-district',
+      permittedRequired: `${district || report.zoningDistrict}${specialDistrict}`,
+      source: 'NYC Zoning Tax Lot Database / PLUTO',
+      status: 'auto_filled' as const,
+      notes: reportValue(report, 'zoningDistricts') ? `Districts: ${reportValue(report, 'zoningDistricts')}` : '',
+    },
+    {
+      itemId: 'zoning-map',
+      permittedRequired: report.zoningMap ?? '',
+      source: 'NYC Zoning Tax Lot Database / PLUTO',
+      status: 'auto_filled' as const,
+      notes: reportValue(report, 'zoningMapCode') ? `Map code: ${reportValue(report, 'zoningMapCode')}` : '',
+    },
+    {
+      itemId: 'transit-designation',
+      permittedRequired: transitNote,
+      source: 'PLUTO community district / ZR Appendix I',
+      status: 'manual_review_required' as const,
+      notes: 'Open data can identify the community district; Transit Zone status still needs ZR Appendix confirmation.',
+    },
+    {
+      itemId: 'lot-area',
+      permittedRequired: reportValue(report, 'lotArea'),
+      source: 'PLUTO',
+      status: 'auto_filled' as const,
+      notes: [reportValue(report, 'lotFront') ? `Frontage: ${reportValue(report, 'lotFront')}` : '', reportValue(report, 'lotDepth') ? `Depth: ${reportValue(report, 'lotDepth')}` : '']
+        .filter(Boolean)
+        .join('; '),
+    },
+  ].filter((item) => item.permittedRequired);
+}
+
+async function syncObjectiveZoningItems(reportId: string, report: ZoningReport) {
+  for (const item of objectiveItemValues(report)) {
+    await sql`
+      update zoning_report_items
+      set
+        permitted_required = ${item.permittedRequired},
+        source = ${item.source},
+        status = ${item.status},
+        notes = ${item.notes || null},
+        evaluation_mode = 'lookup_only',
+        updated_at = now()
+      where id = ${`${reportId}:${item.itemId}`}
+        and report_id = ${reportId}
+    `;
+  }
+}
+
+async function ensureZoningReportColumns() {
+  await sql`alter table zoning_reports add column if not exists bbl text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists zip_code text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists zoning_map text`.catch(() => undefined);
+  await sql`alter table zoning_reports add column if not exists open_data jsonb not null default '{}'::jsonb`.catch(() => undefined);
+}
+
 async function getActiveOrganizationId() {
   await ensureSaaSSchema();
+  await ensureZoningReportColumns();
   await syncClerkState();
 
   const { userId, orgId } = await auth();
@@ -157,41 +317,105 @@ export async function listZoningReports(): Promise<ZoningReportSummary[]> {
   return rows.map(mapReport);
 }
 
+export async function deleteZoningReport(reportId: string): Promise<void> {
+  const organizationId = await getActiveOrganizationId();
+
+  const deleted = await sql<{ id: string }[]>`
+    delete from zoning_reports
+    where id = ${reportId}
+      and organization_id = ${organizationId}
+    returning id
+  `;
+
+  if (!deleted[0]) {
+    throw new Error('Zoning report not found.');
+  }
+}
+
 export async function createZoningReport(input: UpsertZoningReportInput = {}) {
   const organizationId = await getActiveOrganizationId();
   const reportId = input.reportId ?? randomUUID();
-  const seed = mockZoningWorksheet.report;
+  const lookedUp = await lookupNYCParcelZoningFacts(input);
 
-  const [row] = await sql<ZoningReportRow[]>`
-    insert into zoning_reports (
-      id,
-      organization_id,
-      project_id,
-      title,
-      address,
-      borough,
-      block,
-      lot,
-      zoning_district,
-      commercial_overlay,
-      special_district
-    ) values (
-      ${reportId},
-      ${organizationId},
-      ${input.projectId ?? null},
-      ${input.title?.trim() || seed.title},
-      ${input.address?.trim() || seed.address},
-      ${input.borough?.trim() || seed.borough},
-      ${input.block?.trim() || seed.block},
-      ${input.lot?.trim() || seed.lot},
-      ${input.zoningDistrict?.trim() || seed.zoningDistrict},
-      ${input.commercialOverlay?.trim() || seed.commercialOverlay || null},
-      ${input.specialDistrict?.trim() || seed.specialDistrict || null}
-    )
-    returning *
-  `;
+  let row: ZoningReportRow | undefined;
+  try {
+    [row] = await sql<ZoningReportRow[]>`
+      insert into zoning_reports (
+        id,
+        organization_id,
+        project_id,
+        title,
+        address,
+        borough,
+        block,
+        lot,
+        bbl,
+        zip_code,
+        zoning_district,
+        commercial_overlay,
+        special_district,
+        zoning_map,
+        open_data
+      ) values (
+        ${reportId},
+        ${organizationId},
+        ${input.projectId ?? null},
+        ${input.title?.trim() || ''},
+        ${input.address?.trim() || lookedUp.address || ''},
+        ${input.borough?.trim() || lookedUp.borough || ''},
+        ${input.block?.trim() || lookedUp.block || ''},
+        ${input.lot?.trim() || lookedUp.lot || ''},
+        ${input.bbl?.trim() || lookedUp.bbl || null},
+        ${input.zipCode?.trim() || lookedUp.zipCode || null},
+        ${input.zoningDistrict?.trim() || lookedUp.zoningDistrict || ''},
+        ${input.commercialOverlay?.trim() || lookedUp.commercialOverlay || null},
+        ${input.specialDistrict?.trim() || lookedUp.specialDistrict || null},
+        ${input.zoningMap?.trim() || lookedUp.zoningMap || null},
+        ${sql.json(lookedUp)}
+      )
+      returning *
+    `;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!message.includes('column "bbl"')) throw error;
+    [row] = await sql<ZoningReportRow[]>`
+      insert into zoning_reports (
+        id,
+        organization_id,
+        project_id,
+        title,
+        address,
+        borough,
+        block,
+        lot,
+        zip_code,
+        zoning_district,
+        commercial_overlay,
+        special_district,
+        zoning_map,
+        open_data
+      ) values (
+        ${reportId},
+        ${organizationId},
+        ${input.projectId ?? null},
+        ${input.title?.trim() || ''},
+        ${input.address?.trim() || lookedUp.address || ''},
+        ${input.borough?.trim() || lookedUp.borough || ''},
+        ${input.block?.trim() || lookedUp.block || ''},
+        ${input.lot?.trim() || lookedUp.lot || ''},
+        ${input.zipCode?.trim() || lookedUp.zipCode || null},
+        ${input.zoningDistrict?.trim() || lookedUp.zoningDistrict || ''},
+        ${input.commercialOverlay?.trim() || lookedUp.commercialOverlay || null},
+        ${input.specialDistrict?.trim() || lookedUp.specialDistrict || null},
+        ${input.zoningMap?.trim() || lookedUp.zoningMap || null},
+        ${sql.json(lookedUp)}
+      )
+      returning *
+    `;
+  }
 
   await seedZoningWorksheetContent(reportId);
+  await syncObjectiveZoningItems(reportId, mapReport(row));
 
   return getZoningWorksheet(row.id);
 }
@@ -233,7 +457,8 @@ export async function getOrCreateZoningReport(input: UpsertZoningReportInput = {
 
 export async function getZoningWorksheet(reportId: string): Promise<ZoningWorksheet> {
   const organizationId = await getActiveOrganizationId();
-  const reportRow = await assertReportAccess(reportId, organizationId);
+  const reportRow = await hydrateZoningReportIfNeeded(await assertReportAccess(reportId, organizationId), organizationId);
+  await syncObjectiveZoningItems(reportId, mapReport(reportRow));
 
   const [sectionRows, itemRows, manualFlagRows, referenceRows] = await Promise.all([
     sql<ZoningSectionRow[]>`
@@ -271,6 +496,12 @@ export async function getZoningWorksheet(reportId: string): Promise<ZoningWorksh
       section: row.section,
       field: row.field,
       value: row.value ?? '',
+      zrSection: row.zr_section ?? undefined,
+      itemDescription: row.item_description ?? undefined,
+      permittedRequired: row.permitted_required ?? row.value ?? '',
+      proposed: row.proposed ?? undefined,
+      result: row.result ?? undefined,
+      evaluationMode: row.evaluation_mode ?? undefined,
       source: row.source ?? '',
       status: row.status,
       notes: row.notes ?? undefined,
@@ -312,31 +543,70 @@ export async function getZoningWorksheet(reportId: string): Promise<ZoningWorksh
 export async function updateZoningReport(input: Required<Pick<UpsertZoningReportInput, 'reportId'>> & UpsertZoningReportInput) {
   const organizationId = await getActiveOrganizationId();
   await assertReportAccess(input.reportId, organizationId);
+  const lookedUp = await lookupNYCParcelZoningFacts(input);
 
-  const [row] = await sql<ZoningReportRow[]>`
-    update zoning_reports
-    set
-      title = ${input.title?.trim() || 'Zoning Research Worksheet'},
-      address = ${input.address?.trim() || ''},
-      borough = ${input.borough?.trim() || ''},
-      block = ${input.block?.trim() || ''},
-      lot = ${input.lot?.trim() || ''},
-      zoning_district = ${input.zoningDistrict?.trim() || ''},
-      commercial_overlay = ${input.commercialOverlay?.trim() || null},
-      special_district = ${input.specialDistrict?.trim() || null},
-      updated_at = now()
-    where id = ${input.reportId}
-      and organization_id = ${organizationId}
-    returning *
-  `;
+  let row: ZoningReportRow | undefined;
+  try {
+    [row] = await sql<ZoningReportRow[]>`
+      update zoning_reports
+      set
+        title = ${input.title?.trim() || 'Zoning Research Worksheet'},
+        address = ${input.address?.trim() || ''},
+        borough = ${input.borough?.trim() || lookedUp.borough || ''},
+        block = ${input.block?.trim() || lookedUp.block || ''},
+        lot = ${input.lot?.trim() || lookedUp.lot || ''},
+        bbl = ${input.bbl?.trim() || lookedUp.bbl || null},
+        zip_code = ${input.zipCode?.trim() || lookedUp.zipCode || null},
+        zoning_district = ${input.zoningDistrict?.trim() || lookedUp.zoningDistrict || ''},
+        commercial_overlay = ${input.commercialOverlay?.trim() || lookedUp.commercialOverlay || null},
+        special_district = ${input.specialDistrict?.trim() || lookedUp.specialDistrict || null},
+        zoning_map = ${input.zoningMap?.trim() || lookedUp.zoningMap || null},
+        open_data = ${sql.json(lookedUp)},
+        updated_at = now()
+      where id = ${input.reportId}
+        and organization_id = ${organizationId}
+      returning *
+    `;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!message.includes('column "bbl"')) throw error;
+    [row] = await sql<ZoningReportRow[]>`
+      update zoning_reports
+      set
+        title = ${input.title?.trim() || 'Zoning Research Worksheet'},
+        address = ${input.address?.trim() || ''},
+        borough = ${input.borough?.trim() || lookedUp.borough || ''},
+        block = ${input.block?.trim() || lookedUp.block || ''},
+        lot = ${input.lot?.trim() || lookedUp.lot || ''},
+        zip_code = ${input.zipCode?.trim() || lookedUp.zipCode || null},
+        zoning_district = ${input.zoningDistrict?.trim() || lookedUp.zoningDistrict || ''},
+        commercial_overlay = ${input.commercialOverlay?.trim() || lookedUp.commercialOverlay || null},
+        special_district = ${input.specialDistrict?.trim() || lookedUp.specialDistrict || null},
+        zoning_map = ${input.zoningMap?.trim() || lookedUp.zoningMap || null},
+        open_data = ${sql.json(lookedUp)},
+        updated_at = now()
+      where id = ${input.reportId}
+        and organization_id = ${organizationId}
+      returning *
+    `;
+  }
 
-  return mapReport(row);
+  const report = mapReport(row);
+  await syncObjectiveZoningItems(input.reportId, report);
+
+  return report;
 }
 
 export async function updateZoningReportItem(input: {
   reportId: string;
   itemId: string;
   value: string;
+  zrSection?: string;
+  itemDescription?: string;
+  permittedRequired?: string;
+  proposed?: string;
+  result?: ZoningReportItem['result'];
+  evaluationMode?: ZoningReportItem['evaluationMode'];
   source: string;
   status: ZoningReportItem['status'];
   notes?: string;
@@ -348,6 +618,12 @@ export async function updateZoningReportItem(input: {
     update zoning_report_items
     set
       value = ${input.value.trim()},
+      zr_section = ${input.zrSection?.trim() || null},
+      item_description = ${input.itemDescription?.trim() || null},
+      permitted_required = ${input.permittedRequired?.trim() || null},
+      proposed = ${input.proposed?.trim() || null},
+      result = ${input.result ?? null},
+      evaluation_mode = ${input.evaluationMode ?? null},
       source = ${input.source.trim()},
       status = ${input.status},
       notes = ${input.notes?.trim() || null},
@@ -373,6 +649,12 @@ export async function updateZoningReportItem(input: {
     section: row.section,
     field: row.field,
     value: row.value ?? '',
+    zrSection: row.zr_section ?? undefined,
+    itemDescription: row.item_description ?? undefined,
+    permittedRequired: row.permitted_required ?? row.value ?? '',
+    proposed: row.proposed ?? undefined,
+    result: row.result ?? undefined,
+    evaluationMode: row.evaluation_mode ?? undefined,
     source: row.source ?? '',
     status: row.status,
     notes: row.notes ?? undefined,
@@ -409,6 +691,12 @@ async function seedZoningWorksheetContent(reportId: string) {
           section,
           field,
           value,
+          zr_section,
+          item_description,
+          permitted_required,
+          proposed,
+          result,
+          evaluation_mode,
           source,
           status,
           notes,
@@ -418,10 +706,16 @@ async function seedZoningWorksheetContent(reportId: string) {
           ${reportId},
           ${item.section},
           ${item.field},
-          ${item.value},
-          ${item.source},
+          ${''},
+          ${null},
+          ${item.itemDescription ?? item.field},
+          ${''},
+          ${''},
+          ${null},
+          ${item.evaluationMode ?? 'manual_input'},
+          ${''},
           ${item.status},
-          ${item.notes ?? null},
+          ${null},
           now()
         )
         on conflict (id) do nothing

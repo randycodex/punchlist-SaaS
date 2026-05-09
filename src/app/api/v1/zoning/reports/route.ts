@@ -9,9 +9,12 @@ type CreateReportBody = {
   borough?: string;
   block?: string;
   lot?: string;
+  bbl?: string;
+  zipCode?: string;
   zoningDistrict?: string;
   commercialOverlay?: string;
   specialDistrict?: string;
+  zoningMap?: string;
 };
 
 export async function GET() {

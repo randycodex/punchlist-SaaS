@@ -12,6 +12,12 @@ type RouteContext = {
 
 type UpdateItemBody = {
   value?: string;
+  zrSection?: string;
+  itemDescription?: string;
+  permittedRequired?: string;
+  proposed?: string;
+  result?: ZoningReportItem['result'];
+  evaluationMode?: ZoningReportItem['evaluationMode'];
   source?: string;
   status?: ZoningReportItem['status'];
   notes?: string;
@@ -22,6 +28,20 @@ const allowedStatuses: ZoningReportItem['status'][] = [
   'calculated',
   'guidance',
   'manual_review_required',
+];
+
+const allowedResults: NonNullable<ZoningReportItem['result']>[] = [
+  'complies',
+  'does_not_comply',
+  'incomplete',
+  'manual_review_required',
+];
+
+const allowedEvaluationModes: NonNullable<ZoningReportItem['evaluationMode']>[] = [
+  'lookup_only',
+  'manual_input',
+  'formula_check',
+  'manual_review',
 ];
 
 export async function PUT(request: Request, context: RouteContext) {
@@ -38,11 +58,25 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Valid status is required.' }, { status: 400 });
   }
 
+  if (body.result && !allowedResults.includes(body.result)) {
+    return NextResponse.json({ error: 'Valid compliance result is required.' }, { status: 400 });
+  }
+
+  if (body.evaluationMode && !allowedEvaluationModes.includes(body.evaluationMode)) {
+    return NextResponse.json({ error: 'Valid evaluation mode is required.' }, { status: 400 });
+  }
+
   try {
     const item = await updateZoningReportItem({
       reportId,
       itemId,
       value: body.value ?? '',
+      zrSection: body.zrSection,
+      itemDescription: body.itemDescription,
+      permittedRequired: body.permittedRequired,
+      proposed: body.proposed,
+      result: body.result,
+      evaluationMode: body.evaluationMode,
       source: body.source ?? '',
       status: body.status,
       notes: body.notes,

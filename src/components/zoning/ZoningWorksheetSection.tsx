@@ -1,3 +1,7 @@
+'use client';
+
+import { useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ZoningReportSection } from '@/lib/zoning/types';
 import ZoningWorksheetRow from '@/components/zoning/ZoningWorksheetRow';
 
@@ -10,30 +14,40 @@ export default function ZoningWorksheetSection({
   editable?: boolean;
   onSaveItem?: Parameters<typeof ZoningWorksheetRow>[0]['onSave'];
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <section id={section.key} className="overflow-hidden rounded-lg border border-black/10 bg-white/80 dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="border-b border-black/5 px-4 py-4 dark:border-white/10">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{section.title}</h2>
-            {section.description ? (
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">{section.description}</p>
-            ) : null}
+    <section id={section.key} className="border-t border-zinc-300 dark:border-zinc-700">
+      <button
+        type="button"
+        onClick={() => setCollapsed((current) => !current)}
+        className="grid w-full grid-cols-[1.75rem_minmax(0,1fr)_7rem] border-b-2 border-black bg-zinc-100 text-left text-sm font-bold text-black dark:border-zinc-200 dark:bg-zinc-800 dark:text-white"
+        aria-expanded={!collapsed}
+      >
+        <span className="flex items-center justify-center">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+        <span className="py-1 uppercase">{section.title}</span>
+        <span className="px-1.5 py-1 text-right text-[0.7rem] uppercase tracking-normal text-zinc-600 dark:text-zinc-300">
+          {section.items.length} rows
+        </span>
+      </button>
+      {!collapsed ? (
+        <>
+          <div className={`${editable ? 'xl:grid-cols-[8.5rem_1.35fr_1.45fr_1.15fr_8.25rem_1fr_3.75rem]' : 'xl:grid-cols-[8.5rem_1.35fr_1.45fr_1.15fr_8.25rem_1fr]'} hidden border-b-2 border-black bg-zinc-200 text-[0.78rem] font-bold text-black dark:border-zinc-200 dark:bg-zinc-800 dark:text-white md:grid`}>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">ZR Sec.</div>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">Item / Description</div>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">Permitted / Required</div>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">Proposed</div>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">Result</div>
+            <div className="border-r border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700">Notes</div>
+            {editable ? <div className="px-1.5 py-0.5">Action</div> : null}
           </div>
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{section.items.length} rows</span>
-        </div>
-      </div>
-      <div className={`${editable ? 'lg:grid-cols-[1fr_1.1fr_1fr_10rem_1.1fr_5.5rem]' : 'md:grid-cols-[1.1fr_1.1fr_1fr_9rem_1.2fr]'} hidden gap-3 px-4 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-gray-400 md:grid`}>
-        <div>Field</div>
-        <div>Value</div>
-        <div>Source</div>
-        <div>Status</div>
-        <div>Notes</div>
-        {editable ? <div>Action</div> : null}
-      </div>
-      {section.items.map((item) => (
-        <ZoningWorksheetRow key={item.id} item={item} editable={editable} onSave={onSaveItem} />
-      ))}
+          {section.items.map((item) => (
+            <ZoningWorksheetRow key={item.id} item={item} editable={editable} onSave={onSaveItem} />
+          ))}
+        </>
+      ) : null}
     </section>
   );
 }

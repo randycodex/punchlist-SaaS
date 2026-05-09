@@ -9,18 +9,18 @@ const severityClasses: Record<ZoningManualFlag['severity'], string> = {
 
 export default function ZoningManualReviewCard({ flag }: { flag: ZoningManualFlag }) {
   return (
-    <article className="rounded-lg border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-200">
-          <AlertTriangle className="h-4 w-4" />
+    <article className="bg-white px-2 py-1.5 dark:bg-zinc-950">
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-red-700 dark:text-red-200">
+          <AlertTriangle className="h-3.5 w-3.5" />
         </div>
-        <div>
-          <div className={`text-xs font-semibold uppercase tracking-[0.14em] ${severityClasses[flag.severity]}`}>
+        <div className="min-w-0">
+          <div className={`text-[0.65rem] font-bold uppercase leading-none ${severityClasses[flag.severity]}`}>
             {flag.severity} priority
           </div>
-          <h3 className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{flag.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">{flag.description}</p>
-          {flag.reference ? <div className="mt-3 text-xs font-semibold text-gray-500 dark:text-gray-400">{flag.reference}</div> : null}
+          <h3 className="mt-1 text-xs font-bold text-gray-900 dark:text-white">{flag.title}</h3>
+          <p className="mt-0.5 text-xs leading-5 text-gray-600 dark:text-gray-300">{flag.description}</p>
+          {flag.reference ? <div className="mt-1 text-[0.65rem] font-bold text-gray-500 dark:text-gray-400">{flag.reference}</div> : null}
         </div>
       </div>
     </article>

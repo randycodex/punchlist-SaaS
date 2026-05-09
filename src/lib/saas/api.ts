@@ -149,9 +149,12 @@ export function createZoningReport(
     borough?: string;
     block?: string;
     lot?: string;
+    bbl?: string;
+    zipCode?: string;
     zoningDistrict?: string;
     commercialOverlay?: string;
     specialDistrict?: string;
+    zoningMap?: string;
   },
   options?: RequestOptions
 ) {
@@ -174,9 +177,12 @@ export function updateZoningReport(
     borough?: string;
     block?: string;
     lot?: string;
+    bbl?: string;
+    zipCode?: string;
     zoningDistrict?: string;
     commercialOverlay?: string;
     specialDistrict?: string;
+    zoningMap?: string;
   },
   options?: RequestOptions
 ) {
@@ -187,11 +193,25 @@ export function updateZoningReport(
   );
 }
 
+export function deleteZoningReport(reportId: string, options?: RequestOptions) {
+  return request<{ ok: boolean }>(
+    `/v1/zoning/reports/${reportId}`,
+    { method: 'DELETE' },
+    options
+  );
+}
+
 export function updateZoningReportItem(
   reportId: string,
   itemId: string,
   payload: {
     value: string;
+    zrSection?: string;
+    itemDescription?: string;
+    permittedRequired?: string;
+    proposed?: string;
+    result?: ZoningReportItem['result'];
+    evaluationMode?: ZoningReportItem['evaluationMode'];
     source: string;
     status: ZoningReportItem['status'];
     notes?: string;

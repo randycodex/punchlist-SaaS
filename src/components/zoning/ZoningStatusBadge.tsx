@@ -20,7 +20,7 @@ export function getZoningStatusLabel(status: ZoningItemStatus) {
 
 export default function ZoningStatusBadge({ status }: { status: ZoningItemStatus }) {
   return (
-    <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses[status]}`}>
+    <span className={`inline-flex whitespace-nowrap border px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase leading-none ${statusClasses[status]}`}>
       {statusLabels[status]}
     </span>
   );
