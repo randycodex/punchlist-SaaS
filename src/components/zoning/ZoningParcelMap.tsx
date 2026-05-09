@@ -1,6 +1,7 @@
 'use client';
 
-import { ExternalLink, MapPinned } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, MapPinned } from 'lucide-react';
+import { useState } from 'react';
 import type { ZoningParcelGeometry, ZoningWorksheet } from '@/lib/zoning/types';
 import ZoningInteractiveMap from '@/components/zoning/ZoningInteractiveMap';
 
@@ -122,6 +123,7 @@ function getPolygonPoints(ring: Point[], centerLatitude: number, centerLongitude
 }
 
 export default function ZoningParcelMap({ worksheet }: { worksheet: ZoningWorksheet }) {
+  const [isOpen, setIsOpen] = useState(true);
   const report = worksheet.report;
   const latitude = Number(getOpenDataValue(report.openData, 'latitude'));
   const longitude = Number(getOpenDataValue(report.openData, 'longitude'));
@@ -141,10 +143,17 @@ export default function ZoningParcelMap({ worksheet }: { worksheet: ZoningWorksh
   return (
     <section className="border border-zinc-300 bg-white text-zinc-950 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50">
       <div className="flex items-center justify-between gap-3 border-b border-zinc-300 bg-zinc-100 px-2 py-1 text-sm font-bold dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-2 text-left transition hover:text-zinc-700 dark:hover:text-zinc-200"
+          onClick={() => setIsOpen((value) => !value)}
+          aria-expanded={isOpen}
+          aria-controls="zoning-map-content"
+        >
+          {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
           <MapPinned className="h-4 w-4 shrink-0" />
           <span className="truncate uppercase">Map</span>
-        </div>
+        </button>
         <a
           href={zolaUrl}
           target="_blank"
@@ -156,35 +165,37 @@ export default function ZoningParcelMap({ worksheet }: { worksheet: ZoningWorksh
         </a>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="relative h-[35rem] overflow-hidden bg-zinc-200 dark:bg-zinc-900">
-          <ZoningInteractiveMap worksheet={worksheet} />
-        </div>
+      {isOpen ? (
+        <div id="zoning-map-content" className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="relative h-[35rem] overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+            <ZoningInteractiveMap worksheet={worksheet} />
+          </div>
 
-        <div className="border-t border-zinc-300 text-sm dark:border-zinc-700 lg:border-l lg:border-t-0">
-          <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
-            <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">BBL</div>
-            <div className="px-2 py-1">{report.bbl || 'Pending'}</div>
-          </div>
-          <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
-            <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">District</div>
-            <div className="px-2 py-1">{[report.zoningDistrict, report.commercialOverlay].filter(Boolean).join(' / ') || 'Pending'}</div>
-          </div>
-          <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
-            <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">Map</div>
-            <div className="px-2 py-1">{report.zoningMap || 'Pending'}</div>
-          </div>
-          <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
-            <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">Lat/Lon</div>
-            <div className="px-2 py-1">{hasCoordinates ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Pending'}</div>
-          </div>
-          <div className="px-2 py-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-            {hasParcelGeometry
-              ? `Lot boundary from ${getOpenDataValue(report.openData, 'parcelGeometrySource') || 'NYC Digital Tax Map'}.`
-              : 'Lot boundary shown as an approximate marker until NYC Digital Tax Map geometry is available for this lot.'}
+          <div className="border-t border-zinc-300 text-sm dark:border-zinc-700 lg:border-l lg:border-t-0">
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
+              <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">BBL</div>
+              <div className="px-2 py-1">{report.bbl || 'Pending'}</div>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
+              <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">District</div>
+              <div className="px-2 py-1">{[report.zoningDistrict, report.commercialOverlay].filter(Boolean).join(' / ') || 'Pending'}</div>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
+              <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">Map</div>
+              <div className="px-2 py-1">{report.zoningMap || 'Pending'}</div>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] border-b border-zinc-300 dark:border-zinc-700">
+              <div className="bg-zinc-50 px-2 py-1 font-bold dark:bg-zinc-900">Lat/Lon</div>
+              <div className="px-2 py-1">{hasCoordinates ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Pending'}</div>
+            </div>
+            <div className="px-2 py-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+              {hasParcelGeometry
+                ? `Lot boundary from ${getOpenDataValue(report.openData, 'parcelGeometrySource') || 'NYC Digital Tax Map'}.`
+                : 'Lot boundary shown as an approximate marker until NYC Digital Tax Map geometry is available for this lot.'}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
