@@ -39,6 +39,7 @@ import {
   Pencil,
   RotateCcw,
   Plus,
+  FileSearch,
 } from 'lucide-react';
 
 type SortOption = 'alphabetical' | 'issues' | 'progress';
@@ -1281,11 +1282,33 @@ export default function ProjectsPage() {
         onTouchEnd={handlePullEnd}
         onTouchCancel={handlePullEnd}
       >
+        {!showTrash && !singleProjectMainView && !selectionMode && (
+          <div className="mx-auto mb-5 w-full max-w-6xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.4rem] border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="min-w-0">
+                <div className="section-eyebrow">Modules</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">Punchlist and Zoning Research</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-[var(--accent-soft-strong)] px-3 py-2 text-sm font-semibold text-[color:var(--accent)]">
+                  Punchlist
+                </span>
+                <Link
+                  href="/app/zoning"
+                  className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08]"
+                >
+                  <FileSearch className="h-4 w-4" />
+                  Zoning Research
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         {showTrash ? (
           trashedProjects.length === 0 ? (
-          <div className="empty-state-card mx-auto max-w-md rounded-[2rem] p-10 text-center">
-            <Trash2 className="mx-auto mb-4 h-14 w-14 text-gray-300 dark:text-gray-600" />
-            <h2 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">Trash Is Empty</h2>
+            <div className="empty-state-card mx-auto max-w-md rounded-[2rem] p-10 text-center">
+              <Trash2 className="mx-auto mb-4 h-14 w-14 text-gray-300 dark:text-gray-600" />
+              <h2 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">Trash Is Empty</h2>
             <p className="text-gray-500 dark:text-gray-400">Deleted projects stay here for 30 days before permanent removal.</p>
           </div>
           ) : (
