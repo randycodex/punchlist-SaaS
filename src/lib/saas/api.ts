@@ -36,7 +36,25 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ?? '';
+const API_BASE_URL_RAW = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? '';
+
+function getValidatedApiBaseUrl() {
+  if (!API_BASE_URL_RAW) return '';
+
+  // Ignore common placeholder values that break deployed fetch calls.
+  if (API_BASE_URL_RAW.includes('your-project.vercel.app')) return '';
+  if (API_BASE_URL_RAW.includes('api.example.com')) return '';
+
+  try {
+    const parsed = new URL(API_BASE_URL_RAW);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+
+const API_BASE_URL = getValidatedApiBaseUrl();
 
 function getApiUrl(path: string) {
   if (API_BASE_URL) {
