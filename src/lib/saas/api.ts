@@ -57,6 +57,21 @@ function getValidatedApiBaseUrl() {
 const API_BASE_URL = getValidatedApiBaseUrl();
 
 function getApiUrl(path: string) {
+  if (typeof window !== 'undefined') {
+    if (!API_BASE_URL) return `/api${path}`;
+
+    try {
+      const parsed = new URL(API_BASE_URL);
+      if (parsed.origin === window.location.origin) {
+        return `${API_BASE_URL}${path}`;
+      }
+    } catch {
+      return `/api${path}`;
+    }
+
+    return `/api${path}`;
+  }
+
   if (API_BASE_URL) {
     return `${API_BASE_URL}${path}`;
   }
